@@ -1,0 +1,5 @@
+{
+  "name": "IARA - Ecossistema Emocional",
+  "description": "Plataforma de acolhimento emocional com IA, conexão com terapeutas e acompanhamento diário.",
+  "requestFramePermissions": ["microphone"]
+}
