@@ -53,6 +53,14 @@ export interface Availability {
   slots: string[]; // ['09:00', '10:00', etc.]
 }
 
+export interface Avaliacao {
+  userId: string;
+  userName?: string;
+  nota: number;
+  comentario?: string;
+  data: string;
+}
+
 export interface UserProfile {
   uid: string;
   nome: string;
@@ -66,4 +74,7 @@ export interface UserProfile {
   biografia?: string;
   fotoUrl?: string;
   rating?: number;
+  avaliacoes?: Avaliacao[];
+  // Campos para pacientes
+  favoritos?: string[]; // Array of therapist UIDs
 }

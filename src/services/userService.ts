@@ -102,5 +102,41 @@ export const userService = {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `appointments/${id}`);
     }
+  },
+
+  toggleFavorite: async (userId: string, therapistId: string, currentFavorites: string[] = []) => {
+    const docRef = doc(db, "users", userId);
+    const isFavorited = currentFavorites.includes(therapistId);
+    const newFavorites = isFavorited 
+      ? currentFavorites.filter(id => id !== therapistId)
+      : [...currentFavorites, therapistId];
+    
+    try {
+      await updateDoc(docRef, { favoritos: newFavorites });
+      return newFavorites;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+      throw error;
+    }
+  },
+
+  addReview: async (therapistId: string, currentReviews: any[] = [], review: any) => {
+    const docRef = doc(db, "users", therapistId);
+    const newReviews = [...currentReviews, review];
+    
+    // Calculate new average rating
+    const totalRating = newReviews.reduce((sum, r) => sum + r.nota, 0);
+    const averageRating = totalRating / newReviews.length;
+
+    try {
+      await updateDoc(docRef, { 
+        avaliacoes: newReviews,
+        rating: averageRating
+      });
+      return { newReviews, averageRating };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${therapistId}`);
+      throw error;
+    }
   }
 };

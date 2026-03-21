@@ -10,11 +10,13 @@ interface BookingModalProps {
   therapist: UserProfile;
   patientProfile: UserProfile | null;
   onClose: () => void;
+  initialDay?: string;
+  initialSlot?: string;
 }
 
-export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientProfile, onClose }) => {
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientProfile, onClose, initialDay, initialSlot }) => {
+  const [selectedDay, setSelectedDay] = useState<string | null>(initialDay || null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(initialSlot || null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 

@@ -58,6 +58,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { TerapeutaPage } from './pages/TerapeutaPage';
 import { EmpresaPage } from './pages/EmpresaPage';
 import { PrefeituraPage } from './pages/PrefeituraPage';
+import { NewsCard } from './components/NewsCard';
 
 // --- Components ---
 
@@ -240,6 +241,30 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
 
   const lastMood = moodHistory[moodHistory.length - 1];
 
+  const mockNews = [
+    {
+      id: 1,
+      title: "Nova funcionalidade de respiração guiada",
+      description: "Aprenda a usar a nova ferramenta de respiração para controlar a ansiedade em momentos de crise.",
+      date: "21 MAR 2026",
+      imageUrl: "https://picsum.photos/seed/respira/400/200"
+    },
+    {
+      id: 2,
+      title: "A importância do Check-in diário",
+      description: "Descubra como registrar suas emoções diariamente pode ajudar no seu autoconhecimento.",
+      date: "20 MAR 2026",
+      imageUrl: "https://picsum.photos/seed/diario/400/200"
+    },
+    {
+      id: 3,
+      title: "Como a Poesia Cognitiva ajuda",
+      description: "Entenda a ciência por trás da abordagem da IARA e como ela atua no seu bem-estar.",
+      date: "19 MAR 2026",
+      imageUrl: "https://picsum.photos/seed/poesia/400/200"
+    }
+  ];
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -384,6 +409,26 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
             </Button>
           </motion.div>
         </motion.div>
+      </section>
+
+      {/* Notícias do Bem-Estar */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-serif font-bold">Notícias do Bem-Estar</h3>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
+          {mockNews.map((news) => (
+            <div key={news.id} className="min-w-[280px] snap-center">
+              <NewsCard 
+                title={news.title}
+                description={news.description}
+                date={news.date}
+                imageUrl={news.imageUrl}
+                loading={false}
+              />
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Active Chats */}
@@ -1164,8 +1209,13 @@ const TerapeutasPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [therapists, setTherapists] = useState<UserProfile[]>([]);
   const [selectedTherapist, setSelectedTherapist] = useState<UserProfile | null>(null);
+  const [quickBookData, setQuickBookData] = useState<{ day: string; slot: string } | null>(null);
   const [patientProfile, setPatientProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [expandedReviews, setExpandedReviews] = useState<string | null>(null);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
 
   useEffect(() => {
     const init = async () => {
@@ -1175,11 +1225,64 @@ const TerapeutasPage = () => {
       if (auth.currentUser) {
         const p = await getUserProfile(auth.currentUser.uid);
         setPatientProfile(p);
+        if (p?.favoritos) {
+          setFavorites(p.favoritos);
+        }
       }
       setLoading(false);
     };
     init();
   }, []);
+
+  const handleToggleFavorite = async (therapistId: string) => {
+    if (!auth.currentUser) return;
+    try {
+      const newFavs = await userService.toggleFavorite(auth.currentUser.uid, therapistId, favorites);
+      setFavorites(newFavs);
+    } catch (error) {
+      console.error("Erro ao favoritar:", error);
+    }
+  };
+
+  const handleAddReview = async (therapistId: string) => {
+    if (!auth.currentUser || !patientProfile) return;
+    try {
+      const therapist = therapists.find(t => t.uid === therapistId);
+      if (!therapist) return;
+      
+      const newReview = {
+        userId: auth.currentUser.uid,
+        userName: patientProfile.nome,
+        nota: reviewRating,
+        comentario: reviewText,
+        data: new Date().toISOString()
+      };
+      
+      const { newReviews, averageRating } = await userService.addReview(therapistId, therapist.avaliacoes || [], newReview);
+      
+      setTherapists(prev => prev.map(t => 
+        t.uid === therapistId 
+          ? { ...t, avaliacoes: newReviews, rating: averageRating } 
+          : t
+      ));
+      
+      setReviewText('');
+      setReviewRating(5);
+    } catch (error) {
+      console.error("Erro ao adicionar avaliação:", error);
+    }
+  };
+
+  // Calculate patient mental health status based on recent mood history
+  // For simplicity, we'll just use a mock status or derive it from local storage mood history
+  const moodHistory = userService.getMoodHistory();
+  const recentMood = moodHistory.length > 0 ? moodHistory[moodHistory.length - 1].value : 5;
+  let patientStatus = { label: 'Estável', color: 'text-blue-400', bg: 'bg-blue-400/10', icon: <Smile size={12} /> };
+  if (recentMood <= 3) {
+    patientStatus = { label: 'Alerta', color: 'text-red-400', bg: 'bg-red-400/10', icon: <ShieldAlert size={12} /> };
+  } else if (recentMood >= 8) {
+    patientStatus = { label: 'Ótimo', color: 'text-brand-green', bg: 'bg-brand-green/10', icon: <Sun size={12} /> };
+  }
 
   const filteredTherapists = therapists.filter(t => {
     // Filter by type (online/presencial) - mock logic for now
@@ -1263,7 +1366,16 @@ const TerapeutasPage = () => {
             <p className="text-xs text-brand-text/60">Disponível agora: {filteredTherapists[0].nome}</p>
           </div>
           <Button 
-            onClick={() => setSelectedTherapist(filteredTherapists[0])}
+            onClick={() => {
+              const therapist = filteredTherapists[0];
+              if (therapist.disponibilidade && therapist.disponibilidade.length > 0) {
+                const firstDay = therapist.disponibilidade[0];
+                if (firstDay.slots && firstDay.slots.length > 0) {
+                  setQuickBookData({ day: firstDay.day, slot: firstDay.slots[0] });
+                }
+              }
+              setSelectedTherapist(therapist);
+            }}
             className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest"
           >
             Agendar
@@ -1273,7 +1385,16 @@ const TerapeutasPage = () => {
 
       <div className="space-y-6">
         {filteredTherapists.map(t => (
-          <div key={t.uid} className="glass-card p-6 rounded-[2.5rem] flex flex-col gap-6 border-none shadow-2xl">
+          <div key={t.uid} className="glass-card p-6 rounded-[2.5rem] flex flex-col gap-6 border-none shadow-2xl relative">
+            <button 
+              onClick={() => handleToggleFavorite(t.uid)}
+              className="absolute top-6 right-6 z-10 p-2 rounded-full bg-brand-dark/50 backdrop-blur-md border border-white/10 hover:bg-white/10 transition-colors"
+            >
+              <Heart 
+                size={20} 
+                className={favorites.includes(t.uid) ? "fill-brand-red text-brand-red" : "text-brand-text/40"} 
+              />
+            </button>
             <div className="flex gap-5 items-center">
               <div className="relative">
                 <img src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} alt={t.nome} className="w-24 h-24 rounded-[2rem] object-cover shadow-xl" referrerPolicy="no-referrer" />
@@ -1281,7 +1402,7 @@ const TerapeutasPage = () => {
                   Online
                 </div>
               </div>
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-2 pr-10">
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-serif text-xl font-bold leading-tight">{t.nome}</h3>
@@ -1289,9 +1410,15 @@ const TerapeutasPage = () => {
                       {t.especialidades?.join(', ') || 'Terapia Geral'}
                     </p>
                   </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded-full">
                     <Star size={10} fill="currentColor" />
-                    {t.rating?.toFixed(1) || '5.0'}
+                    {t.rating?.toFixed(1) || '5.0'} ({t.avaliacoes?.length || 0})
+                  </div>
+                  <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full ${patientStatus.bg} ${patientStatus.color}`}>
+                    {patientStatus.icon}
+                    <span>Seu Status: {patientStatus.label}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 pt-1">
@@ -1314,8 +1441,73 @@ const TerapeutasPage = () => {
               >
                 Agendar Agora
               </Button>
-              <Button variant="secondary" className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Ver Vídeo</Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => setExpandedReviews(expandedReviews === t.uid ? null : t.uid)}
+                className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest"
+              >
+                Avaliações
+              </Button>
             </div>
+
+            {/* Avaliações Section */}
+            <AnimatePresence>
+              {expandedReviews === t.uid && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden border-t border-white/5 pt-4 space-y-4"
+                >
+                  <h4 className="text-sm font-bold text-brand-text">Avaliações dos Pacientes</h4>
+                  
+                  {/* Lista de Avaliações */}
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {t.avaliacoes && t.avaliacoes.length > 0 ? (
+                      t.avaliacoes.map((av, idx) => (
+                        <div key={idx} className="bg-white/5 p-3 rounded-xl space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-brand-text/80">{av.userName || 'Paciente Anônimo'}</span>
+                            <div className="flex text-amber-400">
+                              {[...Array(5)].map((_, i) => (
+                                <Star key={i} size={10} fill={i < av.nota ? "currentColor" : "none"} />
+                              ))}
+                            </div>
+                          </div>
+                          {av.comentario && <p className="text-xs text-brand-text/60 italic">"{av.comentario}"</p>}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-brand-text/40 italic">Nenhuma avaliação ainda. Seja o primeiro!</p>
+                    )}
+                  </div>
+
+                  {/* Form de Nova Avaliação */}
+                  <div className="bg-brand-dark/30 p-4 rounded-2xl space-y-3 border border-white/5">
+                    <p className="text-xs font-bold text-brand-text/60 uppercase tracking-widest">Deixe sua avaliação</p>
+                    <div className="flex gap-2 text-amber-400">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button key={star} onClick={() => setReviewRating(star)} className="hover:scale-110 transition-transform">
+                          <Star size={20} fill={star <= reviewRating ? "currentColor" : "none"} />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea 
+                      value={reviewText}
+                      onChange={(e) => setReviewText(e.target.value)}
+                      placeholder="Como foi sua experiência? (opcional)"
+                      className="w-full bg-brand-slate border border-white/10 rounded-xl p-3 text-xs focus:outline-none focus:ring-2 focus:ring-brand-green/20 text-brand-text placeholder:text-brand-text/40 resize-none h-20"
+                    />
+                    <Button 
+                      onClick={() => handleAddReview(t.uid)}
+                      className="w-full py-2 text-[10px] font-bold uppercase tracking-widest"
+                    >
+                      Enviar Avaliação
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         ))}
         {filteredTherapists.length === 0 && (
@@ -1330,7 +1522,12 @@ const TerapeutasPage = () => {
           <BookingModal 
             therapist={selectedTherapist} 
             patientProfile={patientProfile}
-            onClose={() => setSelectedTherapist(null)} 
+            initialDay={quickBookData?.day}
+            initialSlot={quickBookData?.slot}
+            onClose={() => {
+              setSelectedTherapist(null);
+              setQuickBookData(null);
+            }} 
           />
         )}
       </AnimatePresence>
@@ -1503,6 +1700,21 @@ const DiarioPage = () => {
 
 const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
   const navigate = useNavigate();
+  const [favoriteTherapists, setFavoriteTherapists] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      if (userProfile?.favoritos && userProfile.favoritos.length > 0) {
+        const allTherapists = await userService.getTherapists();
+        const favs = allTherapists.filter(t => userProfile.favoritos?.includes(t.uid));
+        setFavoriteTherapists(favs);
+      } else {
+        setFavoriteTherapists([]);
+      }
+    };
+    fetchFavorites();
+  }, [userProfile?.favoritos]);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -1562,6 +1774,49 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
         <Button variant="secondary" className="w-full text-xs py-2 border-brand-sage/30 text-brand-sage">
           Solicitar Proposta B2B/B2G
         </Button>
+      </section>
+
+      {/* Favorite Therapists Section */}
+      <section className="space-y-4">
+        <h3 className="text-xl font-serif flex items-center gap-2">
+          <Heart size={20} className="text-brand-sage" />
+          Terapeutas Favoritos
+        </h3>
+        {favoriteTherapists.length > 0 ? (
+          <div className="space-y-3">
+            {favoriteTherapists.map(t => (
+              <motion.div 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                key={t.uid} 
+                onClick={() => navigate(`/terapeutas`)}
+                className="glass-card p-4 rounded-[1.5rem] flex items-center gap-4 cursor-pointer hover:bg-brand-slate/50 transition-all border border-white/5"
+              >
+                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-brand-slate">
+                  <img 
+                    src={t.fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.uid}`} 
+                    alt={t.nome} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold font-serif">{t.nome}</h4>
+                  <p className="text-xs text-brand-ink/60">{t.especialidades?.[0] || 'Terapeuta'}</p>
+                </div>
+                <div className="text-brand-green">
+                  <Heart size={20} fill="currentColor" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card p-6 rounded-[2rem] text-center space-y-2">
+            <p className="text-brand-ink/60 text-sm">Você ainda não tem terapeutas favoritos.</p>
+            <Button variant="secondary" onClick={() => navigate('/terapeutas')} className="text-xs py-2">
+              Encontrar Terapeutas
+            </Button>
+          </div>
+        )}
       </section>
 
       <div className="space-y-3">
