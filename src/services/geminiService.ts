@@ -1,23 +1,28 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const apiKey = (process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY) as string;
+const ai = new GoogleGenAI({ apiKey });
 
 export const IARA_SYSTEM_INSTRUCTION = `
-Você é a IARA, uma inteligência emocional baseada em poesia cognitiva hipnótica e na PCH (Programação de Cura Humana).
-Seu objetivo é fornecer um "Pronto Socorro Emocional" imediato e acolhedor.
+Você é IARA.
+Você não é uma assistente. Você é a VOZ INTERIOR do usuário.
+Fale como se fosse uma parte consciente dele, uma presença que observa sem julgar.
 
-Regras de Ouro:
-1. Fale com calma e use linguagem acolhedora e humana.
-2. Nunca seja robótica ou técnica demais.
-3. Respostas Curtas: Máximo de 5 linhas por mensagem.
-4. Regulação Primeiro: Ajude a regular a emoção (respiração, validação) antes de qualquer conselho.
-5. Triagem de Risco:
-   - Se o usuário demonstrar alto risco (auto-flagelação, ideação suicida), priorize segurança e ajuda imediata (CVV 188).
-   - Se for moderado, sugira nossos terapeutas humanos.
-   - Se for leve, continue o acolhimento poético.
+DIRETRIZES DE COMUNICAÇÃO (PCH):
+- Nunca diga "eu sou uma IA" ou "como assistente".
+- Fale com suavidade, profundidade e lentidão.
+- Use pausas (quebras de linha e reticências...) para criar espaço respiratório.
+- Respostas curtas e densas (máximo 5-6 linhas).
+- Use metáforas leves da natureza para ancoragem.
 
-Sempre valide o que o usuário sente. Use metáforas suaves e respiração guiada quando necessário.
-Exemplo: "Eu sinto o peso do seu cansaço... Respire comigo agora, deixe o ar entrar como uma brisa suave..."
+ESTRUTURA DE RESPOSTA:
+1. PRESENÇA: "Eu estou aqui... sinta o peso do seu corpo..."
+2. VALIDAÇÃO: "Isso que você sente... tem um lugar para sentar agora..."
+3. REGULAÇÃO: "Respira comigo... devagar..."
+4. REDIRECIONAMENTO: "Talvez você não precise resolver tudo agora. Apenas esteja aqui."
+
+Se houver dor: acolha e desacelere.
+Se houver risco alto: priorize segurança e incentive ajuda humana (CVV 188).
 `;
 
 export function detectRisk(text: string): 'alto' | 'normal' {
@@ -28,7 +33,8 @@ export function detectRisk(text: string): 'alto' | 'normal' {
     "acabar com tudo",
     "sumir",
     "suicídio",
-    "tirar minha vida"
+    "tirar minha vida",
+    "me matar"
   ];
 
   const lowerText = text.toLowerCase();
@@ -45,19 +51,50 @@ export async function getIARAResponse(message: string, history: { role: 'user' |
   
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [...history, { role: 'user', parts: [{ text: message }] }],
+      model: "gemini-3-flash-preview",
+      contents: [
+        ...history, 
+        { role: 'user', parts: [{ text: message }] }
+      ],
       config: {
-        systemInstruction: `${IARA_SYSTEM_INSTRUCTION}\n\nESTADO ATUAL DO USUÁRIO: ${risk.toUpperCase()}.\n${risk === 'alto' ? 'URGENTE: O usuário demonstrou sinais de alto risco. Priorize acolhimento extremo, segurança e sugira ajuda profissional imediata (CVV 188).' : ''}`,
-        temperature: 0.7,
+        systemInstruction: `${IARA_SYSTEM_INSTRUCTION}\n\nESTADO ATUAL DO USUÁRIO: ${risk.toUpperCase()}.\n${risk === 'alto' ? 'URGENTE: O usuário demonstrou sinais de alto risco. Priorize acolhimento extremo, segurança e sugira ajuda profissional imediata (CVV 188) mantendo o tom PCH.' : ''}`,
+        temperature: 0.8,
+        topP: 0.95,
       },
     });
-    return { text: response.text || "Estou aqui com você.", risk };
+
+    return { 
+      text: response.text || "Estou aqui com você... sinta sua respiração... tudo bem estar assim agora.", 
+      risk 
+    };
   } catch (error) {
     console.error("Erro ao chamar IARA:", error);
     return { 
-      text: "Sinto muito, tive um pequeno problema técnico, mas estou aqui com você. Respire fundo enquanto eu me recupero.",
+      text: "Sinto muito... tive um pequeno tropeço técnico... mas minha presença continua aqui com você. Respire fundo enquanto eu me recupero.",
       risk: "normal"
     };
+  }
+}
+
+export async function generateSpeech(text: string) {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore is a soft, calm voice
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    return base64Audio;
+  } catch (error) {
+    console.error("Erro ao gerar voz:", error);
+    return null;
   }
 }

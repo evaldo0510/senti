@@ -1,18 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Cormorant Garamond", serif;
-  
-  --color-brand-cream: #f5f5f0;
-  --color-brand-olive: #5A5A40;
-  --color-brand-ink: #1a1a1a;
-  --color-brand-sage: #8A9A5B;
+  --font-serif: "Poppins", ui-serif, Georgia, serif;
+
+  --color-brand-dark: #0F172A;
+  --color-brand-slate: #1E293B;
+  --color-brand-green: #22C55E;
+  --color-brand-indigo: #6366F1;
+  --color-brand-red: #EF4444;
+  --color-brand-text: #E2E8F0;
 }
 
 body {
-  @apply bg-brand-cream text-brand-ink font-sans antialiased;
+  @apply bg-brand-dark text-brand-text font-sans antialiased;
 }
 
 h1, h2, h3, h4 {
@@ -20,6 +22,23 @@ h1, h2, h3, h4 {
 }
 
 .glass-card {
-  @apply bg-white/60 backdrop-blur-md border border-white/20 shadow-sm;
+  @apply bg-brand-slate/50 backdrop-blur-xl border border-white/10 shadow-2xl;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 0.4; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 

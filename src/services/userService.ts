@@ -1,4 +1,6 @@
-import { MoodEntry, Therapist } from '../types';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { MoodEntry, Therapist, Appointment, UserProfile } from '../types';
 
 const STORAGE_KEY_MOOD = 'iara_mood_history';
 
@@ -24,42 +26,81 @@ export const userService = {
     }));
   },
 
-  getTherapists: (): Therapist[] => [
-    {
-      id: '1',
-      name: 'Dra. Ana Silva',
-      specialty: 'Ansiedade e Trauma',
-      price: 120,
-      online: true,
-      imageUrl: 'https://picsum.photos/seed/ana/200',
-      rating: 4.9,
-    },
-    {
-      id: '2',
-      name: 'Dr. Carlos Mendes',
-      specialty: 'Depressão e Luto',
-      price: 100,
-      online: true,
-      imageUrl: 'https://picsum.photos/seed/carlos/200',
-      rating: 4.8,
-    },
-    {
-      id: '3',
-      name: 'Dra. Beatriz Rocha',
-      specialty: 'Relacionamentos',
-      price: 150,
-      online: false,
-      imageUrl: 'https://picsum.photos/seed/beatriz/200',
-      rating: 5.0,
-    },
-    {
-      id: '4',
-      name: 'Dr. Ricardo Lima',
-      specialty: 'Foco e Performance',
-      price: 90,
-      online: true,
-      imageUrl: 'https://picsum.photos/seed/ricardo/200',
-      rating: 4.7,
-    },
-  ]
+  getUser: () => {
+    return { name: 'Usuário' };
+  },
+
+  getTherapists: async (): Promise<UserProfile[]> => {
+    const q = query(collection(db, "users"), where("tipo", "==", "terapeuta"));
+    try {
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => doc.data() as UserProfile);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, "users");
+      return [];
+    }
+  },
+
+  createAppointment: async (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
+    const newAppointment = {
+      ...appointment,
+      createdAt: new Date().toISOString(),
+      status: 'pending' as const
+    };
+    try {
+      const docRef = await addDoc(collection(db, "appointments"), newAppointment);
+      await updateDoc(docRef, { id: docRef.id });
+      return { ...newAppointment, id: docRef.id };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, "appointments");
+      throw error;
+    }
+  },
+
+  getMyAppointments: (callback: (appointments: Appointment[]) => void) => {
+    if (!auth.currentUser) return () => {};
+    
+    const uid = auth.currentUser.uid;
+    // Query for appointments where user is patient OR therapist
+    // Note: Firestore doesn't support OR across different fields easily without complex queries or composite indexes.
+    // For simplicity, we'll listen to both and merge, or just query one for now if we know the user type.
+    // Let's try a simpler approach: query based on current user's role if possible, or just two listeners.
+    
+    const qPatient = query(collection(db, "appointments"), where("patientId", "==", uid), orderBy("date", "desc"));
+    const qTherapist = query(collection(db, "appointments"), where("therapistId", "==", uid), orderBy("date", "desc"));
+
+    let patientApps: Appointment[] = [];
+    let therapistApps: Appointment[] = [];
+
+    const update = () => {
+      const merged = [...patientApps, ...therapistApps].sort((a, b) => 
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      callback(merged);
+    };
+
+    const unsubPatient = onSnapshot(qPatient, (snapshot) => {
+      patientApps = snapshot.docs.map(doc => doc.data() as Appointment);
+      update();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, "appointments"));
+
+    const unsubTherapist = onSnapshot(qTherapist, (snapshot) => {
+      therapistApps = snapshot.docs.map(doc => doc.data() as Appointment);
+      update();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, "appointments"));
+
+    return () => {
+      unsubPatient();
+      unsubTherapist();
+    };
+  },
+
+  updateAppointmentStatus: async (id: string, status: Appointment['status']) => {
+    const docRef = doc(db, "appointments", id);
+    try {
+      await updateDoc(docRef, { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `appointments/${id}`);
+    }
+  }
 };

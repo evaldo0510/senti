@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase UID)
+    // Fields:
+    //   - uid: string (required, immutable) - ID do usuário
+    //   - nome: string (required) - Nome completo
+    //   - email: string (required, immutable) - E-mail
+    //   - tipo: string (required, enum: ['usuario', 'terapeuta', 'empresa', 'prefeitura']) - Perfil
+    //   - createdAt: string (required, immutable) - Data de criação
+    //   - especialidades: list (optional) - Especialidades
+    //   - preco: number (optional) - Preço
+    //   - biografia: string (optional) - Biografia
+    //   - fotoUrl: string (optional) - URL da foto
+    //   - disponibilidade: list (optional) - Disponibilidade
+    //
+    // Collection: appointments
+    // Document ID: appointmentId
+    // Fields:
+    //   - id: string (required)
+    //   - patientId: string (required)
+    //   - patientNome: string (required)
+    //   - therapistId: string (required)
+    //   - therapistNome: string (required)
+    //   - date: string (required)
+    //   - slot: string (required)
+    //   - status: string (required, enum: ['pending', 'confirmed', 'cancelled', 'completed'])
+    //   - createdAt: string (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+          (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'nome', 'email', 'tipo', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.nome is string && data.nome.size() >= 2 && data.nome.size() <= 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.tipo in ['usuario', 'terapeuta', 'empresa', 'prefeitura'] &&
+             data.createdAt is string &&
+             (!('especialidades' in data) || data.especialidades is list) &&
+             (!('preco' in data) || data.preco is number) &&
+             (!('biografia' in data) || data.biografia is string) &&
+             (!('fotoUrl' in data) || data.fotoUrl is string) &&
+             (!('disponibilidade' in data) || data.disponibilidade is list);
+    }
+
+    function isValidAppointment(data) {
+      return data.keys().hasAll(['id', 'patientId', 'therapistId', 'date', 'slot', 'status', 'createdAt']) &&
+             data.id is string &&
+             data.patientId is string &&
+             data.therapistId is string &&
+             data.date is string &&
+             data.slot is string &&
+             data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
+             data.createdAt is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Qualquer um autenticado pode ler perfis (para busca de terapeutas, etc)
+      // Mas em um sistema real, poderíamos restringir mais.
+      allow read: if isAuthenticated();
+      
+      // Criação: Usuário pode criar seu próprio perfil se os dados forem válidos
+      allow create: if isOwner(userId) && 
+                      isValidUser(request.resource.data) &&
+                      request.resource.data.uid == request.auth.uid;
+      
+      // Atualização: Apenas o dono ou admin pode atualizar, e não pode mudar campos imutáveis
+      allow update: if (isOwner(userId) || isAdmin()) &&
+                      isValidUser(request.resource.data) &&
+                      request.resource.data.uid == resource.data.uid &&
+                      request.resource.data.email == resource.data.email &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Deleção: Apenas admin
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      // Leitura: Paciente ou Terapeuta envolvido
+      allow read: if isAuthenticated() && 
+                    (request.auth.uid == resource.data.patientId || 
+                     request.auth.uid == resource.data.therapistId || 
+                     isAdmin());
+      
+      // Criação: Paciente pode criar
+      allow create: if isAuthenticated() && 
+                      isValidAppointment(request.resource.data) &&
+                      request.resource.data.patientId == request.auth.uid;
+      
+      // Atualização: Paciente ou Terapeuta envolvido
+      allow update: if isAuthenticated() && 
+                      isValidAppointment(request.resource.data) &&
+                      (request.auth.uid == resource.data.patientId || 
+                       request.auth.uid == resource.data.therapistId || 
+                       isAdmin());
+      
+      // Deleção: Apenas admin
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "users": {
+      "title": "UserProfile",
+      "description": "Perfil do usuário na plataforma",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "ID único do Firebase Auth" },
+        "nome": { "type": "string", "description": "Nome completo" },
+        "email": { "type": "string", "format": "email", "description": "E-mail de login" },
+        "tipo": { 
+          "type": "string", 
+          "enum": ["usuario", "terapeuta", "empresa", "prefeitura"],
+          "description": "Tipo de perfil de acesso"
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Data de criação da conta" },
+        "especialidades": { "type": "array", "items": { "type": "string" }, "description": "Especialidades do terapeuta" },
+        "preco": { "type": "number", "description": "Preço da sessão" },
+        "biografia": { "type": "string", "description": "Biografia do terapeuta" },
+        "fotoUrl": { "type": "string", "description": "URL da foto de perfil" },
+        "rating": { "type": "number", "description": "Avaliação média" },
+        "disponibilidade": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": { "type": "string" },
+              "slots": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "required": ["uid", "nome", "email", "tipo", "createdAt"]
+    },
+    "appointments": {
+      "title": "Appointment",
+      "description": "Agendamento de sessão",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientNome": { "type": "string" },
+        "therapistId": { "type": "string" },
+        "therapistNome": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "slot": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "patientId", "therapistId", "date", "slot", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "Coleção de perfis de usuários"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": "appointments",
+      "description": "Coleção de agendamentos"
+    }
+  }
+}

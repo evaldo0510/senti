@@ -22,4 +22,38 @@ export interface Therapist {
   rating: number;
 }
 
-export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow';
+export interface Appointment {
+  id: string;
+  patientId: string;
+  patientNome: string;
+  therapistId: string;
+  therapistNome: string;
+  date: string; // ISO string
+  slot: string; // '09:00'
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  createdAt: string;
+}
+
+export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow' | 'sensorial' | 'login' | 'dashboard' | 'terapeuta-panel' | 'empresa-panel' | 'prefeitura-panel';
+
+export type UserType = 'usuario' | 'terapeuta' | 'empresa' | 'prefeitura';
+
+export interface Availability {
+  day: string; // 'segunda', 'terça', etc.
+  slots: string[]; // ['09:00', '10:00', etc.]
+}
+
+export interface UserProfile {
+  uid: string;
+  nome: string;
+  email: string;
+  tipo: UserType;
+  createdAt: string;
+  // Campos para terapeutas
+  especialidades?: string[];
+  preco?: number;
+  disponibilidade?: Availability[];
+  biografia?: string;
+  fotoUrl?: string;
+  rating?: number;
+}
