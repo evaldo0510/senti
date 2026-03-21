@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { auth, getUserProfile } from '../services/authService';
+import { auth, getUserProfile, getAuthenticatedUser } from '../services/authService';
 import { UserProfile } from '../types';
 
 export const DashboardPage: React.FC = () => {
@@ -12,10 +12,17 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     const checkUser = async () => {
-      const user = auth.currentUser;
+      const user = getAuthenticatedUser();
+      
+      // Se não houver usuário, tenta esperar um pouco ou redireciona
       if (!user) {
-        navigate('/login');
-        return;
+        // Pequeno delay para dar tempo ao onAuthStateChanged
+        const timer = setTimeout(() => {
+          if (!getAuthenticatedUser()) {
+            navigate('/login');
+          }
+        }, 2000);
+        return () => clearTimeout(timer);
       }
 
       try {
@@ -54,7 +61,7 @@ export const DashboardPage: React.FC = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-4">
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}

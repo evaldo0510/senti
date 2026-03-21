@@ -46,15 +46,23 @@ export function detectRisk(text: string): 'alto' | 'normal' {
   return "normal";
 }
 
-export async function getIARAResponse(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[] = []) {
+export async function getIARAResponse(
+  message: string, 
+  history: { role: 'user' | 'model', parts: { text?: string, inlineData?: { data: string, mimeType: string } }[] }[] = [],
+  audioData?: { data: string, mimeType: string }
+) {
   const risk = detectRisk(message);
   
   try {
+    const userParts: any[] = [];
+    if (message) userParts.push({ text: message });
+    if (audioData) userParts.push({ inlineData: audioData });
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         ...history, 
-        { role: 'user', parts: [{ text: message }] }
+        { role: 'user', parts: userParts }
       ],
       config: {
         systemInstruction: `${IARA_SYSTEM_INSTRUCTION}\n\nESTADO ATUAL DO USUÁRIO: ${risk.toUpperCase()}.\n${risk === 'alto' ? 'URGENTE: O usuário demonstrou sinais de alto risco. Priorize acolhimento extremo, segurança e sugira ajuda profissional imediata (CVV 188) mantendo o tom PCH.' : ''}`,

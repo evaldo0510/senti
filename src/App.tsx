@@ -6,7 +6,6 @@ import {
   Users, 
   BookOpen, 
   User, 
-  Send, 
   ArrowLeft,
   Calendar,
   Star,
@@ -22,7 +21,15 @@ import {
   HelpCircle,
   Volume2,
   VolumeX,
-  Loader2
+  Loader2,
+  Mic,
+  Square,
+  Sun,
+  Moon,
+  MessageSquare,
+  Send,
+  Search,
+  History
 } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -34,14 +41,17 @@ import {
   Route, 
   Navigate, 
   useNavigate, 
-  useLocation 
+  useLocation,
+  useParams
 } from 'react-router-dom';
 
 import { getIARAResponse, generateSpeech } from './services/geminiService';
 import { userService } from './services/userService';
-import { auth, getUserProfile, logout } from './services/authService';
-import { AppRoute, Message, MoodEntry, Therapist, UserProfile } from './types';
-import { cn } from './lib/utils';
+import { chatService } from './services/chatService';
+import { auth, getUserProfile, logout, isMockMode, getAuthenticatedUser, enterDemoMode } from './services/authService';
+import firebaseConfig from '../firebase-applet-config.json';
+import { AppRoute, Message, MoodEntry, Therapist, UserProfile, DirectMessage } from './types';
+import { cn, blobToBase64 } from './lib/utils';
 
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -81,10 +91,10 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  const activeRoute = location.pathname.split('/')[1] || 'home';
+  const activeRoute = location.pathname.split('/')[1] || 'dashboard';
 
-  const navItems: { id: string, path: string, icon: any, label: string }[] = [
-    { id: 'home', path: '/home', icon: Heart, label: 'Início' },
+  const navItems = [
+    { id: 'dashboard', path: '/dashboard', icon: Heart, label: 'Início' },
     { id: 'chat', path: '/chat', icon: MessageCircle, label: 'IARA' },
     { id: 'terapeutas', path: '/terapeutas', icon: Users, label: 'Terapeutas' },
     { id: 'diario', path: '/diario', icon: BookOpen, label: 'Diário' },
@@ -92,19 +102,33 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-brand-dark/80 backdrop-blur-xl border-t border-white/5 px-4 py-2 pb-6 z-50">
-      <div className="max-w-md mx-auto flex justify-between items-center">
+    <nav className="fixed bottom-0 left-0 right-0 bg-brand-bg/90 backdrop-blur-xl border-t border-brand-text/10 pt-2 pb-8 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+      <div className="max-w-lg mx-auto flex justify-around items-stretch">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => navigate(item.path)}
+            aria-label={item.label}
+            aria-current={activeRoute === item.id ? 'page' : undefined}
             className={cn(
-              'flex flex-col items-center gap-1 transition-all',
-              activeRoute === item.id ? 'text-brand-green scale-110' : 'text-brand-text/40 hover:text-brand-text/60'
+              'flex-1 flex flex-col items-center justify-center gap-1 transition-all relative min-h-[56px]',
+              activeRoute === item.id ? 'text-brand-green' : 'text-brand-text/40 hover:text-brand-text/60'
             )}
           >
-            <item.icon size={22} strokeWidth={activeRoute === item.id ? 2.5 : 2} />
-            <span className="text-[9px] font-bold uppercase tracking-widest">{item.label}</span>
+            <item.icon size={24} strokeWidth={activeRoute === item.id ? 2.5 : 2} />
+            <span className={cn(
+              "text-[10px] font-bold uppercase tracking-widest transition-all",
+              activeRoute === item.id ? "opacity-100" : "opacity-60"
+            )}>
+              {item.label}
+            </span>
+            {activeRoute === item.id && (
+              <motion.div 
+                layoutId="nav-indicator"
+                className="absolute top-0 w-1 h-1 bg-brand-green rounded-full"
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -220,7 +244,7 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 pb-24 space-y-8 bg-brand-dark min-h-screen"
+      className="p-6 pb-24 space-y-8 bg-brand-bg min-h-screen"
     >
       {/* Header */}
       <header className="flex justify-between items-center">
@@ -291,7 +315,8 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
       </AnimatePresence>
 
       {/* Hero: Pronto Socorro Emocional */}
-      <section 
+      <motion.section 
+        whileHover={{ scale: 1.01 }}
         className="glass-card p-8 rounded-[2.5rem] bg-gradient-to-br from-brand-green to-brand-green/80 text-white shadow-2xl relative overflow-hidden border-none"
       >
         <div className="relative z-10 space-y-6">
@@ -302,26 +327,32 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
           <h2 className="text-3xl font-serif leading-tight font-bold">Você não precisa carregar tudo sozinho.</h2>
           <p className="text-white/80 text-sm leading-relaxed">A IARA está pronta para te acolher agora com Poesia Cognitiva Hipnótica.</p>
           <div className="flex flex-col gap-3 pt-2">
-            <Button 
-              onClick={() => navigate('/guided-flow')}
-              className="w-full bg-white text-brand-dark hover:bg-brand-text border-none py-4 text-lg font-bold"
-            >
-              Preciso de ajuda agora
-            </Button>
-            <button 
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button 
+                onClick={() => navigate('/guided-flow')}
+                className="w-full bg-white text-brand-dark hover:bg-brand-text border-none py-4 text-lg font-bold"
+              >
+                Preciso de ajuda agora
+              </Button>
+            </motion.div>
+            <motion.button 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/chat')}
               className="text-sm text-white/70 hover:text-white transition-colors font-medium"
             >
               Quero apenas conversar
-            </button>
+            </motion.button>
           </div>
         </div>
         {/* Abstract background element */}
         <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/20 rounded-full blur-3xl" />
-      </section>
+      </motion.section>
 
       {/* Breathing Tool */}
-      <section 
+      <motion.section 
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         onClick={() => setIsBreathing(true)}
         className="bg-brand-slate p-6 rounded-[2rem] cursor-pointer hover:bg-brand-slate/80 transition-all flex items-center justify-between border border-white/5 shadow-lg"
       >
@@ -332,24 +363,64 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
         <div className="bg-brand-green/10 p-3 rounded-2xl text-brand-green">
           <Wind size={24} />
         </div>
-      </section>
+      </motion.section>
 
       {/* Daily Check-in */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-serif font-bold">Check-in Diário</h3>
-          <button onClick={() => navigate('/diario')} className="text-sm text-brand-green font-bold">Ver histórico</button>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate('/diario')} className="text-sm text-brand-green font-bold">Ver histórico</motion.button>
         </div>
-        <div className="glass-card p-6 rounded-[2rem] flex items-center justify-between">
+        <motion.div whileHover={{ scale: 1.01 }} className="glass-card p-6 rounded-[2rem] flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-sm text-brand-text/40">Último registro</p>
             <p className="text-lg font-bold">
               {lastMood ? `Humor: ${lastMood.value}/10` : 'Nenhum registro hoje'}
             </p>
           </div>
-          <Button variant="secondary" onClick={() => navigate('/diario')} className="px-4 py-2 text-xs">
-            {lastMood ? 'Atualizar' : 'Registrar'}
-          </Button>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button variant="secondary" onClick={() => navigate('/diario')} className="px-4 py-2 text-xs">
+              {lastMood ? 'Atualizar' : 'Registrar'}
+            </Button>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Active Chats */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-serif font-bold">Conversas Ativas</h3>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-sm text-brand-green font-bold">Ver todas</motion.button>
+        </div>
+        <div className="space-y-3">
+          {therapists.slice(0, 2).map(t => (
+            <motion.div 
+              whileHover={{ scale: 1.02, x: 5 }}
+              whileTap={{ scale: 0.98 }}
+              key={t.uid} 
+              onClick={() => navigate(`/direct-chat/${t.uid}`)}
+              className="glass-card p-4 rounded-[1.5rem] flex items-center gap-4 cursor-pointer hover:bg-brand-slate/50 transition-all border border-white/5"
+            >
+              <div className="w-12 h-12 rounded-2xl overflow-hidden bg-brand-slate">
+                <img 
+                  src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} 
+                  alt={t.nome} 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-bold text-sm text-brand-text">{t.nome}</h4>
+                <p className="text-[10px] text-brand-text/40 line-clamp-1">Clique para continuar a conversa...</p>
+              </div>
+              <div className="bg-brand-green/10 p-2 rounded-xl text-brand-green">
+                <MessageSquare size={16} />
+              </div>
+            </motion.div>
+          ))}
+          {therapists.length === 0 && (
+            <p className="text-sm text-brand-text/40 italic py-2">Inicie um agendamento para conversar.</p>
+          )}
         </div>
       </section>
 
@@ -357,11 +428,16 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-serif font-bold">Terapeutas Online</h3>
-          <button onClick={() => navigate('/terapeutas')} className="text-sm text-brand-green font-bold">Ver todos</button>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate('/terapeutas')} className="text-sm text-brand-green font-bold">Ver todos</motion.button>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
           {therapists.map(t => (
-            <div key={t.uid} className="min-w-[180px] glass-card p-5 rounded-[2rem] space-y-4 text-center">
+            <motion.div 
+              whileHover={{ scale: 1.02, y: -5 }}
+              whileTap={{ scale: 0.98 }}
+              key={t.uid} 
+              className="min-w-[180px] glass-card p-5 rounded-[2rem] space-y-4 text-center"
+            >
               <div className="relative w-20 h-20 mx-auto">
                 <img src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} alt={t.nome} className="w-full h-full rounded-3xl object-cover border-2 border-brand-green/20" referrerPolicy="no-referrer" />
                 <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-brand-green rounded-full border-2 border-brand-slate" />
@@ -370,12 +446,37 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
                 <p className="font-bold text-sm line-clamp-1">{t.nome}</p>
                 <p className="text-[9px] text-brand-text/40 uppercase tracking-widest font-bold">{t.especialidades?.[0] || 'Terapia'}</p>
               </div>
-              <Button variant="secondary" className="w-full py-2 text-[10px] uppercase tracking-widest font-bold" onClick={() => navigate('/terapeutas')}>Agendar</Button>
-            </div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button variant="secondary" className="w-full py-2 text-[10px] uppercase tracking-widest font-bold" onClick={() => navigate('/terapeutas')}>Agendar</Button>
+              </motion.div>
+            </motion.div>
           ))}
           {therapists.length === 0 && (
             <p className="text-sm text-brand-text/40 italic py-4">Nenhum terapeuta online agora.</p>
           )}
+        </div>
+      </section>
+
+      {/* My Appointments / Chats */}
+      <section className="space-y-4">
+        <h3 className="text-xl font-serif font-bold">Conversas Ativas</h3>
+        <div className="space-y-3">
+          {therapists.slice(0, 2).map(t => (
+            <div 
+              key={t.uid} 
+              onClick={() => navigate(`/direct-chat/${t.uid}`)}
+              className="glass-card p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-brand-slate/50 transition-all"
+            >
+              <div className="w-12 h-12 rounded-xl overflow-hidden">
+                <img src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} alt={t.nome} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-sm">{t.nome}</p>
+                <p className="text-xs text-brand-text/40">Clique para conversar</p>
+              </div>
+              <MessageSquare size={20} className="text-brand-green" />
+            </div>
+          ))}
         </div>
       </section>
     </motion.div>
@@ -671,9 +772,21 @@ const ChatIARAPage = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [showBreathing, setShowBreathing] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const [pastSessions] = useState([
+    { id: '1', date: new Date(Date.now() - 86400000), preview: 'Sessão sobre ansiedade no trabalho', duration: '15 min' },
+    { id: '2', date: new Date(Date.now() - 86400000 * 3), preview: 'Exercício de respiração guiada', duration: '5 min' },
+    { id: '3', date: new Date(Date.now() - 86400000 * 7), preview: 'Conversa sobre autoestima', duration: '22 min' }
+  ]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -729,18 +842,74 @@ const ChatIARAPage = () => {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const base64Audio = await blobToBase64(audioBlob);
+        handleSend(undefined, { data: base64Audio, mimeType: 'audio/webm' }, audioUrl);
+        
+        // Stop all tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Reset timer
+        if (timerRef.current) clearInterval(timerRef.current);
+        setRecordingTime(0);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      
+      // Start timer
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Erro ao acessar microfone:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSend = async (textOverride?: string, audioData?: { data: string, mimeType: string }, audioUrl?: string) => {
+    const messageText = textOverride || input;
+    if (!messageText.trim() && !audioData) return;
 
     const userMsg: Message = {
       id: Date.now().toString(),
-      text: input,
+      text: messageText || "[Áudio enviado]",
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
+      audioUrl
     };
 
     setMessages(prev => [...prev, userMsg]);
-    setInput('');
+    if (!textOverride) setInput('');
     setIsTyping(true);
 
     const history = messages.map(m => ({
@@ -748,7 +917,7 @@ const ChatIARAPage = () => {
       parts: [{ text: m.text }]
     }));
 
-    const { text, risk } = await getIARAResponse(input, history);
+    const { text, risk } = await getIARAResponse(messageText, history, audioData);
     
     if (risk === 'alto') {
       setShowEmergency(true);
@@ -756,7 +925,7 @@ const ChatIARAPage = () => {
 
     // Check for keywords to trigger breathing
     const triggers = ['ansioso', 'ansiedade', 'pânico', 'medo', 'respirar', 'ar', 'nervoso', 'crise'];
-    if (triggers.some(t => input.toLowerCase().includes(t))) {
+    if (messageText && triggers.some(t => messageText.toLowerCase().includes(t))) {
       setShowBreathing(true);
     }
 
@@ -780,10 +949,10 @@ const ChatIARAPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-brand-dark overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-brand-bg overflow-hidden">
       <EmergencyModal isOpen={showEmergency} onClose={() => setShowEmergency(false)} />
       
-      <header className="sticky top-0 z-40 p-4 bg-brand-dark/80 backdrop-blur-xl border-b border-white/5 flex items-center justify-between shadow-lg">
+      <header className="sticky top-0 z-40 p-4 bg-brand-bg/80 backdrop-blur-xl border-b border-brand-text/5 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-4">
           <div className="bg-brand-green/20 p-2 rounded-2xl text-brand-green">
             <Wind size={24} />
@@ -794,6 +963,17 @@ const ChatIARAPage = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 mr-2">
+            <button 
+              onClick={() => setShowHistory(!showHistory)}
+              className={cn(
+                "p-2 rounded-full transition-all",
+                showHistory ? "bg-brand-indigo/20 text-brand-indigo" : "bg-brand-slate text-brand-text/40"
+              )}
+            >
+              <History size={18} />
+            </button>
+          </div>
           <div className="flex items-center gap-1.5 mr-2">
             <span className="text-[9px] font-bold uppercase tracking-widest text-brand-text/40">Voz</span>
             <button 
@@ -818,105 +998,161 @@ const ChatIARAPage = () => {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
-        {/* Breathing Pulse Indicator */}
-        <div className="flex flex-col items-center py-4">
-          <div className="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center animate-pulse-slow">
-            <div className="w-8 h-8 rounded-full bg-brand-green/40 flex items-center justify-center">
-              <div className="w-4 h-4 rounded-full bg-brand-green" />
-            </div>
+      {showHistory ? (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-brand-dark">
+          <div className="space-y-2">
+            <h2 className="text-2xl font-serif font-bold">Histórico de Conversas</h2>
+            <p className="text-sm text-brand-text/60">Revisite suas sessões anteriores com a IARA.</p>
           </div>
-          <p className="text-[9px] uppercase tracking-widest text-brand-green font-bold mt-2 opacity-60">Respire com o pulso</p>
+          
+          <div className="space-y-4">
+            {pastSessions.map(session => (
+              <div key={session.id} className="glass-card p-5 rounded-2xl flex flex-col gap-3 cursor-pointer hover:bg-white/5 transition-colors">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2 text-brand-green">
+                    <MessageCircle size={16} />
+                    <span className="text-xs font-bold uppercase tracking-widest">{format(session.date, "dd MMM yyyy", { locale: ptBR })}</span>
+                  </div>
+                  <span className="text-xs text-brand-text/40">{session.duration}</span>
+                </div>
+                <p className="text-sm font-medium">{session.preview}</p>
+                <div className="flex justify-end">
+                  <button className="text-xs text-brand-indigo font-bold uppercase tracking-widest flex items-center gap-1">
+                    Ler transcrição <ArrowRight size={12} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
+            {/* Breathing Pulse Indicator */}
+            <div className="flex flex-col items-center py-4">
+              <div className="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center animate-pulse-slow">
+                <div className="w-8 h-8 rounded-full bg-brand-green/40 flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full bg-brand-green" />
+                </div>
+              </div>
+              <p className="text-[9px] uppercase tracking-widest text-brand-green font-bold mt-2 opacity-60">Respire com o pulso</p>
+            </div>
 
-        {messages.map((m) => (
-          <div key={m.id} className={cn(
-            'flex flex-col max-w-[80%]',
-            m.sender === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
-          )}>
-            <div className={cn(
-              'p-4 rounded-[1.5rem] text-sm leading-relaxed shadow-lg relative group',
-              m.sender === 'user' 
-                ? 'bg-brand-green text-white rounded-tr-none' 
-                : 'bg-brand-slate text-brand-text rounded-tl-none border border-white/5'
-            )}>
-              {m.text}
-              {m.sender === 'iara' && (
+            {messages.map((m) => (
+              <div key={m.id} className={cn(
+                'flex flex-col max-w-[80%]',
+                m.sender === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
+              )}>
+                <div className={cn(
+                  'p-4 rounded-[1.5rem] text-sm leading-relaxed shadow-lg relative group',
+                  m.sender === 'user' 
+                    ? 'bg-brand-green text-white rounded-tr-none' 
+                    : 'bg-brand-slate text-brand-text rounded-tl-none border border-white/5'
+                )}>
+                  {m.audioUrl ? (
+                    <div className="flex flex-col gap-2">
+                      <audio src={m.audioUrl} controls className="h-8 max-w-full" />
+                      {m.text !== "[Áudio enviado]" && <span>{m.text}</span>}
+                    </div>
+                  ) : (
+                    m.text
+                  )}
+                  {m.sender === 'iara' && (
+                    <button 
+                      onClick={async () => {
+                        const audio = await generateSpeech(m.text);
+                        if (audio) playAudio(audio);
+                      }}
+                      className="absolute -right-10 top-1/2 -translate-y-1/2 p-2 bg-brand-slate rounded-full text-brand-green opacity-0 group-hover:opacity-100 transition-opacity border border-white/5"
+                    >
+                      <Volume2 size={14} />
+                    </button>
+                  )}
+                </div>
+                <span className="text-[9px] text-brand-text/30 mt-2 font-bold uppercase tracking-widest">
+                  {format(m.timestamp, 'HH:mm')}
+                </span>
+              </div>
+            ))}
+            {isTyping && (
+              <div className="flex items-center gap-2 text-brand-green/60 text-[10px] font-bold uppercase tracking-widest">
+                <div className="flex gap-1">
+                  <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
+                  <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.4s]" />
+                </div>
+                IARA está presente
+              </div>
+            )}
+            
+            {showBreathing && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="glass-card p-8 rounded-[2.5rem] border-brand-green/30 border-2"
+              >
+                <BreathingExercise onComplete={() => setShowBreathing(false)} />
+              </motion.div>
+            )}
+            
+            <div ref={scrollRef} />
+          </div>
+
+          <div className="p-4 bg-brand-bg/80 backdrop-blur-xl border-t border-brand-text/5">
+            <div className="flex flex-col gap-4 max-w-md mx-auto">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                 <button 
-                  onClick={async () => {
-                    const audio = await generateSpeech(m.text);
-                    if (audio) playAudio(audio);
-                  }}
-                  className="absolute -right-10 top-1/2 -translate-y-1/2 p-2 bg-brand-slate rounded-full text-brand-green opacity-0 group-hover:opacity-100 transition-opacity border border-white/5"
+                  onClick={() => navigate('/sensorial')}
+                  className="whitespace-nowrap bg-brand-green/10 text-brand-green px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-green/20"
                 >
-                  <Volume2 size={14} />
+                  Ativação Sensorial
                 </button>
-              )}
+                <button 
+                  onClick={() => navigate('/terapeutas')}
+                  className="whitespace-nowrap bg-brand-slate text-brand-text/60 px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/5"
+                >
+                  Falar com Humano
+                </button>
+              </div>
+              <div className="flex gap-3 items-center">
+                <div className="flex-1 relative">
+                  <input 
+                    type="text" 
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder={isRecording ? `Gravando... ${formatTime(recordingTime)}` : "Fale comigo..."}
+                    disabled={isRecording}
+                    className="w-full bg-brand-slate border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/20 text-brand-text placeholder:text-brand-text/20 disabled:opacity-50"
+                  />
+                  {isRecording && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-brand-red rounded-full animate-pulse" />
+                      <span className="text-[10px] font-mono text-brand-red font-bold">{formatTime(recordingTime)}</span>
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={isRecording ? stopRecording : startRecording}
+                  className={cn(
+                    "p-4 rounded-2xl transition-all shadow-lg",
+                    isRecording ? "bg-brand-red text-white animate-pulse" : "bg-brand-slate text-brand-green border border-white/10"
+                  )}
+                >
+                  {isRecording ? <Square size={20} /> : <Mic size={20} />}
+                </button>
+                <button 
+                  onClick={() => handleSend()}
+                  disabled={(!input.trim() && !isRecording) || isTyping}
+                  className="bg-brand-green text-white p-4 rounded-2xl disabled:opacity-50 transition-all active:scale-90 shadow-lg shadow-brand-green/20"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
             </div>
-            <span className="text-[9px] text-brand-text/30 mt-2 font-bold uppercase tracking-widest">
-              {format(m.timestamp, 'HH:mm')}
-            </span>
           </div>
-        ))}
-        {isTyping && (
-          <div className="flex items-center gap-2 text-brand-green/60 text-[10px] font-bold uppercase tracking-widest">
-            <div className="flex gap-1">
-              <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
-              <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.2s]" />
-              <div className="w-1 h-1 bg-current rounded-full animate-bounce [animation-delay:0.4s]" />
-            </div>
-            IARA está presente
-          </div>
-        )}
-        
-        {showBreathing && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass-card p-8 rounded-[2.5rem] border-brand-green/30 border-2"
-          >
-            <BreathingExercise onComplete={() => setShowBreathing(false)} />
-          </motion.div>
-        )}
-        
-        <div ref={scrollRef} />
-      </div>
-
-      <div className="p-4 bg-brand-dark/80 backdrop-blur-xl border-t border-white/5">
-        <div className="flex flex-col gap-4 max-w-md mx-auto">
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            <button 
-              onClick={() => navigate('/sensorial')}
-              className="whitespace-nowrap bg-brand-green/10 text-brand-green px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-green/20"
-            >
-              Ativação Sensorial
-            </button>
-            <button 
-              onClick={() => navigate('/terapeutas')}
-              className="whitespace-nowrap bg-brand-slate text-brand-text/60 px-5 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest border border-white/5"
-            >
-              Falar com Humano
-            </button>
-          </div>
-          <div className="flex gap-3">
-            <input 
-              type="text" 
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Fale comigo..."
-              className="flex-1 bg-brand-slate border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/20 text-brand-text placeholder:text-brand-text/20"
-            />
-            <button 
-              onClick={handleSend}
-              disabled={!input.trim() || isTyping}
-              className="bg-brand-green text-white p-4 rounded-2xl disabled:opacity-50 transition-all active:scale-90 shadow-lg shadow-brand-green/20"
-            >
-              <Send size={20} />
-            </button>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };
@@ -925,6 +1161,7 @@ import { BookingModal } from './components/BookingModal';
 
 const TerapeutasPage = () => {
   const [filter, setFilter] = useState<'todos' | 'online' | 'presencial'>('todos');
+  const [searchTerm, setSearchTerm] = useState('');
   const [therapists, setTherapists] = useState<UserProfile[]>([]);
   const [selectedTherapist, setSelectedTherapist] = useState<UserProfile | null>(null);
   const [patientProfile, setPatientProfile] = useState<UserProfile | null>(null);
@@ -945,8 +1182,20 @@ const TerapeutasPage = () => {
   }, []);
 
   const filteredTherapists = therapists.filter(t => {
-    if (filter === 'online') return true; // For now, just show all
-    if (filter === 'presencial') return true; 
+    // Filter by type (online/presencial) - mock logic for now
+    if (filter === 'online' && false) return false; 
+    if (filter === 'presencial' && false) return false; 
+    
+    // Filter by search term
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      const matchName = t.nome?.toLowerCase().includes(term);
+      const matchSpec = t.especialidades?.some(e => e.toLowerCase().includes(term));
+      const matchPrice = t.preco?.toString().includes(term);
+      
+      if (!matchName && !matchSpec && !matchPrice) return false;
+    }
+    
     return true;
   });
 
@@ -968,6 +1217,18 @@ const TerapeutasPage = () => {
         <div className="space-y-1">
           <h1 className="text-3xl font-serif font-bold">Rede de Apoio</h1>
           <p className="text-brand-text/40 text-sm">Escolha o profissional que mais ressoa com você agora.</p>
+        </div>
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-text/40" size={20} />
+          <input 
+            type="text" 
+            placeholder="Buscar por nome, especialidade ou preço..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full bg-brand-slate border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/20 text-brand-text placeholder:text-brand-text/40"
+          />
         </div>
 
         {/* Uber-style Filter Bar */}
@@ -992,6 +1253,23 @@ const TerapeutasPage = () => {
           </button>
         </div>
       </header>
+
+      {filteredTherapists.length > 0 && (
+        <div className="bg-brand-green/10 border border-brand-green/20 p-4 rounded-2xl flex items-center justify-between mb-6">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-brand-green flex items-center gap-2">
+              <Zap size={16} /> Agendamento Rápido
+            </h3>
+            <p className="text-xs text-brand-text/60">Disponível agora: {filteredTherapists[0].nome}</p>
+          </div>
+          <Button 
+            onClick={() => setSelectedTherapist(filteredTherapists[0])}
+            className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest"
+          >
+            Agendar
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-6">
         {filteredTherapists.map(t => (
@@ -1065,6 +1343,7 @@ const DiarioPage = () => {
   const [note, setNote] = useState('');
   const [history, setHistory] = useState<MoodEntry[]>([]);
   const [saved, setSaved] = useState(false);
+  const [moodFilter, setMoodFilter] = useState<'all' | 'positive' | 'neutral' | 'negative'>('all');
 
   useEffect(() => {
     setHistory(userService.getMoodHistory());
@@ -1088,6 +1367,13 @@ const DiarioPage = () => {
     if (val >= 4) return <Meh className="text-brand-indigo" size={56} />;
     return <Frown className="text-brand-red" size={56} />;
   };
+
+  const filteredHistory = history.filter(h => {
+    if (moodFilter === 'positive') return h.value >= 8;
+    if (moodFilter === 'neutral') return h.value >= 4 && h.value <= 7;
+    if (moodFilter === 'negative') return h.value <= 3;
+    return true;
+  });
 
   return (
     <motion.div 
@@ -1165,9 +1451,39 @@ const DiarioPage = () => {
 
       {/* Recent History */}
       <section className="space-y-4">
-        <h3 className="text-xl font-serif">Registros Recentes</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-serif">Registros Recentes</h3>
+        </div>
+        
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+          <button 
+            onClick={() => setMoodFilter('all')}
+            className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${moodFilter === 'all' ? 'bg-brand-green text-white' : 'bg-brand-slate text-brand-text/40'}`}
+          >
+            Todos
+          </button>
+          <button 
+            onClick={() => setMoodFilter('positive')}
+            className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${moodFilter === 'positive' ? 'bg-brand-green text-white' : 'bg-brand-slate text-brand-text/40'}`}
+          >
+            Positivos (8-10)
+          </button>
+          <button 
+            onClick={() => setMoodFilter('neutral')}
+            className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${moodFilter === 'neutral' ? 'bg-brand-indigo text-white' : 'bg-brand-slate text-brand-text/40'}`}
+          >
+            Neutros (4-7)
+          </button>
+          <button 
+            onClick={() => setMoodFilter('negative')}
+            className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${moodFilter === 'negative' ? 'bg-brand-red text-white' : 'bg-brand-slate text-brand-text/40'}`}
+          >
+            Difíceis (0-3)
+          </button>
+        </div>
+
         <div className="space-y-3">
-          {history.slice().reverse().slice(0, 5).map(h => (
+          {filteredHistory.slice().reverse().slice(0, 5).map(h => (
             <div key={h.id} className="glass-card p-4 rounded-2xl flex justify-between items-center">
               <div>
                 <p className="text-xs text-brand-ink/40">{format(h.timestamp, "d 'de' MMMM", { locale: ptBR })}</p>
@@ -1176,6 +1492,9 @@ const DiarioPage = () => {
               <div className="text-lg font-serif italic text-brand-olive">{h.value}/10</div>
             </div>
           ))}
+          {filteredHistory.length === 0 && (
+            <p className="text-sm text-brand-text/40 italic py-4 text-center">Nenhum registro encontrado para este filtro.</p>
+          )}
         </div>
       </section>
     </motion.div>
@@ -1353,36 +1672,232 @@ const SensorialPage = () => {
 
 // --- Main App ---
 
+const DirectChatPage = () => {
+  const { receiverId } = useParams<{ receiverId: string }>();
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [receiverProfile, setReceiverProfile] = useState<UserProfile | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const init = async () => {
+      const user = getAuthenticatedUser();
+      if (!user) {
+        navigate('/login');
+        return;
+      }
+      const profile = await getUserProfile(user.uid);
+      setCurrentUser(profile);
+
+      if (receiverId) {
+        const rProfile = await getUserProfile(receiverId);
+        setReceiverProfile(rProfile);
+
+        const unsub = chatService.listenMessages(user.uid, receiverId, (msgs) => {
+          setMessages(msgs);
+        });
+        return () => unsub();
+      }
+    };
+    init();
+  }, [receiverId, navigate]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || !currentUser || !receiverId) return;
+
+    const text = input;
+    setInput('');
+    await chatService.sendMessage(currentUser.uid, receiverId, text);
+  };
+
+  return (
+    <div className="flex flex-col h-[100dvh] bg-brand-bg overflow-hidden">
+      <header className="sticky top-0 z-40 p-4 bg-brand-bg/80 backdrop-blur-xl border-b border-brand-text/5 flex items-center gap-4 shadow-lg">
+        <button onClick={() => navigate(-1)} className="text-brand-text/40 hover:text-brand-text p-2">
+          <ArrowLeft size={24} />
+        </button>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-brand-slate">
+            <img 
+              src={receiverProfile?.fotoUrl || `https://picsum.photos/seed/${receiverId}/200`} 
+              alt={receiverProfile?.nome} 
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <div>
+            <h2 className="font-bold text-brand-text">{receiverProfile?.nome || 'Carregando...'}</h2>
+            <p className="text-[10px] uppercase tracking-widest text-brand-green font-bold">Online</p>
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+        {messages.map((m) => (
+          <div key={m.id} className={cn(
+            'flex flex-col max-w-[80%]',
+            m.senderId === currentUser?.uid ? 'ml-auto items-end' : 'mr-auto items-start'
+          )}>
+            <div className={cn(
+              'p-4 rounded-[1.5rem] text-sm leading-relaxed shadow-lg',
+              m.senderId === currentUser?.uid 
+                ? 'bg-brand-green text-white rounded-tr-none' 
+                : 'bg-brand-slate text-brand-text rounded-tl-none border border-white/5'
+            )}>
+              {m.text}
+            </div>
+            <span className="text-[9px] text-brand-text/30 mt-2 font-bold uppercase tracking-widest">
+              {format(new Date(m.timestamp), 'HH:mm')}
+            </span>
+          </div>
+        ))}
+        <div ref={scrollRef} />
+      </div>
+
+      <div className="p-4 bg-brand-bg/80 backdrop-blur-xl border-t border-brand-text/5">
+        <div className="flex gap-3 items-center max-w-md mx-auto">
+          <input 
+            type="text" 
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Escreva uma mensagem..."
+            className="flex-1 bg-brand-slate border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/20 text-brand-text placeholder:text-brand-text/20"
+          />
+          <button 
+            onClick={handleSend}
+            disabled={!input.trim()}
+            className="bg-brand-green text-white p-4 rounded-2xl shadow-lg shadow-brand-green/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
+          >
+            <Send size={20} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AppContent = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') as 'light' | 'dark' || 'dark';
+    }
+    return 'dark';
+  });
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const profile = await getUserProfile(user.uid);
-        setUserProfile(profile);
-        if (location.pathname === '/login' || location.pathname === '/') {
-          navigate('/dashboard');
-        }
-      } else {
-        setUserProfile(null);
-        if (location.pathname !== '/login') {
-          navigate('/login');
-        }
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  useEffect(() => {
+    if (!loading && userProfile && (location.pathname === '/login' || location.pathname === '/')) {
+      navigate('/dashboard');
+    }
+  }, [userProfile, loading, location.pathname, navigate]);
+
+  useEffect(() => {
+    // Timeout para evitar ficar preso no loading se o Firebase estiver offline
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn("Auth timeout reached. Bypassing loading.");
+        setLoading(false);
       }
-      setLoading(false);
+    }, 5000);
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      // Se já estivermos em modo mock, não sobrescrevemos
+      if (isMockMode()) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const currentUser = user || getAuthenticatedUser();
+        if (currentUser) {
+          const profile = await getUserProfile(currentUser.uid);
+          setUserProfile(profile);
+          if (location.pathname === '/login' || location.pathname === '/') {
+            navigate('/dashboard');
+          }
+        } else {
+          setUserProfile(null);
+          if (location.pathname !== '/login') {
+            navigate('/login');
+          }
+        }
+      } catch (e) {
+        console.error("Auth state change error:", e);
+        // Em caso de erro, permitimos que o app continue (possivelmente em modo mock)
+        setLoading(false);
+      } finally {
+        setLoading(false);
+        clearTimeout(timeoutId);
+      }
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribe();
+      clearTimeout(timeoutId);
+    };
+  }, [navigate, location.pathname]);
+
+  const isFirebaseConfigured = firebaseConfig.apiKey !== "SUA_KEY";
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-brand-green/30 border-t-brand-green rounded-full animate-spin" />
+      <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 border-4 border-brand-green/30 border-t-brand-green rounded-full animate-spin mb-6" />
+        <h2 className="text-xl font-bold text-brand-text mb-2">Iniciando Rede de Apoio...</h2>
+        <p className="text-brand-text/40 text-sm max-w-xs mb-8">
+          {isFirebaseConfigured 
+            ? "Estamos preparando seu ambiente seguro e acolhedor." 
+            : "O banco de dados ainda não foi configurado. Você pode entrar no modo de demonstração para testar o app."}
+        </p>
+        
+        {/* Botão de bypass */}
+        <div className="flex flex-col items-center gap-4">
+          <button 
+            onClick={() => {
+              const mockUser = enterDemoMode();
+              setUserProfile(mockUser);
+              setLoading(false);
+            }}
+            className="px-8 py-3 bg-brand-green text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-green/20 hover:scale-105 transition-all"
+          >
+            Entrar no Modo de Demonstração
+          </button>
+          <p className="text-[10px] text-brand-text/40 max-w-[200px] text-center">
+            {isFirebaseConfigured 
+              ? "Se a conexão demorar muito, você pode entrar no modo offline." 
+              : "Recomendado: Use o modo de demonstração enquanto a configuração do Firebase é finalizada."}
+          </p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="text-[10px] text-brand-green underline font-bold uppercase tracking-widest"
+          >
+            Tentar Novamente
+          </button>
+        </div>
       </div>
     );
   }
@@ -1393,9 +1908,26 @@ const AppContent = () => {
 
   return (
     <div className={cn(
-      "min-h-[100dvh] bg-brand-dark relative overflow-hidden",
+      "min-h-[100dvh] bg-brand-bg relative overflow-hidden",
       userProfile?.tipo === 'usuario' ? "max-w-md mx-auto" : "max-w-none"
     )}>
+      {/* Global Theme Toggle */}
+      {!['/login'].includes(location.pathname) && (
+        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
+          {isMockMode() && (
+            <div className="px-3 py-1 bg-brand-green/20 text-brand-green border border-brand-green/30 rounded-full text-[10px] font-bold uppercase tracking-widest animate-pulse">
+              Modo Demo
+            </div>
+          )}
+          <button 
+            onClick={toggleTheme}
+            className="p-3 bg-brand-slate/80 backdrop-blur-xl border border-brand-text/10 rounded-2xl text-brand-green shadow-lg active:scale-90 transition-all"
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         <motion.div 
           key={location.pathname}
@@ -1412,6 +1944,7 @@ const AppContent = () => {
             <Route path="/home" element={<HomePage userProfile={userProfile} />} />
             <Route path="/guided-flow" element={<GuidedFlowPage />} />
             <Route path="/chat" element={<ChatIARAPage />} />
+            <Route path="/direct-chat/:receiverId" element={<DirectChatPage />} />
             <Route path="/terapeutas" element={<TerapeutasPage />} />
             <Route path="/diario" element={<DiarioPage />} />
             <Route path="/perfil" element={<PerfilPage userProfile={userProfile} />} />

@@ -32,6 +32,16 @@ service cloud.firestore {
     //   - status: string (required, enum: ['pending', 'confirmed', 'cancelled', 'completed'])
     //   - createdAt: string (required)
     //
+    // Collection: direct_messages
+    // Document ID: messageId
+    // Fields:
+    //   - id: string (required)
+    //   - senderId: string (required)
+    //   - receiverId: string (required)
+    //   - text: string (required)
+    //   - timestamp: string (required)
+    //   - appointmentId: string (optional)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -77,6 +87,16 @@ service cloud.firestore {
              data.createdAt is string;
     }
 
+    function isValidDirectMessage(data) {
+      return data.keys().hasAll(['id', 'senderId', 'receiverId', 'text', 'timestamp']) &&
+             data.id is string &&
+             data.senderId is string &&
+             data.receiverId is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() <= 2000 &&
+             data.timestamp is string &&
+             (!('appointmentId' in data) || data.appointmentId is string);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -119,6 +139,29 @@ service cloud.firestore {
                       isValidAppointment(request.resource.data) &&
                       (request.auth.uid == resource.data.patientId || 
                        request.auth.uid == resource.data.therapistId || 
+                       isAdmin());
+      
+      // Deleção: Apenas admin
+      allow delete: if isAdmin();
+    }
+
+    match /direct_messages/{messageId} {
+      // Leitura: Se o usuário é o remetente ou o destinatário
+      allow read: if isAuthenticated() && 
+                    (request.auth.uid == resource.data.senderId || 
+                     request.auth.uid == resource.data.receiverId || 
+                     isAdmin());
+      
+      // Criação: Usuário pode enviar se ele for o senderId
+      allow create: if isAuthenticated() && 
+                      isValidDirectMessage(request.resource.data) &&
+                      request.resource.data.senderId == request.auth.uid;
+      
+      // Atualização: Apenas se for o destinatário ou remetente (ex: marcar como lida ou editar)
+      allow update: if isAuthenticated() && 
+                      isValidDirectMessage(request.resource.data) &&
+                      (request.auth.uid == resource.data.receiverId || 
+                       request.auth.uid == resource.data.senderId || 
                        isAdmin());
       
       // Deleção: Apenas admin

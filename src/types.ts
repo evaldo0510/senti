@@ -3,6 +3,7 @@ export interface Message {
   text: string;
   sender: 'user' | 'iara';
   timestamp: Date;
+  audioUrl?: string;
 }
 
 export interface MoodEntry {
@@ -32,6 +33,15 @@ export interface Appointment {
   slot: string; // '09:00'
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   createdAt: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  text: string;
+  timestamp: string; // ISO string
+  appointmentId?: string;
 }
 
 export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow' | 'sensorial' | 'login' | 'dashboard' | 'terapeuta-panel' | 'empresa-panel' | 'prefeitura-panel';

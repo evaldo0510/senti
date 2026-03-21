@@ -48,6 +48,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "patientId", "therapistId", "date", "slot", "status", "createdAt"]
+    },
+    "direct_messages": {
+      "title": "DirectMessage",
+      "description": "Mensagem direta entre paciente e terapeuta",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "appointmentId": { "type": "string" }
+      },
+      "required": ["id", "senderId", "receiverId", "text", "timestamp"]
     }
   },
   "firestore": {
@@ -58,6 +72,10 @@
     "/appointments/{appointmentId}": {
       "schema": "appointments",
       "description": "Coleção de agendamentos"
+    },
+    "/direct_messages/{messageId}": {
+      "schema": "direct_messages",
+      "description": "Coleção de mensagens diretas"
     }
   }
 }

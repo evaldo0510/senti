@@ -212,6 +212,13 @@ export const TerapeutaPage: React.FC = () => {
                           {new Date(appointment.date).toLocaleDateString('pt-BR')} às {appointment.slot}
                         </td>
                         <td className="px-6 py-4 text-right space-x-2">
+                          <button 
+                            onClick={() => navigate(`/direct-chat/${appointment.patientId}`)}
+                            className="text-brand-green p-2 hover:bg-brand-green/10 rounded-lg transition-all"
+                            title="Conversar"
+                          >
+                            <MessageSquare size={18} />
+                          </button>
                           {appointment.status === 'pending' && (
                             <button 
                               onClick={() => handleStatusUpdate(appointment.id, 'confirmed')}
