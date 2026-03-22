@@ -1,8 +1,16 @@
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, onSnapshot, orderBy } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from './firebase';
-import { MoodEntry, Therapist, Appointment, UserProfile } from '../types';
+import { MoodEntry, Appointment, UserProfile, UserType } from '../types';
+import { MOCK_THERAPISTS } from './mockData';
+import { auth } from './firebase';
 
 const STORAGE_KEY_MOOD = 'iara_mood_history';
+const STORAGE_KEY_THERAPISTS = 'iara_therapists';
+const STORAGE_KEY_APPOINTMENTS = 'iara_appointments';
+const STORAGE_KEY_USER_PROFILE = 'iara_user_profile';
+
+// Initialize mock data if not present
+if (!localStorage.getItem(STORAGE_KEY_THERAPISTS)) {
+  localStorage.setItem(STORAGE_KEY_THERAPISTS, JSON.stringify(MOCK_THERAPISTS));
+}
 
 export const userService = {
   saveMood: (value: number, note?: string) => {
@@ -27,116 +35,110 @@ export const userService = {
   },
 
   getUser: () => {
+    const data = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
+    if (data) return JSON.parse(data);
     return { name: 'Usuário' };
   },
 
   getTherapists: async (): Promise<UserProfile[]> => {
-    const q = query(collection(db, "users"), where("tipo", "==", "terapeuta"));
-    try {
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => doc.data() as UserProfile);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, "users");
-      return [];
-    }
+    const data = localStorage.getItem(STORAGE_KEY_THERAPISTS);
+    return data ? JSON.parse(data) : MOCK_THERAPISTS;
   },
 
   createAppointment: async (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
-    const newAppointment = {
+    const appointments = await userService.getAppointments();
+    const newAppointment: Appointment = {
       ...appointment,
+      id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       status: 'pending' as const
     };
-    try {
-      const docRef = await addDoc(collection(db, "appointments"), newAppointment);
-      await updateDoc(docRef, { id: docRef.id });
-      return { ...newAppointment, id: docRef.id };
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, "appointments");
-      throw error;
-    }
+    const updated = [...appointments, newAppointment];
+    localStorage.setItem(STORAGE_KEY_APPOINTMENTS, JSON.stringify(updated));
+    window.dispatchEvent(new Event('storage'));
+    return newAppointment;
+  },
+
+  getAppointments: async (): Promise<Appointment[]> => {
+    const data = localStorage.getItem(STORAGE_KEY_APPOINTMENTS);
+    return data ? JSON.parse(data) : [];
   },
 
   getMyAppointments: (callback: (appointments: Appointment[]) => void) => {
-    if (!auth.currentUser) return () => {};
+    const user = auth.currentUser;
+    if (!user) return () => {};
     
-    const uid = auth.currentUser.uid;
-    // Query for appointments where user is patient OR therapist
-    // Note: Firestore doesn't support OR across different fields easily without complex queries or composite indexes.
-    // For simplicity, we'll listen to both and merge, or just query one for now if we know the user type.
-    // Let's try a simpler approach: query based on current user's role if possible, or just two listeners.
-    
-    const qPatient = query(collection(db, "appointments"), where("patientId", "==", uid), orderBy("date", "desc"));
-    const qTherapist = query(collection(db, "appointments"), where("therapistId", "==", uid), orderBy("date", "desc"));
-
-    let patientApps: Appointment[] = [];
-    let therapistApps: Appointment[] = [];
-
-    const update = () => {
-      const merged = [...patientApps, ...therapistApps].sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
-      callback(merged);
+    const uid = user.uid;
+    const update = async () => {
+      const appointments = await userService.getAppointments();
+      const filtered = appointments.filter(a => a.patientId === uid || a.therapistId === uid)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      callback(filtered);
     };
 
-    const unsubPatient = onSnapshot(qPatient, (snapshot) => {
-      patientApps = snapshot.docs.map(doc => doc.data() as Appointment);
-      update();
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "appointments"));
-
-    const unsubTherapist = onSnapshot(qTherapist, (snapshot) => {
-      therapistApps = snapshot.docs.map(doc => doc.data() as Appointment);
-      update();
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "appointments"));
+    update();
+    window.addEventListener('storage', update);
+    const intervalId = setInterval(update, 2000); // Polling as fallback
 
     return () => {
-      unsubPatient();
-      unsubTherapist();
+      window.removeEventListener('storage', update);
+      clearInterval(intervalId);
     };
   },
 
   updateAppointmentStatus: async (id: string, status: Appointment['status']) => {
-    const docRef = doc(db, "appointments", id);
-    try {
-      await updateDoc(docRef, { status });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `appointments/${id}`);
-    }
+    const appointments = await userService.getAppointments();
+    const updated = appointments.map(a => a.id === id ? { ...a, status } : a);
+    localStorage.setItem(STORAGE_KEY_APPOINTMENTS, JSON.stringify(updated));
+    window.dispatchEvent(new Event('storage'));
   },
 
   toggleFavorite: async (userId: string, therapistId: string, currentFavorites: string[] = []) => {
-    const docRef = doc(db, "users", userId);
     const isFavorited = currentFavorites.includes(therapistId);
     const newFavorites = isFavorited 
       ? currentFavorites.filter(id => id !== therapistId)
       : [...currentFavorites, therapistId];
     
-    try {
-      await updateDoc(docRef, { favoritos: newFavorites });
-      return newFavorites;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
-      throw error;
-    }
+    // Update local profile
+    const profile = userService.getUser();
+    const updatedProfile = { ...profile, favoritos: newFavorites };
+    localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(updatedProfile));
+    
+    return newFavorites;
   },
 
   addReview: async (therapistId: string, currentReviews: any[] = [], review: any) => {
-    const docRef = doc(db, "users", therapistId);
-    const newReviews = [...currentReviews, review];
-    
-    // Calculate new average rating
+    const therapists = await userService.getTherapists();
+    const therapist = therapists.find(t => t.uid === therapistId);
+    if (!therapist) return { newReviews: currentReviews, averageRating: 0 };
+
+    const newReviews = [...(therapist.avaliacoes || []), review];
     const totalRating = newReviews.reduce((sum, r) => sum + r.nota, 0);
     const averageRating = totalRating / newReviews.length;
 
-    try {
-      await updateDoc(docRef, { 
-        avaliacoes: newReviews,
-        rating: averageRating
-      });
-      return { newReviews, averageRating };
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${therapistId}`);
-      throw error;
-    }
+    const updatedTherapists = therapists.map(t => 
+      t.uid === therapistId 
+        ? { ...t, avaliacoes: newReviews, rating: averageRating } 
+        : t
+    );
+    localStorage.setItem(STORAGE_KEY_THERAPISTS, JSON.stringify(updatedTherapists));
+    
+    return { newReviews, averageRating };
+  },
+
+  // Mock login/signup for the app
+  mockLogin: (email: string, type: UserType) => {
+    const uid = `user-${crypto.randomUUID()}`;
+    const userProfile: UserProfile = {
+      uid,
+      nome: email.split('@')[0],
+      email,
+      tipo: type,
+      createdAt: new Date().toISOString(),
+      favoritos: []
+    };
+    localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(userProfile));
+    localStorage.setItem('iara_mock_user', JSON.stringify({ uid, email }));
+    return userProfile;
   }
 };

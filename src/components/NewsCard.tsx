@@ -45,8 +45,9 @@ export const NewsCard: React.FC<NewsCardProps> = ({
 
   return (
     <motion.div 
-      whileHover={{ y: -4 }}
-      className="glass-card overflow-hidden rounded-2xl flex flex-col h-full transition-all hover:shadow-lg"
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="glass-card overflow-hidden rounded-2xl flex flex-col h-full transition-all hover:shadow-2xl hover:shadow-brand-green/10 border border-white/5"
     >
       {imageUrl && (
         <div className="w-full h-48 overflow-hidden">

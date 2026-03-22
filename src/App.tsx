@@ -31,7 +31,6 @@ import {
   Search,
   History
 } from 'lucide-react';
-import { onAuthStateChanged } from 'firebase/auth';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -49,7 +48,6 @@ import { getIARAResponse, generateSpeech } from './services/geminiService';
 import { userService } from './services/userService';
 import { chatService } from './services/chatService';
 import { auth, getUserProfile, logout, isMockMode, getAuthenticatedUser, enterDemoMode } from './services/authService';
-import firebaseConfig from '../firebase-applet-config.json';
 import { AppRoute, Message, MoodEntry, Therapist, UserProfile, DirectMessage } from './types';
 import { cn, blobToBase64 } from './lib/utils';
 
@@ -1701,6 +1699,7 @@ const DiarioPage = () => {
 const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
   const navigate = useNavigate();
   const [favoriteTherapists, setFavoriteTherapists] = useState<UserProfile[]>([]);
+  const [moodHistory, setMoodHistory] = useState<MoodEntry[]>([]);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -1713,6 +1712,7 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
       }
     };
     fetchFavorites();
+    setMoodHistory(userService.getMoodHistory());
   }, [userProfile?.favoritos]);
 
   const handleLogout = async () => {
@@ -1720,66 +1720,117 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
     navigate('/login');
   };
 
+  // Process data for the chart (last 7 days)
+  const chartData = moodHistory
+    .slice(-7)
+    .map(entry => ({
+      date: format(entry.timestamp, 'dd/MM'),
+      value: entry.value
+    }));
+
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="p-6 pb-24 space-y-8"
+      className="p-6 pb-24 space-y-8 min-h-screen bg-[#0F172A] text-slate-100"
     >
       <header className="text-center space-y-4">
-        <div className="w-24 h-24 bg-brand-olive/10 rounded-full mx-auto flex items-center justify-center text-brand-olive border-2 border-brand-olive/20 shadow-inner">
+        <div className="w-24 h-24 bg-white/5 rounded-full mx-auto flex items-center justify-center text-brand-green border-2 border-white/10 shadow-inner">
           <User size={48} />
         </div>
         <div>
-          <h1 className="text-3xl font-serif">{userProfile?.nome || 'Usuário'}</h1>
-          <p className="text-brand-ink/60 text-sm">Membro desde {userProfile ? format(new Date(userProfile.createdAt), 'MMMM yyyy', { locale: ptBR }) : 'Março 2026'}</p>
+          <h1 className="text-3xl font-serif text-white">{userProfile?.nome || 'Usuário'}</h1>
+          <p className="text-slate-400 text-sm">Membro desde {userProfile ? format(new Date(userProfile.createdAt), 'MMMM yyyy', { locale: ptBR }) : 'Março 2026'}</p>
         </div>
       </header>
 
-      {/* Strategic Dashboard (Mock Metrics) */}
+      {/* Strategic Dashboard (Mood History Chart) */}
       <section className="space-y-4">
-        <h3 className="text-xl font-serif flex items-center gap-2">
-          <TrendingUp size={20} className="text-brand-sage" />
+        <h3 className="text-xl font-serif flex items-center gap-2 text-slate-200">
+          <TrendingUp size={20} className="text-brand-green" />
           Impacto da sua Jornada
         </h3>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="glass-card p-4 rounded-3xl text-center space-y-1">
-            <p className="text-2xl font-serif font-bold text-brand-olive">12</p>
-            <p className="text-[10px] uppercase tracking-widest text-brand-ink/40">Crises Reguladas</p>
+        
+        <div className="bg-slate-800/40 backdrop-blur-xl border border-slate-700/50 p-6 rounded-[2rem] space-y-6 shadow-2xl">
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)' }}
+                  dy={10}
+                />
+                <YAxis 
+                  hide 
+                  domain={[0, 10]} 
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1E293B', 
+                    borderRadius: '12px', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                    fontSize: '12px',
+                    color: '#fff'
+                  }}
+                  itemStyle={{ color: '#22C55E', fontWeight: 'bold' }}
+                  labelStyle={{ color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="value" 
+                  stroke="#22C55E" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#22C55E', strokeWidth: 2, stroke: '#0F172A' }}
+                  activeDot={{ r: 6, strokeWidth: 0 }}
+                  animationDuration={1500}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
-          <div className="glass-card p-4 rounded-3xl text-center space-y-1">
-            <p className="text-2xl font-serif font-bold text-brand-olive">45m</p>
-            <p className="text-[10px] uppercase tracking-widest text-brand-ink/40">Tempo de Calma</p>
-          </div>
-          <div className="glass-card p-4 rounded-3xl text-center space-y-1">
-            <p className="text-2xl font-serif font-bold text-brand-olive">8</p>
-            <p className="text-[10px] uppercase tracking-widest text-brand-ink/40">Reflexões Salvas</p>
-          </div>
-          <div className="glass-card p-4 rounded-3xl text-center space-y-1">
-            <p className="text-2xl font-serif font-bold text-brand-olive">92%</p>
-            <p className="text-[10px] uppercase tracking-widest text-brand-ink/40">Taxa de Resgate</p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-slate-900/40 p-4 rounded-3xl text-center space-y-1 border border-white/5">
+              <p className="text-2xl font-serif font-bold text-brand-green">12</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Crises Reguladas</p>
+            </div>
+            <div className="bg-slate-900/40 p-4 rounded-3xl text-center space-y-1 border border-white/5">
+              <p className="text-2xl font-serif font-bold text-brand-green">45m</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Tempo de Calma</p>
+            </div>
+            <div className="bg-slate-900/40 p-4 rounded-3xl text-center space-y-1 border border-white/5">
+              <p className="text-2xl font-serif font-bold text-brand-green">8</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Reflexões Salvas</p>
+            </div>
+            <div className="bg-slate-900/40 p-4 rounded-3xl text-center space-y-1 border border-white/5">
+              <p className="text-2xl font-serif font-bold text-brand-green">92%</p>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Taxa de Resgate</p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* B2B / B2G Pitch Section */}
-      <section className="glass-card p-6 rounded-[2rem] bg-brand-sage/10 border-brand-sage/20 border space-y-4">
-        <div className="flex items-center gap-2 text-brand-sage">
+      <section className="bg-brand-green/5 border-brand-green/20 border p-6 rounded-[2rem] space-y-4">
+        <div className="flex items-center gap-2 text-brand-green">
           <Users size={20} />
           <h3 className="font-serif text-lg">IARA para Organizações</h3>
         </div>
-        <p className="text-xs text-brand-ink/70 leading-relaxed">
+        <p className="text-xs text-slate-400 leading-relaxed">
           Leve o Pronto Socorro Emocional para sua empresa ou cidade. Reduza o burnout e ofereça acolhimento imediato com tecnologia PCH.
         </p>
-        <Button variant="secondary" className="w-full text-xs py-2 border-brand-sage/30 text-brand-sage">
+        <Button variant="secondary" className="w-full text-xs py-2 border-brand-green/30 text-brand-green hover:bg-brand-green/10">
           Solicitar Proposta B2B/B2G
         </Button>
       </section>
 
       {/* Favorite Therapists Section */}
       <section className="space-y-4">
-        <h3 className="text-xl font-serif flex items-center gap-2">
-          <Heart size={20} className="text-brand-sage" />
+        <h3 className="text-xl font-serif flex items-center gap-2 text-slate-200">
+          <Heart size={20} className="text-brand-green" />
           Terapeutas Favoritos
         </h3>
         {favoriteTherapists.length > 0 ? (
@@ -1790,9 +1841,9 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
                 whileTap={{ scale: 0.98 }}
                 key={t.uid} 
                 onClick={() => navigate(`/terapeutas`)}
-                className="glass-card p-4 rounded-[1.5rem] flex items-center gap-4 cursor-pointer hover:bg-brand-slate/50 transition-all border border-white/5"
+                className="bg-slate-800/40 backdrop-blur-xl p-4 rounded-[1.5rem] flex items-center gap-4 cursor-pointer hover:bg-slate-800/60 transition-all border border-white/5"
               >
-                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-brand-slate">
+                <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-900">
                   <img 
                     src={t.fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${t.uid}`} 
                     alt={t.nome} 
@@ -1800,8 +1851,8 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
                   />
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-bold font-serif">{t.nome}</h4>
-                  <p className="text-xs text-brand-ink/60">{t.especialidades?.[0] || 'Terapeuta'}</p>
+                  <h4 className="font-bold font-serif text-white">{t.nome}</h4>
+                  <p className="text-xs text-slate-400">{t.especialidades?.[0] || 'Terapeuta'}</p>
                 </div>
                 <div className="text-brand-green">
                   <Heart size={20} fill="currentColor" />
@@ -1810,8 +1861,8 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
             ))}
           </div>
         ) : (
-          <div className="glass-card p-6 rounded-[2rem] text-center space-y-2">
-            <p className="text-brand-ink/60 text-sm">Você ainda não tem terapeutas favoritos.</p>
+          <div className="bg-slate-800/40 p-6 rounded-[2rem] text-center space-y-2 border border-white/5">
+            <p className="text-slate-400 text-sm">Você ainda não tem terapeutas favoritos.</p>
             <Button variant="secondary" onClick={() => navigate('/terapeutas')} className="text-xs py-2">
               Encontrar Terapeutas
             </Button>
@@ -1820,13 +1871,13 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
       </section>
 
       <div className="space-y-3">
-        <Button variant="secondary" className="w-full justify-start px-6" onClick={() => navigate('/home')}>
+        <Button variant="secondary" className="w-full justify-start px-6 bg-slate-800/40 border-slate-700 text-slate-200" onClick={() => navigate('/home')}>
           <Heart size={18} className="mr-2" /> Configurações de Privacidade
         </Button>
-        <Button variant="secondary" className="w-full justify-start px-6" onClick={() => navigate('/home')}>
+        <Button variant="secondary" className="w-full justify-start px-6 bg-slate-800/40 border-slate-700 text-slate-200" onClick={() => navigate('/home')}>
           <ShieldAlert size={18} className="mr-2" /> Termos e Ética PCH
         </Button>
-        <Button variant="ghost" className="w-full text-red-500 hover:bg-red-50" onClick={handleLogout}>
+        <Button variant="ghost" className="w-full text-red-400 hover:bg-red-400/10" onClick={handleLogout}>
           Sair da Conta
         </Button>
       </div>
@@ -2079,31 +2130,17 @@ const AppContent = () => {
       }
     }, 5000);
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Se já estivermos em modo mock, não sobrescrevemos
-      if (isMockMode()) {
-        setLoading(false);
-        return;
-      }
-
+    const unsubscribe = auth.onAuthStateChanged(async (user: any) => {
       try {
         const currentUser = user || getAuthenticatedUser();
         if (currentUser) {
           const profile = await getUserProfile(currentUser.uid);
           setUserProfile(profile);
-          if (location.pathname === '/login' || location.pathname === '/') {
-            navigate('/dashboard');
-          }
         } else {
           setUserProfile(null);
-          if (location.pathname !== '/login') {
-            navigate('/login');
-          }
         }
       } catch (e) {
         console.error("Auth state change error:", e);
-        // Em caso de erro, permitimos que o app continue (possivelmente em modo mock)
-        setLoading(false);
       } finally {
         setLoading(false);
         clearTimeout(timeoutId);
@@ -2116,43 +2153,14 @@ const AppContent = () => {
     };
   }, [navigate, location.pathname]);
 
-  const isFirebaseConfigured = firebaseConfig.apiKey !== "SUA_KEY";
-
   if (loading) {
     return (
       <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-6 text-center">
         <div className="w-12 h-12 border-4 border-brand-green/30 border-t-brand-green rounded-full animate-spin mb-6" />
         <h2 className="text-xl font-bold text-brand-text mb-2">Iniciando Rede de Apoio...</h2>
         <p className="text-brand-text/40 text-sm max-w-xs mb-8">
-          {isFirebaseConfigured 
-            ? "Estamos preparando seu ambiente seguro e acolhedor." 
-            : "O banco de dados ainda não foi configurado. Você pode entrar no modo de demonstração para testar o app."}
+          Estamos preparando seu ambiente seguro e acolhedor.
         </p>
-        
-        {/* Botão de bypass */}
-        <div className="flex flex-col items-center gap-4">
-          <button 
-            onClick={() => {
-              const mockUser = enterDemoMode();
-              setUserProfile(mockUser);
-              setLoading(false);
-            }}
-            className="px-8 py-3 bg-brand-green text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-green/20 hover:scale-105 transition-all"
-          >
-            Entrar no Modo de Demonstração
-          </button>
-          <p className="text-[10px] text-brand-text/40 max-w-[200px] text-center">
-            {isFirebaseConfigured 
-              ? "Se a conexão demorar muito, você pode entrar no modo offline." 
-              : "Recomendado: Use o modo de demonstração enquanto a configuração do Firebase é finalizada."}
-          </p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="text-[10px] text-brand-green underline font-bold uppercase tracking-widest"
-          >
-            Tentar Novamente
-          </button>
-        </div>
       </div>
     );
   }

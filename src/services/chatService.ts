@@ -1,22 +1,20 @@
-import { 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  onSnapshot, 
-  Timestamp,
-  serverTimestamp,
-  doc,
-  setDoc
-} from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "./firebase";
 import { DirectMessage } from "../types";
+
+const STORAGE_KEY = 'mock_direct_messages';
+
+const getMessages = (): DirectMessage[] => {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return stored ? JSON.parse(stored) : [];
+};
+
+const saveMessages = (messages: DirectMessage[]) => {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+};
 
 export const chatService = {
   sendMessage: async (senderId: string, receiverId: string, text: string, appointmentId?: string) => {
     const messageId = Date.now().toString();
-    const messageData = {
+    const messageData: DirectMessage = {
       id: messageId,
       senderId,
       receiverId,
@@ -25,50 +23,55 @@ export const chatService = {
       appointmentId: appointmentId || null
     };
 
-    try {
-      await setDoc(doc(db, "direct_messages", messageId), messageData);
-      return messageId;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `direct_messages/${messageId}`);
-      throw error;
-    }
+    const messages = getMessages();
+    messages.push(messageData);
+    saveMessages(messages);
+    
+    // Simulate real-time update by triggering a storage event
+    window.dispatchEvent(new Event('storage'));
+    
+    return messageId;
   },
 
   listenMessages: (userId: string, otherId: string, callback: (messages: DirectMessage[]) => void) => {
-    // We need to listen to messages where (sender=userId AND receiver=otherId) OR (sender=otherId AND receiver=userId)
-    // Firestore doesn't support OR across different fields easily in a single query without complex indexes.
-    // A common workaround is to have a conversationId = [id1, id2].sort().join('_')
-    
-    // For now, let's try a simpler approach if possible, or use two listeners.
-    // Actually, let's use the conversationId approach for efficiency.
-    
-    const q = query(
-      collection(db, "direct_messages"),
-      where("senderId", "in", [userId, otherId]),
-      where("receiverId", "in", [userId, otherId]),
-      orderBy("timestamp", "asc")
-    );
+    const updateMessages = () => {
+      const allMessages = getMessages();
+      const filtered = allMessages.filter(m => 
+        (m.senderId === userId && m.receiverId === otherId) ||
+        (m.senderId === otherId && m.receiverId === userId)
+      ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      
+      callback(filtered);
+    };
 
-    return onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => doc.data() as DirectMessage);
-      callback(messages);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "direct_messages");
-    });
+    updateMessages();
+    window.addEventListener('storage', updateMessages);
+    
+    // Also poll every second as a fallback for the same-window updates
+    const intervalId = setInterval(updateMessages, 1000);
+
+    return () => {
+      window.removeEventListener('storage', updateMessages);
+      clearInterval(intervalId);
+    };
   },
 
   listenMessagesByAppointment: (appointmentId: string, callback: (messages: DirectMessage[]) => void) => {
-    const q = query(
-      collection(db, "direct_messages"),
-      where("appointmentId", "==", appointmentId),
-      orderBy("timestamp", "asc")
-    );
+    const updateMessages = () => {
+      const allMessages = getMessages();
+      const filtered = allMessages.filter(m => m.appointmentId === appointmentId)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      
+      callback(filtered);
+    };
 
-    return onSnapshot(q, (snapshot) => {
-      const messages = snapshot.docs.map(doc => doc.data() as DirectMessage);
-      callback(messages);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, "direct_messages");
-    });
+    updateMessages();
+    window.addEventListener('storage', updateMessages);
+    const intervalId = setInterval(updateMessages, 1000);
+
+    return () => {
+      window.removeEventListener('storage', updateMessages);
+      clearInterval(intervalId);
+    };
   }
 };

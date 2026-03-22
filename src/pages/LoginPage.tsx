@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { LogIn, UserPlus, Mail, Lock, User as UserIcon, ShieldCheck, Zap, Building2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { auth, isFirebaseOffline } from '../services/firebase';
+import { auth } from '../services/firebase';
 import { login, registrar, enterDemoMode } from '../services/authService';
 import { UserType } from '../types';
 import { cn } from '../lib/utils';
@@ -125,7 +125,7 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          {(!isLogin || isFirebaseOffline) && (
+          {(!isLogin) && (
             <div className="space-y-1">
               <label className="text-xs font-bold uppercase tracking-widest text-brand-text/40 ml-1">Tipo de Perfil</label>
               <select
@@ -141,13 +141,6 @@ export const LoginPage: React.FC = () => {
             </div>
           )}
 
-          {isFirebaseOffline && (
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs text-center space-y-2">
-              <p className="font-bold">⚠️ Conexão Limitada</p>
-              <p>O sistema está operando em modo offline. Use o botão de demonstração abaixo para acessar.</p>
-            </div>
-          )}
-
           {error && (
             <div className="p-3 rounded-lg bg-brand-red/10 border border-brand-red/20 text-brand-red text-xs text-center">
               {error}
@@ -156,7 +149,7 @@ export const LoginPage: React.FC = () => {
 
           <button
             type="submit"
-            disabled={loading || isFirebaseOffline}
+            disabled={loading}
             className="w-full bg-brand-green text-white font-bold py-4 rounded-xl shadow-lg shadow-brand-green/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:scale-100"
           >
             {loading ? (
@@ -174,7 +167,7 @@ export const LoginPage: React.FC = () => {
               <div className="w-full border-t border-brand-text/10"></div>
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-brand-bg px-2 text-brand-text/40">Recomendado</span>
+              <span className="bg-brand-bg px-2 text-brand-text/40">Acesso Rápido</span>
             </div>
           </div>
 
@@ -184,14 +177,9 @@ export const LoginPage: React.FC = () => {
               enterDemoMode(userType);
               navigate('/dashboard');
             }}
-            className={cn(
-              "w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 border-2",
-              isFirebaseOffline 
-                ? "bg-brand-green text-white border-brand-green shadow-lg animate-pulse" 
-                : "bg-brand-slate text-brand-text border-brand-text/10 hover:bg-brand-slate/80"
-            )}
+            className="w-full font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 border-2 bg-brand-slate text-brand-text border-brand-text/10 hover:bg-brand-slate/80"
           >
-            <Zap size={20} className={isFirebaseOffline ? "text-white" : "text-brand-green"} />
+            <Zap size={20} className="text-brand-green" />
             Acessar Modo de Demonstração
           </button>
         </form>
