@@ -68,6 +68,7 @@ export async function getIARAResponse(
         systemInstruction: `${IARA_SYSTEM_INSTRUCTION}\n\nESTADO ATUAL DO USUÁRIO: ${risk.toUpperCase()}.\n${risk === 'alto' ? 'URGENTE: O usuário demonstrou sinais de alto risco. Priorize acolhimento extremo, segurança e sugira ajuda profissional imediata (CVV 188) mantendo o tom PCH.' : ''}`,
         temperature: 0.8,
         topP: 0.95,
+        tools: [{ googleSearch: {} }],
       },
     });
 
@@ -103,6 +104,36 @@ export async function generateSpeech(text: string) {
     return base64Audio;
   } catch (error) {
     console.error("Erro ao gerar voz:", error);
+    return null;
+  }
+}
+
+export async function generateImage(prompt: string) {
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            text: `Gere uma imagem sensorial e calmante baseada neste conceito: ${prompt}. A imagem deve ser abstrata, suave, com cores relaxantes e sem figuras humanas nítidas. Estilo: arte digital etérea, minimalista.`,
+          },
+        ],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9",
+        },
+      },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Erro ao gerar imagem:", error);
     return null;
   }
 }

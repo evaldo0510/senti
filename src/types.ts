@@ -4,6 +4,7 @@ export interface Message {
   sender: 'user' | 'iara';
   timestamp: Date;
   audioUrl?: string;
+  suggestions?: { label: string; action: string }[];
 }
 
 export interface MoodEntry {

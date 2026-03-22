@@ -29,7 +29,10 @@ import {
   MessageSquare,
   Send,
   Search,
-  History
+  History,
+  X,
+  Menu,
+  ShieldCheck
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
@@ -44,14 +47,15 @@ import {
   useParams
 } from 'react-router-dom';
 
-import { getIARAResponse, generateSpeech } from './services/geminiService';
+import { getIARAResponse, generateSpeech, generateImage } from './services/geminiService';
 import { userService } from './services/userService';
 import { chatService } from './services/chatService';
 import { auth, getUserProfile, logout, isMockMode, getAuthenticatedUser, enterDemoMode } from './services/authService';
-import { AppRoute, Message, MoodEntry, Therapist, UserProfile, DirectMessage } from './types';
+import { AppRoute, Message, MoodEntry, Therapist, UserProfile, DirectMessage, Appointment } from './types';
 import { cn, blobToBase64 } from './lib/utils';
 
 import { LoginPage } from './pages/LoginPage';
+import { LandingPage } from './pages/LandingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TerapeutaPage } from './pages/TerapeutaPage';
 import { EmpresaPage } from './pages/EmpresaPage';
@@ -89,8 +93,14 @@ const Button = ({
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   
   const activeRoute = location.pathname.split('/')[1] || 'dashboard';
+
+  // Close menu automatically when route changes
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [location.pathname]);
 
   const navItems = [
     { id: 'dashboard', path: '/dashboard', icon: Heart, label: 'Início' },
@@ -101,37 +111,173 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-brand-bg/90 backdrop-blur-xl border-t border-brand-text/10 pt-2 pb-8 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-      <div className="max-w-lg mx-auto flex justify-around items-stretch">
-        {navItems.map((item) => (
+    <>
+      {/* Mobile Top Bar (Optional but good for accessibility) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-brand-bg/80 backdrop-blur-xl border-b border-brand-text/5 z-40 flex items-center justify-between px-6">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-brand-green/20 text-brand-green flex items-center justify-center">
+            <ShieldCheck size={18} />
+          </div>
+          <span className="font-serif font-bold text-brand-text">PSE</span>
+        </div>
+        <button 
+          onClick={() => setIsMenuOpen(true)}
+          className="p-2 text-brand-text/60 hover:text-brand-green transition-colors"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-brand-bg/95 backdrop-blur-xl border-t border-brand-text/10 pt-2 pb-8 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+        <div className="max-w-lg mx-auto flex justify-around items-stretch px-2">
+          {navItems.slice(0, 4).map((item) => (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.path)}
+              aria-label={item.label}
+              aria-current={activeRoute === item.id ? 'page' : undefined}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-1 transition-all relative min-h-[56px]',
+                activeRoute === item.id ? 'text-brand-green' : 'text-brand-text/40 hover:text-brand-text/60'
+              )}
+            >
+              <item.icon size={24} strokeWidth={activeRoute === item.id ? 2.5 : 2} />
+              <span className={cn(
+                "text-[9px] font-bold uppercase tracking-widest transition-all hidden xs:block",
+                activeRoute === item.id ? "opacity-100" : "opacity-60"
+              )}>
+                {item.label}
+              </span>
+              {activeRoute === item.id && (
+                <motion.div 
+                  layoutId="nav-indicator-mobile"
+                  className="absolute top-0 w-1 h-1 bg-brand-green rounded-full"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+            </button>
+          ))}
+          
           <button
-            key={item.id}
-            onClick={() => navigate(item.path)}
-            aria-label={item.label}
-            aria-current={activeRoute === item.id ? 'page' : undefined}
+            onClick={() => setIsMenuOpen(true)}
             className={cn(
-              'flex-1 flex flex-col items-center justify-center gap-1 transition-all relative min-h-[56px]',
-              activeRoute === item.id ? 'text-brand-green' : 'text-brand-text/40 hover:text-brand-text/60'
+              "flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] transition-all",
+              isMenuOpen ? "text-brand-green" : "text-brand-text/40 hover:text-brand-text/60"
             )}
           >
-            <item.icon size={24} strokeWidth={activeRoute === item.id ? 2.5 : 2} />
-            <span className={cn(
-              "text-[10px] font-bold uppercase tracking-widest transition-all",
-              activeRoute === item.id ? "opacity-100" : "opacity-60"
-            )}>
-              {item.label}
-            </span>
-            {activeRoute === item.id && (
-              <motion.div 
-                layoutId="nav-indicator"
-                className="absolute top-0 w-1 h-1 bg-brand-green rounded-full"
-                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              />
-            )}
+            <Menu size={24} />
+            <span className="text-[9px] font-bold uppercase tracking-widest hidden xs:block">Menu</span>
           </button>
-        ))}
-      </div>
-    </nav>
+        </div>
+      </nav>
+
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0, x: '100%' }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: '100%' }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="md:hidden fixed inset-0 z-[60] bg-brand-bg/98 backdrop-blur-3xl p-8 flex flex-col"
+          >
+            <div className="flex justify-between items-center mb-12">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-green/20 text-brand-green flex items-center justify-center">
+                  <ShieldCheck size={24} />
+                </div>
+                <h2 className="text-2xl font-serif font-bold">Menu</h2>
+              </div>
+              <button 
+                onClick={() => setIsMenuOpen(false)}
+                className="p-3 bg-brand-slate rounded-2xl text-brand-text/40 hover:text-brand-text transition-all"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="flex-1 space-y-4 overflow-y-auto pb-20">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    navigate(item.path);
+                    // setIsMenuOpen(false); // Handled by useEffect, but good to keep for immediate feedback
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-6 p-6 rounded-[2rem] transition-all",
+                    activeRoute === item.id 
+                      ? "bg-brand-green/10 text-brand-green" 
+                      : "bg-brand-slate/50 text-brand-text/60 hover:bg-brand-slate"
+                  )}
+                >
+                  <item.icon size={28} strokeWidth={activeRoute === item.id ? 2.5 : 2} />
+                  <span className="text-lg font-medium">{item.label}</span>
+                  {activeRoute === item.id && (
+                    <div className="ml-auto w-2 h-2 rounded-full bg-brand-green" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-auto pt-8 border-t border-brand-text/5 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-brand-text/20">Pronto Socorro Emocional</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Sidebar */}
+      <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-72 bg-brand-bg/50 backdrop-blur-2xl border-r border-brand-text/5 p-8 flex-col z-50">
+        <div className="mb-12 flex items-center gap-3 px-2">
+          <div className="w-10 h-10 rounded-xl bg-brand-green/20 text-brand-green flex items-center justify-center shadow-lg shadow-brand-green/10">
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <h2 className="font-serif text-xl font-bold text-brand-text leading-none">PSE</h2>
+            <p className="text-[8px] uppercase tracking-[0.2em] text-brand-green font-bold mt-1">Rede de Apoio</p>
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-2">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.path)}
+              className={cn(
+                'w-full flex items-center gap-4 p-4 rounded-2xl transition-all group relative',
+                activeRoute === item.id 
+                  ? 'bg-brand-green/10 text-brand-green shadow-inner' 
+                  : 'text-brand-text/40 hover:text-brand-text/60 hover:bg-white/5'
+              )}
+            >
+              <item.icon size={22} strokeWidth={activeRoute === item.id ? 2.5 : 2} />
+              <span className="text-[11px] font-bold uppercase tracking-[0.15em]">
+                {item.label}
+              </span>
+              {activeRoute === item.id && (
+                <motion.div 
+                  layoutId="nav-indicator-desktop"
+                  className="absolute left-0 w-1 h-6 bg-brand-green rounded-r-full"
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-auto pt-8 border-t border-brand-text/5">
+          <div className="glass-card p-4 rounded-2xl bg-brand-indigo/5 border-brand-indigo/10">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-indigo mb-1">Status da Rede</p>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
+              <span className="text-[10px] text-brand-text/60">IARA Online</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+    </>
   );
 };
 
@@ -267,17 +413,21 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-6 pb-24 space-y-8 bg-brand-bg min-h-screen"
+      className="p-8 pb-32 space-y-10 bg-brand-bg min-h-screen max-w-2xl mx-auto"
     >
       {/* Header */}
       <header className="flex justify-between items-center">
         <div className="space-y-1">
-          <h1 className="text-3xl font-serif text-brand-text font-bold">Olá, {userProfile?.nome || 'Visitante'}</h1>
-          <p className="text-brand-text/50 text-sm">Onde a mente encontra o seu lugar.</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-indigo">Bem-vindo de volta</p>
+          <h1 className="text-4xl font-serif text-brand-text font-bold">Olá, {userProfile?.nome || 'Visitante'}</h1>
+          <p className="text-brand-text/40 text-sm">Onde a mente encontra o seu lugar seguro.</p>
         </div>
-        <div className="w-12 h-12 bg-brand-slate rounded-2xl flex items-center justify-center text-brand-green shadow-inner">
-          <Heart size={24} fill="currentColor" />
-        </div>
+        <motion.div 
+          whileHover={{ scale: 1.1, rotate: 5 }}
+          className="w-14 h-14 bg-brand-slate/50 backdrop-blur-xl rounded-2xl flex items-center justify-center text-brand-red shadow-xl border border-brand-text/5"
+        >
+          <Heart size={28} fill="currentColor" />
+        </motion.div>
       </header>
 
       {/* Breathing Exercise Overlay */}
@@ -287,51 +437,51 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-brand-dark flex flex-col items-center justify-center p-8 text-white"
+            className="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-brand-text"
           >
             <div className="relative flex items-center justify-center">
               <motion.div 
                 animate={{ 
-                  scale: [1, 1.8, 1],
-                  opacity: [0.3, 0.6, 0.3]
+                  scale: [1, 2, 1],
+                  opacity: [0.2, 0.4, 0.2]
                 }}
                 transition={{ 
-                  duration: 4, 
+                  duration: 5, 
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
-                className="w-48 h-48 rounded-full bg-brand-green/30 blur-2xl absolute"
+                className="w-64 h-64 rounded-full bg-brand-green/20 blur-3xl absolute"
               />
               <motion.div 
                 animate={{ 
-                  scale: [1, 1.5, 1],
+                  scale: [1, 1.6, 1],
                 }}
                 transition={{ 
-                  duration: 4, 
+                  duration: 5, 
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
-                className="w-40 h-40 rounded-full border-2 border-brand-green flex items-center justify-center"
+                className="w-48 h-48 rounded-full border-4 border-brand-green/30 flex items-center justify-center shadow-2xl shadow-brand-green/10"
               >
-                <div className="w-4 h-4 rounded-full bg-brand-green" />
+                <div className="w-6 h-6 rounded-full bg-brand-green shadow-lg shadow-brand-green/40" />
               </motion.div>
             </div>
             
             <motion.div 
-              key={Math.floor(Date.now() / 4000) % 2}
-              initial={{ opacity: 0, y: 10 }}
+              key={Math.floor(Date.now() / 5000) % 2}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-16 text-center space-y-4"
+              className="mt-20 text-center space-y-4"
             >
-              <h2 className="text-4xl font-serif font-bold tracking-tight">Inspire...</h2>
-              <p className="text-brand-text/40 uppercase tracking-widest text-[10px] font-bold">Sincronize sua respiração</p>
+              <h2 className="text-5xl font-serif font-bold tracking-tight text-brand-text">Inspire...</h2>
+              <p className="text-brand-text/40 uppercase tracking-[0.3em] text-[10px] font-bold">Respire fundo e solte devagar</p>
             </motion.div>
 
             <button 
               onClick={() => setIsBreathing(false)}
-              className="absolute top-8 right-8 text-brand-text/40 hover:text-brand-text transition-colors"
+              className="absolute top-12 right-12 w-12 h-12 rounded-full bg-brand-bg flex items-center justify-center text-brand-text/40 hover:text-brand-text hover:bg-brand-slate transition-all shadow-lg"
             >
-              <ArrowLeft size={24} />
+              <X size={24} />
             </button>
           </motion.div>
         )}
@@ -339,21 +489,21 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
 
       {/* Hero: Pronto Socorro Emocional */}
       <motion.section 
-        whileHover={{ scale: 1.01 }}
-        className="glass-card p-8 rounded-[2.5rem] bg-gradient-to-br from-brand-green to-brand-green/80 text-white shadow-2xl relative overflow-hidden border-none"
+        whileHover={{ scale: 1.01, y: -4 }}
+        className="p-10 rounded-[3rem] bg-gradient-to-br from-brand-green to-brand-green/80 text-white shadow-2xl relative overflow-hidden border border-white/10"
       >
         <div className="relative z-10 space-y-6">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest bg-white/20 w-fit px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest bg-white/20 w-fit px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10">
             <ShieldAlert size={14} />
             Pronto Socorro Emocional
           </div>
-          <h2 className="text-3xl font-serif leading-tight font-bold">Você não precisa carregar tudo sozinho.</h2>
-          <p className="text-white/80 text-sm leading-relaxed">A IARA está pronta para te acolher agora com Poesia Cognitiva Hipnótica.</p>
-          <div className="flex flex-col gap-3 pt-2">
-            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <h2 className="text-4xl font-serif leading-tight font-bold">Você não precisa carregar tudo sozinho.</h2>
+          <p className="text-white/80 text-base leading-relaxed max-w-md">A IARA está pronta para te acolher agora com Poesia Cognitiva Hipnótica.</p>
+          <div className="flex flex-col sm:flex-row gap-4 pt-4">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1">
               <Button 
                 onClick={() => navigate('/guided-flow')}
-                className="w-full bg-white text-brand-dark hover:bg-brand-text border-none py-4 text-lg font-bold"
+                className="w-full bg-white text-brand-dark hover:bg-brand-text border-none py-5 text-lg font-bold rounded-2xl shadow-xl"
               >
                 Preciso de ajuda agora
               </Button>
@@ -362,47 +512,52 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/chat')}
-              className="text-sm text-white/70 hover:text-white transition-colors font-medium"
+              className="px-8 py-5 text-sm text-white/80 hover:text-white transition-colors font-bold uppercase tracking-widest"
             >
               Quero apenas conversar
             </motion.button>
           </div>
         </div>
         {/* Abstract background element */}
-        <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-white/20 rounded-full blur-[80px]" />
+        <div className="absolute -top-20 -left-20 w-48 h-48 bg-brand-indigo/30 rounded-full blur-[60px]" />
       </motion.section>
 
       {/* Breathing Tool */}
       <motion.section 
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ scale: 1.02, y: -4 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => setIsBreathing(true)}
-        className="bg-brand-slate p-6 rounded-[2rem] cursor-pointer hover:bg-brand-slate/80 transition-all flex items-center justify-between border border-white/5 shadow-lg"
+        className="bg-brand-slate/30 backdrop-blur-xl p-8 rounded-[2.5rem] cursor-pointer hover:bg-brand-slate/50 transition-all flex items-center justify-between border border-brand-text/5 shadow-xl"
       >
         <div className="space-y-1">
-          <h3 className="text-xl font-serif font-bold">Pausa para Respirar</h3>
-          <p className="text-brand-text/40 text-sm">60 segundos de calma guiada</p>
+          <h3 className="text-2xl font-serif font-bold text-brand-text">Pausa para Respirar</h3>
+          <p className="text-brand-text/40 text-sm">60 segundos de calma guiada para o seu dia</p>
         </div>
-        <div className="bg-brand-green/10 p-3 rounded-2xl text-brand-green">
-          <Wind size={24} />
+        <div className="bg-brand-green/10 p-4 rounded-2xl text-brand-green border border-brand-green/20 shadow-inner">
+          <Wind size={28} />
         </div>
       </motion.section>
 
       {/* Daily Check-in */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-serif font-bold">Check-in Diário</h3>
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate('/diario')} className="text-sm text-brand-green font-bold">Ver histórico</motion.button>
+      <section className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-2xl font-serif font-bold text-brand-text">Check-in Diário</h3>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate('/diario')} className="text-[10px] font-bold uppercase tracking-widest text-brand-indigo">Ver histórico completo</motion.button>
         </div>
-        <motion.div whileHover={{ scale: 1.01 }} className="glass-card p-6 rounded-[2rem] flex items-center justify-between">
+        <motion.div whileHover={{ scale: 1.01 }} className="glass-card p-8 rounded-[2.5rem] flex items-center justify-between border-brand-text/5">
           <div className="space-y-1">
-            <p className="text-sm text-brand-text/40">Último registro</p>
-            <p className="text-lg font-bold">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-brand-text/40">Último registro</p>
+            <p className="text-2xl font-bold text-brand-text">
               {lastMood ? `Humor: ${lastMood.value}/10` : 'Nenhum registro hoje'}
             </p>
           </div>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button variant="secondary" onClick={() => navigate('/diario')} className="px-4 py-2 text-xs">
+            <Button 
+              variant="secondary" 
+              onClick={() => navigate('/diario')} 
+              className="px-8 py-3 text-[10px] font-bold uppercase tracking-widest rounded-xl bg-brand-indigo/10 text-brand-indigo border-brand-indigo/20 hover:bg-brand-indigo hover:text-white transition-all"
+            >
               {lastMood ? 'Atualizar' : 'Registrar'}
             </Button>
           </motion.div>
@@ -410,13 +565,13 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
       </section>
 
       {/* Notícias do Bem-Estar */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-serif font-bold">Notícias do Bem-Estar</h3>
+      <section className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-2xl font-serif font-bold text-brand-text">Notícias do Bem-Estar</h3>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x">
+        <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar snap-x px-2">
           {mockNews.map((news) => (
-            <div key={news.id} className="min-w-[280px] snap-center">
+            <div key={news.id} className="min-w-[320px] snap-center">
               <NewsCard 
                 title={news.title}
                 description={news.description}
@@ -430,21 +585,21 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
       </section>
 
       {/* Active Chats */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-serif font-bold">Conversas Ativas</h3>
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-sm text-brand-green font-bold">Ver todas</motion.button>
+      <section className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-2xl font-serif font-bold text-brand-text">Conversas Ativas</h3>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="text-[10px] font-bold uppercase tracking-widest text-brand-indigo">Ver todas</motion.button>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {therapists.slice(0, 2).map(t => (
             <motion.div 
-              whileHover={{ scale: 1.02, x: 5 }}
+              whileHover={{ scale: 1.02, x: 8 }}
               whileTap={{ scale: 0.98 }}
               key={t.uid} 
               onClick={() => navigate(`/direct-chat/${t.uid}`)}
-              className="glass-card p-4 rounded-[1.5rem] flex items-center gap-4 cursor-pointer hover:bg-brand-slate/50 transition-all border border-white/5"
+              className="glass-card p-5 rounded-[2rem] flex items-center gap-5 cursor-pointer hover:bg-brand-slate/50 transition-all border-brand-text/5"
             >
-              <div className="w-12 h-12 rounded-2xl overflow-hidden bg-brand-slate">
+              <div className="w-14 h-14 rounded-2xl overflow-hidden bg-brand-slate border border-brand-text/5 shadow-inner">
                 <img 
                   src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} 
                   alt={t.nome} 
@@ -453,73 +608,60 @@ const HomePage = ({ userProfile }: { userProfile: UserProfile | null }) => {
                 />
               </div>
               <div className="flex-1">
-                <h4 className="font-bold text-sm text-brand-text">{t.nome}</h4>
-                <p className="text-[10px] text-brand-text/40 line-clamp-1">Clique para continuar a conversa...</p>
+                <h4 className="font-bold text-brand-text">{t.nome}</h4>
+                <p className="text-xs text-brand-text/40 line-clamp-1">Clique para continuar a conversa...</p>
               </div>
-              <div className="bg-brand-green/10 p-2 rounded-xl text-brand-green">
-                <MessageSquare size={16} />
+              <div className="bg-brand-indigo/10 p-3 rounded-2xl text-brand-indigo border border-brand-indigo/20">
+                <MessageSquare size={20} />
               </div>
             </motion.div>
           ))}
           {therapists.length === 0 && (
-            <p className="text-sm text-brand-text/40 italic py-2">Inicie um agendamento para conversar.</p>
+            <div className="w-full py-10 text-center border-2 border-dashed border-brand-text/5 rounded-[2.5rem]">
+              <p className="text-sm text-brand-text/30 italic">Inicie um agendamento para conversar.</p>
+            </div>
           )}
         </div>
       </section>
 
       {/* Featured Therapists */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xl font-serif font-bold">Terapeutas Online</h3>
-          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate('/terapeutas')} className="text-sm text-brand-green font-bold">Ver todos</motion.button>
+      <section className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+          <h3 className="text-2xl font-serif font-bold text-brand-text">Terapeutas Online</h3>
+          <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => navigate('/terapeutas')} className="text-[10px] font-bold uppercase tracking-widest text-brand-indigo">Ver todos</motion.button>
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar px-2">
           {therapists.map(t => (
             <motion.div 
-              whileHover={{ scale: 1.02, y: -5 }}
+              whileHover={{ scale: 1.02, y: -8 }}
               whileTap={{ scale: 0.98 }}
               key={t.uid} 
-              className="min-w-[180px] glass-card p-5 rounded-[2rem] space-y-4 text-center"
+              className="min-w-[200px] glass-card p-6 rounded-[2.5rem] space-y-5 text-center border-brand-text/5"
             >
-              <div className="relative w-20 h-20 mx-auto">
-                <img src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} alt={t.nome} className="w-full h-full rounded-3xl object-cover border-2 border-brand-green/20" referrerPolicy="no-referrer" />
-                <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-brand-green rounded-full border-2 border-brand-slate" />
+              <div className="relative w-24 h-24 mx-auto">
+                <img src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} alt={t.nome} className="w-full h-full rounded-[2rem] object-cover border-2 border-brand-green/20 shadow-xl" referrerPolicy="no-referrer" />
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-brand-green rounded-full border-4 border-brand-slate shadow-lg" />
               </div>
               <div className="space-y-1">
-                <p className="font-bold text-sm line-clamp-1">{t.nome}</p>
-                <p className="text-[9px] text-brand-text/40 uppercase tracking-widest font-bold">{t.especialidades?.[0] || 'Terapia'}</p>
+                <p className="font-bold text-brand-text line-clamp-1">{t.nome}</p>
+                <p className="text-[10px] text-brand-text/40 uppercase tracking-widest font-bold">{t.especialidades?.[0] || 'Terapia'}</p>
               </div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button variant="secondary" className="w-full py-2 text-[10px] uppercase tracking-widest font-bold" onClick={() => navigate('/terapeutas')}>Agendar</Button>
+                <Button 
+                  variant="secondary" 
+                  className="w-full py-3 text-[10px] uppercase tracking-widest font-bold rounded-xl bg-brand-indigo/10 text-brand-indigo border-brand-indigo/20 hover:bg-brand-indigo hover:text-white transition-all" 
+                  onClick={() => navigate('/terapeutas')}
+                >
+                  Agendar
+                </Button>
               </motion.div>
             </motion.div>
           ))}
           {therapists.length === 0 && (
-            <p className="text-sm text-brand-text/40 italic py-4">Nenhum terapeuta online agora.</p>
-          )}
-        </div>
-      </section>
-
-      {/* My Appointments / Chats */}
-      <section className="space-y-4">
-        <h3 className="text-xl font-serif font-bold">Conversas Ativas</h3>
-        <div className="space-y-3">
-          {therapists.slice(0, 2).map(t => (
-            <div 
-              key={t.uid} 
-              onClick={() => navigate(`/direct-chat/${t.uid}`)}
-              className="glass-card p-4 rounded-2xl flex items-center gap-4 cursor-pointer hover:bg-brand-slate/50 transition-all"
-            >
-              <div className="w-12 h-12 rounded-xl overflow-hidden">
-                <img src={t.fotoUrl || `https://picsum.photos/seed/${t.uid}/200`} alt={t.nome} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-sm">{t.nome}</p>
-                <p className="text-xs text-brand-text/40">Clique para conversar</p>
-              </div>
-              <MessageSquare size={20} className="text-brand-green" />
+            <div className="w-full py-10 text-center border-2 border-dashed border-brand-text/5 rounded-[2.5rem]">
+              <p className="text-sm text-brand-text/30 italic">Nenhum terapeuta online agora.</p>
             </div>
-          ))}
+          )}
         </div>
       </section>
     </motion.div>
@@ -817,7 +959,11 @@ const ChatIARAPage = () => {
   const [showEmergency, setShowEmergency] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const shouldScrollToBottomRef = useRef(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -832,8 +978,47 @@ const ChatIARAPage = () => {
   ]);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (shouldScrollToBottomRef.current && !isLoadingMore) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isLoadingMore]);
+
+  const loadMoreMessages = async () => {
+    if (isLoadingMore || !hasMore) return;
+    
+    setIsLoadingMore(true);
+    shouldScrollToBottomRef.current = false;
+    const container = scrollContainerRef.current;
+    const previousScrollHeight = container?.scrollHeight || 0;
+
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Simulated older messages
+    const olderMessages: Message[] = [
+      { id: `old-${Date.now()}-1`, text: 'Olá! Como posso te ajudar hoje?', sender: 'iara', timestamp: new Date(Date.now() - 3600000 * 2) },
+      { id: `old-${Date.now()}-2`, text: 'Estou me sentindo um pouco sobrecarregado.', sender: 'user', timestamp: new Date(Date.now() - 3600000 * 2 + 60000) },
+    ];
+
+    setMessages(prev => [...olderMessages, ...prev]);
+    setIsLoadingMore(false);
+    
+    // Stop after 3 loads for simulation
+    if (messages.length > 20) setHasMore(false);
+
+    // Adjust scroll position after render to maintain view
+    requestAnimationFrame(() => {
+      if (container) {
+        container.scrollTop = container.scrollHeight - previousScrollHeight;
+      }
+    });
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop === 0 && hasMore && !isLoadingMore) {
+      loadMoreMessages();
+    }
+  };
 
   // Stop audio if voice is disabled
   useEffect(() => {
@@ -943,6 +1128,7 @@ const ChatIARAPage = () => {
     const messageText = textOverride || input;
     if (!messageText.trim() && !audioData) return;
 
+    shouldScrollToBottomRef.current = true;
     const userMsg: Message = {
       id: Date.now().toString(),
       text: messageText || "[Áudio enviado]",
@@ -972,11 +1158,42 @@ const ChatIARAPage = () => {
       setShowBreathing(true);
     }
 
+    // Check for appointment triggers
+    const appointmentTriggers = [
+      'agendamento', 'marcar', 'consulta', 'terapeuta', 'horário', 'agendar', 
+      'data', 'amanhã', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo',
+      'sessão', 'terapia', 'psicólogo', 'psicóloga', 'psiquiatra', 'meio-dia', 'tarde', 'noite', 'manhã'
+    ];
+    const dateRegex = /\d{1,2}\/\d{1,2}|dia \d{1,2}/i;
+    const timeRegex = /\d{1,2}:\d{2}|\d{1,2}h/i;
+    const therapistNames = ['Ana', 'Marcos', 'Beatriz', 'Silva', 'Oliveira', 'Costa'];
+    
+    const hasAppointmentTrigger = messageText && (
+      appointmentTriggers.some(t => messageText.toLowerCase().includes(t)) || 
+      dateRegex.test(messageText) || 
+      timeRegex.test(messageText) ||
+      therapistNames.some(n => messageText.toLowerCase().includes(n.toLowerCase()))
+    );
+
+    const hasAnxietyTrigger = messageText && triggers.some(t => messageText.toLowerCase().includes(t));
+
+    const suggestions = [];
+    if (hasAppointmentTrigger) {
+      suggestions.push(
+        { label: 'Ver meus agendamentos', action: '/perfil' },
+        { label: 'Encontrar um terapeuta', action: '/terapeutas' }
+      );
+    }
+    if (hasAnxietyTrigger) {
+      suggestions.push({ label: '✨ Visualização Sensorial', action: '/sensorial' });
+    }
+
     const iaraMsg: Message = {
       id: (Date.now() + 1).toString(),
       text: text || 'Estou aqui com você. Respire fundo.',
       sender: 'iara',
-      timestamp: new Date()
+      timestamp: new Date(),
+      suggestions: suggestions.length > 0 ? suggestions : undefined
     };
 
     setMessages(prev => [...prev, iaraMsg]);
@@ -1070,7 +1287,17 @@ const ChatIARAPage = () => {
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar">
+          <div 
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar"
+          >
+            {isLoadingMore && (
+              <div className="flex flex-col items-center justify-center py-6 gap-2">
+                <div className="w-6 h-6 border-2 border-brand-green border-t-transparent rounded-full animate-spin" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-brand-green/60">Carregando histórico...</span>
+              </div>
+            )}
             {/* Breathing Pulse Indicator */}
             <div className="flex flex-col items-center py-4">
               <div className="w-16 h-16 rounded-full bg-brand-green/20 flex items-center justify-center animate-pulse-slow">
@@ -1112,6 +1339,31 @@ const ChatIARAPage = () => {
                     </button>
                   )}
                 </div>
+                
+                {m.suggestions && m.suggestions.length > 0 && (
+                  <div className="mt-4 space-y-3 w-full">
+                    <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-indigo/60 px-1">
+                      <Calendar size={12} />
+                      Sugestões de Agendamento
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {m.suggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => navigate(suggestion.action)}
+                          className="bg-brand-indigo/5 text-brand-indigo px-5 py-3 rounded-2xl text-xs font-bold border border-brand-indigo/10 hover:bg-brand-indigo/10 transition-all flex items-center justify-between group"
+                        >
+                          <span className="flex items-center gap-3">
+                            {suggestion.action === '/perfil' ? <History size={14} /> : <Calendar size={14} />}
+                            {suggestion.label}
+                          </span>
+                          <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <span className="text-[9px] text-brand-text/30 mt-2 font-bold uppercase tracking-widest">
                   {format(m.timestamp, 'HH:mm')}
                 </span>
@@ -1138,7 +1390,7 @@ const ChatIARAPage = () => {
               </motion.div>
             )}
             
-            <div ref={scrollRef} />
+            <div ref={bottomRef} />
           </div>
 
           <div className="p-4 bg-brand-bg/80 backdrop-blur-xl border-t border-brand-text/5">
@@ -1700,6 +1952,7 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
   const navigate = useNavigate();
   const [favoriteTherapists, setFavoriteTherapists] = useState<UserProfile[]>([]);
   const [moodHistory, setMoodHistory] = useState<MoodEntry[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -1713,6 +1966,11 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
     };
     fetchFavorites();
     setMoodHistory(userService.getMoodHistory());
+
+    const unsubscribe = userService.getMyAppointments((data) => {
+      setAppointments(data);
+    });
+    return () => unsubscribe();
   }, [userProfile?.favoritos]);
 
   const handleLogout = async () => {
@@ -1813,6 +2071,47 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
         </div>
       </section>
 
+      {/* Appointments Section */}
+      <section className="space-y-4">
+        <h3 className="text-xl font-serif flex items-center gap-2 text-slate-200">
+          <Calendar size={20} className="text-brand-green" />
+          Seus Agendamentos
+        </h3>
+        {appointments.length > 0 ? (
+          <div className="space-y-3">
+            {appointments.map(a => (
+              <div key={a.id} className="bg-slate-800/40 backdrop-blur-xl p-5 rounded-[1.5rem] flex items-center gap-4 border border-white/5">
+                <div className="w-12 h-12 rounded-2xl bg-brand-indigo/10 text-brand-indigo flex items-center justify-center">
+                  <Calendar size={24} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-white">{a.therapistNome}</h4>
+                  <p className="text-xs text-slate-400">
+                    {format(new Date(a.date), "d 'de' MMMM", { locale: ptBR })} às {a.slot}
+                  </p>
+                </div>
+                <div className={cn(
+                  "px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
+                  a.status === 'confirmed' ? "bg-brand-green/20 text-brand-green" :
+                  a.status === 'pending' ? "bg-brand-indigo/20 text-brand-indigo" :
+                  "bg-slate-700 text-slate-400"
+                )}>
+                  {a.status === 'confirmed' ? 'Confirmado' : 
+                   a.status === 'pending' ? 'Pendente' : a.status}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-800/40 p-6 rounded-[2rem] text-center space-y-2 border border-white/5">
+            <p className="text-slate-400 text-sm">Você não tem agendamentos futuros.</p>
+            <Button variant="secondary" onClick={() => navigate('/terapeutas')} className="text-xs py-2">
+              Agendar Consulta
+            </Button>
+          </div>
+        )}
+      </section>
+
       {/* B2B / B2G Pitch Section */}
       <section className="bg-brand-green/5 border-brand-green/20 border p-6 rounded-[2rem] space-y-4">
         <div className="flex items-center gap-2 text-brand-green">
@@ -1890,6 +2189,9 @@ const PerfilPage = ({ userProfile }: { userProfile: UserProfile | null }) => {
 const SensorialPage = () => {
   const navigate = useNavigate();
   const [fase, setFase] = useState(0);
+  const [sensorialImage, setSensorialImage] = useState<string | null>(null);
+  const [loadingImage, setLoadingImage] = useState(false);
+  
   const etapas = [
     "Feche os olhos por um instante...",
     "Sinta seus pés tocando o chão...",
@@ -1917,9 +2219,20 @@ const SensorialPage = () => {
     };
     speakStep();
 
+    // Generate image on step 3 ("imagine um lugar seguro")
+    if (fase === 3) {
+      const generateSensorialImage = async () => {
+        setLoadingImage(true);
+        const img = await generateImage("um lugar seguro e calmo, natureza abstrata, luz suave");
+        setSensorialImage(img);
+        setLoadingImage(false);
+      };
+      generateSensorialImage();
+    }
+
     const intervalo = setInterval(() => {
       setFase((prev) => (prev < etapas.length - 1 ? prev + 1 : prev));
-    }, 5000); // 5 seconds per step for better pacing
+    }, 6000); // Slightly longer for image generation and contemplation
     return () => clearInterval(intervalo);
   }, [fase]);
 
@@ -1928,13 +2241,48 @@ const SensorialPage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col h-[100dvh] bg-brand-dark text-brand-text p-8 items-center justify-center text-center space-y-16"
+      className="flex flex-col h-[100dvh] bg-brand-dark text-brand-text p-8 items-center justify-center text-center space-y-12 overflow-hidden"
     >
       <div className="space-y-4">
-        <div className="w-24 h-24 rounded-[2.5rem] bg-brand-green/20 flex items-center justify-center text-brand-green mx-auto shadow-2xl shadow-brand-green/10 animate-pulse-slow">
-          <Wind size={48} />
+        <div className="w-20 h-20 rounded-[2rem] bg-brand-green/20 flex items-center justify-center text-brand-green mx-auto shadow-2xl shadow-brand-green/10 animate-pulse-slow">
+          <Wind size={40} />
         </div>
-        <h2 className="font-serif text-2xl font-bold uppercase tracking-widest text-brand-green opacity-60">Ativação Sensorial</h2>
+        <h2 className="font-serif text-xl font-bold uppercase tracking-widest text-brand-green opacity-60">Ativação Sensorial</h2>
+      </div>
+
+      <div className="relative w-full max-w-lg aspect-video rounded-[3rem] overflow-hidden bg-brand-slate/20 border border-white/5 shadow-2xl">
+        <AnimatePresence mode="wait">
+          {sensorialImage && fase >= 3 ? (
+            <motion.img 
+              key="sensorial-img"
+              initial={{ opacity: 0, scale: 1.1 }}
+              animate={{ opacity: 1, scale: 1 }}
+              src={sensorialImage}
+              alt="Visualização Sensorial"
+              className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <motion.div 
+              key="placeholder"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full h-full flex items-center justify-center"
+            >
+              {loadingImage ? (
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="w-10 h-10 text-brand-green animate-spin" />
+                  <p className="text-[10px] uppercase tracking-widest font-bold text-brand-green">Criando sua visualização...</p>
+                </div>
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-brand-green/5 to-brand-indigo/5 animate-pulse" />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Overlay for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/80 via-transparent to-transparent" />
       </div>
 
       <AnimatePresence mode="wait">
@@ -1943,7 +2291,7 @@ const SensorialPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className="text-2xl font-serif font-bold leading-relaxed max-w-xs"
+          className="text-2xl font-serif font-bold leading-relaxed max-w-xs h-24 flex items-center justify-center"
         >
           {etapas[fase]}
         </motion.p>
@@ -2136,6 +2484,8 @@ const AppContent = () => {
         if (currentUser) {
           const profile = await getUserProfile(currentUser.uid);
           setUserProfile(profile);
+          // Initialize real-time chat
+          chatService.init(currentUser.uid);
         } else {
           setUserProfile(null);
         }
@@ -2171,10 +2521,16 @@ const AppContent = () => {
 
   return (
     <div className={cn(
-      "min-h-[100dvh] bg-brand-bg relative overflow-hidden",
-      userProfile?.tipo === 'usuario' ? "max-w-md mx-auto" : "max-w-none"
+      "min-h-[100dvh] bg-brand-bg relative overflow-hidden flex flex-col md:flex-row",
+      userProfile?.tipo === 'usuario' ? "max-w-md mx-auto md:max-w-none" : "max-w-none"
     )}>
-      {/* Global Theme Toggle */}
+      {showNavbar && <Navbar />}
+      
+      <div className={cn(
+        "flex-1 w-full",
+        showNavbar ? "md:pl-72" : ""
+      )}>
+        {/* Global Theme Toggle */}
       {!['/login'].includes(location.pathname) && (
         <div className="fixed top-4 right-4 z-[60] flex items-center gap-2">
           {isMockMode() && (
@@ -2200,6 +2556,7 @@ const AppContent = () => {
           className="h-full"
         >
           <Routes>
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             
@@ -2219,14 +2576,11 @@ const AppContent = () => {
             <Route path="/prefeitura-panel" element={<PrefeituraPage />} />
             
             {/* Fallback */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </motion.div>
       </AnimatePresence>
-      
-      {showNavbar && (
-        <Navbar />
-      )}
+      </div>
     </div>
   );
 };

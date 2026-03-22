@@ -1,6 +1,8 @@
+import { io, Socket } from "socket.io-client";
 import { DirectMessage } from "../types";
 
 const STORAGE_KEY = 'mock_direct_messages';
+let socket: Socket | null = null;
 
 const getMessages = (): DirectMessage[] => {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -12,25 +14,54 @@ const saveMessages = (messages: DirectMessage[]) => {
 };
 
 export const chatService = {
-  sendMessage: async (senderId: string, receiverId: string, text: string, appointmentId?: string) => {
-    const messageId = Date.now().toString();
-    const messageData: DirectMessage = {
-      id: messageId,
-      senderId,
-      receiverId,
-      text,
-      timestamp: new Date().toISOString(),
-      appointmentId: appointmentId || null
-    };
+  init: (userId: string) => {
+    if (socket) return;
+    
+    // In development, the socket server is on the same host/port
+    socket = io();
+    
+    socket.on("connect", () => {
+      console.log("Connected to chat server");
+      socket?.emit("join", userId);
+    });
 
-    const messages = getMessages();
-    messages.push(messageData);
-    saveMessages(messages);
-    
-    // Simulate real-time update by triggering a storage event
-    window.dispatchEvent(new Event('storage'));
-    
-    return messageId;
+    socket.on("new_message", (message: DirectMessage) => {
+      const messages = getMessages();
+      // Avoid duplicates
+      if (!messages.find(m => m.id === message.id)) {
+        messages.push(message);
+        saveMessages(messages);
+        window.dispatchEvent(new Event('storage'));
+      }
+    });
+
+    return () => {
+      socket?.disconnect();
+      socket = null;
+    };
+  },
+
+  sendMessage: async (senderId: string, receiverId: string, text: string, appointmentId?: string) => {
+    if (socket) {
+      socket.emit("send_message", { senderId, receiverId, text, appointmentId });
+    } else {
+      // Fallback to local storage if socket is not connected
+      const messageId = Date.now().toString();
+      const messageData: DirectMessage = {
+        id: messageId,
+        senderId,
+        receiverId,
+        text,
+        timestamp: new Date().toISOString(),
+        appointmentId: appointmentId || null
+      };
+
+      const messages = getMessages();
+      messages.push(messageData);
+      saveMessages(messages);
+      window.dispatchEvent(new Event('storage'));
+      return messageId;
+    }
   },
 
   listenMessages: (userId: string, otherId: string, callback: (messages: DirectMessage[]) => void) => {
@@ -47,7 +78,7 @@ export const chatService = {
     updateMessages();
     window.addEventListener('storage', updateMessages);
     
-    // Also poll every second as a fallback for the same-window updates
+    // Also poll every second as a fallback
     const intervalId = setInterval(updateMessages, 1000);
 
     return () => {

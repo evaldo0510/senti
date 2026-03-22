@@ -12,6 +12,7 @@
   --color-brand-red: #EF4444;
   --color-brand-text: var(--brand-text);
   --color-brand-bg: var(--brand-bg);
+  --breakpoint-xs: 360px;
 }
 
 :root {
