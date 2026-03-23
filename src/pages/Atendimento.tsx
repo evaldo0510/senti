@@ -15,6 +15,28 @@ export default function Atendimento() {
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const salvarDadosAnalytics = (mensagemEnviada: string) => {
+    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "URL_DO_GOOGLE_SCRIPT";
+    if (scriptUrl === "URL_DO_GOOGLE_SCRIPT") return;
+    
+    // Fire and forget
+    fetch(scriptUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: new Date().toLocaleDateString('pt-BR'),
+        usuario: auth.currentUser?.displayName || "Usuário",
+        humor: 5, // Valor padrão para atendimento
+        risco: "moderado", // Valor padrão
+        atendimento: "sim",
+        tipo: "terapeuta"
+      })
+    }).catch(err => console.error("Erro ao salvar analytics:", err));
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -52,6 +74,7 @@ export default function Atendimento() {
     
     try {
       await chatService.sendMessage(appointmentId, auth.currentUser.uid, mensagem);
+      salvarDadosAnalytics(mensagem);
       setMensagem("");
     } catch (error) {
       console.error("Error sending message:", error);

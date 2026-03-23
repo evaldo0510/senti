@@ -26,6 +26,28 @@ export default function LiveIARA() {
   const [aiTranscription, setAiTranscription] = useState("");
   const [audioLevel, setAudioLevel] = useState(0);
 
+  const salvarDadosAnalytics = () => {
+    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "URL_DO_GOOGLE_SCRIPT";
+    if (scriptUrl === "URL_DO_GOOGLE_SCRIPT") return;
+    
+    // Fire and forget
+    fetch(scriptUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: new Date().toLocaleDateString('pt-BR'),
+        usuario: auth.currentUser?.displayName || "Anônimo",
+        humor: 5, // Valor padrão para live
+        risco: "moderado", // Valor padrão
+        atendimento: "sim",
+        tipo: "IARA Live"
+      })
+    }).catch(err => console.error("Erro ao salvar analytics:", err));
+  };
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sessionRef = useRef<any>(null);
@@ -81,6 +103,7 @@ export default function LiveIARA() {
             },
             onclose: () => {
               setIsConnected(false);
+              salvarDadosAnalytics();
               navigate("/home");
             },
             onerror: (error: any) => {

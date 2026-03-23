@@ -19,7 +19,6 @@ import Empresa from "./pages/Empresa";
 import Prefeitura from "./pages/Prefeitura";
 import Emergencia from "./pages/Emergencia";
 import TerapeutaSetup from "./pages/TerapeutaSetup";
-import TerapeutaCadastro from "./pages/TerapeutaCadastro";
 import Atendimento from "./pages/Atendimento";
 import Registro from "./pages/Registro";
 import TerapeutaPerfil from "./pages/TerapeutaPerfil";
@@ -27,6 +26,7 @@ import LiveIARA from "./pages/LiveIARA";
 import Perfil from "./pages/Perfil";
 import Clinica from "./pages/Clinica";
 import Hospital from "./pages/Hospital";
+import Reset from "./pages/Reset";
 
 function App() {
   return (
@@ -34,6 +34,7 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPro />} />
         <Route path="/home" element={<DashboardPaciente />} />
+        <Route path="/reset" element={<Reset />} />
         <Route path="/lead" element={<LeadForm />} />
         <Route path="/vendas-empresa" element={<VendasEmpresa />} />
         <Route path="/triagem" element={<Triagem />} />

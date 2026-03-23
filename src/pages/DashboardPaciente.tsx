@@ -15,7 +15,8 @@ import {
   Activity,
   ShieldCheck,
   Zap,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
@@ -143,10 +144,11 @@ export default function DashboardPaciente() {
             
             <div className="flex gap-2">
               <button 
-                onClick={() => navigate("/diario")}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-emerald-900/20"
+                onClick={() => navigate("/reset")}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-sm font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
               >
-                Fazer Check-in
+                <RefreshCw className="w-4 h-4" />
+                ReSet Agora
               </button>
               <button 
                 onClick={() => navigate("/chat")}

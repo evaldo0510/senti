@@ -19,7 +19,8 @@ import {
   Activity,
   Stethoscope,
   UserPlus,
-  Smartphone
+  Smartphone,
+  RefreshCw
 } from "lucide-react";
 
 export default function LandingPro() {
@@ -80,13 +81,13 @@ export default function LandingPro() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate("/")}>
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-[0_10px_20px_rgba(5,150,105,0.2)] group-hover:scale-110 transition-transform">
-              <Heart className="w-6 h-6 text-white fill-current" />
+              <RefreshCw className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">PSE</span>
+            <span className="text-xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">ReSet PCH</span>
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#4a4a4a]">
-            <a href="#jornada" className="hover:text-emerald-700 transition-colors">A Jornada</a>
+            <a href="#jornada" className="hover:text-emerald-700 transition-colors">O Método</a>
             <a href="#solucao" className="hover:text-emerald-700 transition-colors">Como funciona</a>
             <a href="#segmentos" className="hover:text-emerald-700 transition-colors">Para quem</a>
           </div>
@@ -99,10 +100,11 @@ export default function LandingPro() {
               Entrar
             </button>
             <button 
-              onClick={() => navigate("/triagem")} 
-              className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-full text-sm font-bold transition-all hover:shadow-[0_10px_20px_rgba(5,150,105,0.2)] active:scale-95"
+              onClick={() => navigate("/reset")} 
+              className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-full text-sm font-bold transition-all hover:shadow-[0_10px_20px_rgba(5,150,105,0.2)] active:scale-95 flex items-center gap-2"
             >
-              Iniciar Triagem
+              <RefreshCw className="w-4 h-4" />
+              ReSet Agora
             </button>
           </div>
         </div>
@@ -116,8 +118,8 @@ export default function LandingPro() {
             animate={{ opacity: 1, scale: 1 }}
             className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-[0.2em]"
           >
-            <Activity className="w-4 h-4 animate-pulse" />
-            Cuidado emocional imediato e humano
+            <RefreshCw className="w-4 h-4 animate-spin-slow" />
+            Ferramenta de Regulação Emocional em Tempo Real
           </motion.div>
 
           <div className="space-y-8 relative">
@@ -127,9 +129,9 @@ export default function LandingPro() {
               transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="relative"
             >
-              <h1 className="text-6xl md:text-[10vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[1] italic">
-                A dor não <br />
-                <span className="text-emerald-700 font-bold not-italic">precisa esperar.</span>
+              <h1 className="text-6xl md:text-[8vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[1] italic">
+                Você não precisa <br />
+                <span className="text-emerald-700 font-bold not-italic">continuar reagindo igual.</span>
               </h1>
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-200/40 rounded-full blur-3xl animate-pulse"></div>
             </motion.div>
@@ -140,7 +142,8 @@ export default function LandingPro() {
               transition={{ duration: 0.8, delay: 0.3 }}
               className="text-xl md:text-3xl text-[#4a4a4a] max-w-4xl mx-auto leading-relaxed font-light"
             >
-              Transformamos o momento de crise em um caminho seguro de acolhimento e esperança.
+              O que você sente pode não mudar na hora… <br/>
+              mas como você responde pode mudar agora.
             </motion.p>
           </div>
 
@@ -151,21 +154,20 @@ export default function LandingPro() {
             className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8"
           >
             <button 
-              onClick={() => navigate("/triagem")}
+              onClick={() => navigate("/reset")}
               className="group w-full sm:w-auto px-12 py-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[32px] text-2xl font-bold transition-all hover:scale-105 flex items-center justify-center gap-4 shadow-[0_20px_40px_-10px_rgba(5,150,105,0.3)] active:scale-95"
             >
-              Iniciar Triagem
-              <Zap className="w-6 h-6 fill-current" />
+              <RefreshCw className="w-6 h-6" />
+              ReSet Agora
             </button>
             <div className="flex flex-col items-center gap-2">
               <button 
-                onClick={() => navigate("/emergencia")}
-                className="w-full sm:w-auto px-10 py-5 bg-white hover:bg-red-50 text-red-600 rounded-[32px] text-lg font-bold transition-all flex items-center justify-center gap-3 border border-red-200 shadow-sm group"
+                onClick={() => navigate("/profissionais")}
+                className="w-full sm:w-auto px-10 py-5 bg-white hover:bg-slate-50 text-slate-700 rounded-[32px] text-lg font-bold transition-all flex items-center justify-center gap-3 border border-slate-200 shadow-sm group"
               >
-                <AlertCircle className="w-5 h-5 group-hover:animate-shake" />
-                Estou em Crise
+                <MessageCircle className="w-5 h-5" />
+                Falar com alguém
               </button>
-              <span className="text-[10px] text-[#6a6a6a] uppercase tracking-widest font-bold">Atendimento Imediato 24h</span>
             </div>
           </motion.div>
         </div>

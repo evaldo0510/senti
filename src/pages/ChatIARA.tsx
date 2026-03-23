@@ -10,6 +10,7 @@ import { gerarExercicio } from "../services/pchService";
 import { decidirCaminho } from "../services/decisaoService";
 import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { auth } from "../services/firebase";
 
 interface Message {
   tipo: "user" | "iara";
@@ -67,6 +68,31 @@ export default function ChatIARA() {
   const [showBreathing, setShowBreathing] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  const salvarDadosAnalytics = (intensidade: number, risco: string, direcionarEspecialista: boolean) => {
+    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "URL_DO_GOOGLE_SCRIPT";
+    if (scriptUrl === "URL_DO_GOOGLE_SCRIPT") {
+      console.log("Configure VITE_GOOGLE_SCRIPT_URL no .env para salvar dados no Looker Studio");
+      return;
+    }
+    
+    // Fire and forget
+    fetch(scriptUrl, {
+      method: "POST",
+      mode: "no-cors", // Necessário para evitar erro de CORS com Google Apps Script
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        data: new Date().toLocaleDateString('pt-BR'),
+        usuario: auth.currentUser?.displayName || "Anônimo",
+        humor: intensidade,
+        risco: risco,
+        atendimento: direcionarEspecialista ? "sim" : "nao",
+        tipo: "IARA"
+      })
+    }).catch(err => console.error("Erro ao salvar analytics:", err));
+  };
+
   const enviarMensagem = async () => {
     if (!mensagem.trim() || isLoading) return;
 
@@ -89,6 +115,9 @@ export default function ChatIARA() {
       if (result.risco === "alto") {
         setAlerta(true);
       }
+
+      // Salva os dados para o Looker Studio
+      salvarDadosAnalytics(result.intensidade, result.risco, result.direcionarEspecialista);
 
       setChat([...novaConversa, { tipo: "iara", texto: result.resposta }]);
       

@@ -196,16 +196,6 @@ export default function Profissionais() {
             </div>
           )}
         </div>
-
-        <div className="pt-8 text-center border-t border-white/10">
-          <p className="text-slate-400 mb-4">É profissional de saúde mental?</p>
-          <button 
-            onClick={() => navigate("/login")}
-            className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-medium transition-colors border border-white/5"
-          >
-            Cadastrar meu perfil
-          </button>
-        </div>
       </div>
     </motion.div>
   );

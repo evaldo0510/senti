@@ -47,6 +47,7 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        'node-fetch': 'cross-fetch',
       },
     },
     server: {
