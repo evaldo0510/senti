@@ -58,6 +58,7 @@ export default function Profissionais() {
   const navigate = useNavigate();
   const location = useLocation();
   const [busca, setBusca] = useState("");
+  const [listaProfissionais, setListaProfissionais] = useState(profissionais);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -65,9 +66,14 @@ export default function Profissionais() {
     if (tipo) {
       setBusca(tipo);
     }
+
+    const terapeutasCadastrados = JSON.parse(localStorage.getItem("terapeutas_cadastrados") || "[]");
+    if (terapeutasCadastrados.length > 0) {
+      setListaProfissionais([...terapeutasCadastrados, ...profissionais]);
+    }
   }, [location]);
 
-  const profissionaisFiltrados = profissionais.filter(prof => 
+  const profissionaisFiltrados = listaProfissionais.filter(prof => 
     prof.nome.toLowerCase().includes(busca.toLowerCase()) ||
     prof.especialidade.toLowerCase().includes(busca.toLowerCase()) ||
     prof.cidade.toLowerCase().includes(busca.toLowerCase())
@@ -156,6 +162,16 @@ export default function Profissionais() {
               Nenhum profissional encontrado para "{busca}".
             </div>
           )}
+        </div>
+
+        <div className="pt-8 text-center border-t border-white/10">
+          <p className="text-slate-400 mb-4">É profissional de saúde mental?</p>
+          <button 
+            onClick={() => navigate("/cadastro-terapeuta")}
+            className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-medium transition-colors border border-white/5"
+          >
+            Cadastrar meu perfil
+          </button>
         </div>
       </div>
     </motion.div>

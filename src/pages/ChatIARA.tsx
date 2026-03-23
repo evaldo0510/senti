@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { falarComIARA, ChatMessage } from "../services/iaraService";
+import { encontrarTerapeuta } from "../services/matchService";
 import { generateImage } from "../services/geminiService";
 import { falarTexto } from "../services/voiceService";
 import { ouvirUsuario } from "../services/audioInput";
@@ -151,9 +152,12 @@ export default function ChatIARA() {
       const decisao = decidirCaminho(riscoAntes, riscoDepois);
 
       if (decisao === "terapeuta" || decisao === "psicologo") {
-        if (!isMuted) falarTexto("Talvez seja importante conversar com alguém agora...");
-        setChat(prev => [...prev, { tipo: "iara", texto: "Talvez seja importante conversar com alguém agora..." }]);
-        setTimeout(() => navigate(`/profissionais?tipo=${decisao}`), 3000);
+        const terapeuta = encontrarTerapeuta(mensagem);
+        const msg = terapeuta ? `Posso te conectar com ${terapeuta.nome}, especialista em ${terapeuta.especialidade}.` : "Talvez seja importante conversar com alguém agora...";
+        
+        if (!isMuted) falarTexto(msg);
+        setChat(prev => [...prev, { tipo: "iara", texto: msg }]);
+        setTimeout(() => navigate(`/profissionais?tipo=${terapeuta?.especialidade || decisao}`), 4000);
       } else if (decisao === "emergencia" || decisao === "psiquiatra") {
         navigate("/emergencia");
       }

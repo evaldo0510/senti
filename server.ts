@@ -6,11 +6,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Modality } from "@google/genai";
 
-// Ensure fetch is available globally for @google/genai in Node environments
-if (typeof globalThis.fetch === 'undefined') {
-  globalThis.fetch = fetch;
-}
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

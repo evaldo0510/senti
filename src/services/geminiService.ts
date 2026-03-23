@@ -1,10 +1,5 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-// Ensure fetch is available globally for @google/genai in Node environments
-if (typeof globalThis.fetch === 'undefined') {
-  globalThis.fetch = fetch;
-}
-
 const apiKey = (process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY) as string;
 const ai = new GoogleGenAI({ apiKey });
 

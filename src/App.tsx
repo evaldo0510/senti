@@ -18,6 +18,7 @@ import Empresa from "./pages/Empresa";
 import Prefeitura from "./pages/Prefeitura";
 import Emergencia from "./pages/Emergencia";
 import TerapeutaSetup from "./pages/TerapeutaSetup";
+import TerapeutaCadastro from "./pages/TerapeutaCadastro";
 import Atendimento from "./pages/Atendimento";
 import Registro from "./pages/Registro";
 
@@ -43,6 +44,7 @@ function App() {
         <Route path="/diario" element={<Diario />} />
         <Route path="/emergencia" element={<Emergencia />} />
         <Route path="/terapeuta-setup" element={<TerapeutaSetup />} />
+        <Route path="/cadastro-terapeuta" element={<TerapeutaCadastro />} />
         <Route path="/atendimento" element={<Atendimento />} />
         <Route path="/registro" element={<Registro />} />
       </Routes>
