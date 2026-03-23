@@ -4,6 +4,7 @@ import { Users, Activity, Clock, LogOut, Settings, Home, BarChart2 } from "lucid
 import { useNavigate } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { logout } from "../services/firebase";
+import { useAuth } from "../components/AuthProvider";
 
 const data = [
   { name: 'Seg', atendimentos: 12 },
@@ -17,6 +18,23 @@ const data = [
 
 export default function Prefeitura() {
   const navigate = useNavigate();
+  const { profile, loading, isAuthReady } = useAuth();
+
+  React.useEffect(() => {
+    if (isAuthReady && !loading) {
+      if (!profile || (profile.tipo !== 'prefeitura' && profile.tipo !== 'admin')) {
+        navigate("/login");
+      }
+    }
+  }, [profile, loading, isAuthReady, navigate]);
+
+  if (loading || !isAuthReady) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   const handleLogout = async () => {
     await logout();

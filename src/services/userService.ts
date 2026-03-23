@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 
 export const userService = {
-  saveMood: async (value: number, note?: string) => {
+  saveMood: async (value: number, intensity: number, note?: string) => {
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated");
 
@@ -27,7 +27,8 @@ export const userService = {
       const newEntry = {
         userId: user.uid,
         emotion: note || 'Registro de humor',
-        intensity: value,
+        value,
+        intensity,
         timestamp: new Date().toISOString()
       };
       await addDoc(collection(db, path), newEntry);
@@ -76,12 +77,31 @@ export const userService = {
   getTherapists: async (): Promise<UserProfile[]> => {
     const path = 'users';
     try {
-      const q = query(collection(db, path), where("role", "==", "therapist"));
+      const q = query(collection(db, path), where("tipo", "==", "terapeuta"));
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => doc.data() as UserProfile);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
       return [];
+    }
+  },
+
+  getFeaturedTherapists: async (limitCount: number = 3): Promise<UserProfile[]> => {
+    const path = 'users';
+    try {
+      const q = query(
+        collection(db, path), 
+        where("tipo", "==", "terapeuta"),
+        where("online", "==", true),
+        orderBy("rating", "desc")
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
+    } catch (error) {
+      // Fallback if online/rating query fails due to missing index
+      const qSimple = query(collection(db, path), where("tipo", "==", "terapeuta"));
+      const snapshot = await getDocs(qSimple);
+      return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
     }
   },
 
@@ -114,16 +134,16 @@ export const userService = {
     }
   },
 
-  getMyAppointments: (callback: (appointments: Appointment[]) => void) => {
+  getMyAppointments: (callback: (appointments: Appointment[]) => void, role: UserType = 'usuario') => {
     const user = auth.currentUser;
     if (!user) return () => {};
     
     const path = 'appointments';
-    // We need two queries or a complex one with indexes. 
-    // For simplicity, we'll use two and merge or just one if the user is patient.
+    const field = role === 'terapeuta' ? 'therapistId' : 'patientId';
+    
     const q = query(
       collection(db, path),
-      where("patientId", "==", user.uid),
+      where(field, "==", user.uid),
       orderBy("date", "desc")
     );
 
@@ -212,6 +232,27 @@ export const userService = {
       await updateDoc(doc(db, 'users', uid), data);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  updateOnlineStatus: async (uid: string, online: boolean) => {
+    const path = `users/${uid}`;
+    try {
+      await updateDoc(doc(db, 'users', uid), { online });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  seedMockData: async () => {
+    const { MOCK_THERAPISTS } = await import('./mockData');
+    const therapists = await userService.getTherapists();
+    
+    if (therapists.length === 0) {
+      console.log("Seeding mock therapists...");
+      for (const t of MOCK_THERAPISTS) {
+        await setDoc(doc(db, 'users', t.uid), t);
+      }
     }
   }
 };

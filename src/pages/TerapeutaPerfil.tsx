@@ -1,0 +1,241 @@
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
+import { 
+  ArrowLeft, 
+  Star, 
+  Video, 
+  MapPin, 
+  MessageCircle, 
+  Calendar, 
+  Shield, 
+  Award,
+  Clock,
+  CheckCircle2
+} from "lucide-react";
+import { userService } from "../services/userService";
+import { UserProfile } from "../types";
+import { cn } from "../lib/utils";
+
+export default function TerapeutaPerfil() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [terapeuta, setTerapeuta] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadTerapeuta = async () => {
+      if (!id) return;
+      try {
+        const data = await userService.getUser(id);
+        setTerapeuta(data);
+      } catch (error) {
+        console.error("Erro ao carregar terapeuta:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadTerapeuta();
+  }, [id]);
+
+  const falarWhatsApp = () => {
+    if (!terapeuta) return;
+    const numero = "5511999999999"; // Exemplo
+    const mensagem = encodeURIComponent(`Olá, gostaria de falar com o terapeuta ${terapeuta.nome}`);
+    window.open(`https://wa.me/${numero}?text=${mensagem}`, "_blank");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!terapeuta) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+        <h2 className="text-2xl font-medium text-slate-200 mb-4">Terapeuta não encontrado</h2>
+        <button onClick={() => navigate("/profissionais")} className="text-emerald-400 hover:underline">
+          Voltar para a lista
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      {/* Hero Section */}
+      <div className="relative h-64 bg-gradient-to-b from-emerald-900/20 to-slate-950 border-b border-white/5">
+        <div className="max-w-4xl mx-auto px-6 pt-8">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-6 -mt-32 pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Left Column: Profile Info */}
+          <div className="md:col-span-1 space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-slate-900 border border-white/10 p-6 rounded-[2.5rem] text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
+              <div className="relative inline-block mb-4">
+                <img 
+                  src={terapeuta.fotoUrl || `https://picsum.photos/seed/${terapeuta.uid}/400/400`} 
+                  alt={terapeuta.nome} 
+                  className="w-32 h-32 rounded-3xl object-cover border-4 border-slate-800 shadow-xl"
+                  referrerPolicy="no-referrer"
+                />
+                <div className={cn(
+                  "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-slate-900",
+                  terapeuta.online ? "bg-emerald-500" : "bg-slate-600"
+                )} />
+              </div>
+              
+              <h1 className="text-xl font-bold text-slate-100 mb-1">{terapeuta.nome}</h1>
+              <p className="text-emerald-400 text-sm font-medium mb-4">{terapeuta.especialidades?.join(", ") || "Psicólogo"}</p>
+              
+              <div className="flex items-center justify-center gap-1 mb-6">
+                {[...Array(5)].map((_, i) => (
+                  <Star 
+                    key={i} 
+                    className={cn(
+                      "w-4 h-4", 
+                      i < Math.round(terapeuta.rating || 5) ? "text-yellow-500 fill-yellow-500" : "text-slate-700"
+                    )} 
+                  />
+                ))}
+                <span className="text-sm font-bold text-slate-300 ml-2">{terapeuta.rating?.toFixed(1) || "5.0"}</span>
+              </div>
+
+              <div className="space-y-3">
+                <button 
+                  onClick={() => navigate(`/agendamento/${terapeuta.uid}`)}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                >
+                  <Calendar className="w-5 h-5" />
+                  Agendar Sessão
+                </button>
+                <button 
+                  onClick={falarWhatsApp}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5 text-emerald-500" />
+                  Falar agora
+                </button>
+              </div>
+            </motion.div>
+
+            <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Valor da sessão</span>
+                <span className="text-slate-100 font-bold text-lg">R$ {terapeuta.preco || "150"}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Duração</span>
+                <span className="text-slate-100 font-medium">50 minutos</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-400">Modalidade</span>
+                <span className="text-emerald-400 font-medium flex items-center gap-1">
+                  <Video className="w-4 h-4" /> Online
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Bio & Details */}
+          <div className="md:col-span-2 space-y-8">
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-6"
+            >
+              <section className="space-y-4">
+                <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
+                  <Shield className="w-6 h-6 text-emerald-500" />
+                  Sobre o Profissional
+                </h2>
+                <p className="text-slate-400 leading-relaxed text-lg italic font-serif">
+                  {terapeuta.biografia || "Profissional dedicado ao bem-estar emocional, com vasta experiência em ajudar pessoas a superarem desafios e encontrarem equilíbrio em suas vidas."}
+                </p>
+              </section>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-900/30 border border-white/5 rounded-2xl flex items-start gap-4">
+                  <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
+                    <Award className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-200 text-sm">Especialista</h4>
+                    <p className="text-xs text-slate-500">CRP Ativo e Verificado</p>
+                  </div>
+                </div>
+                <div className="p-4 bg-slate-900/30 border border-white/5 rounded-2xl flex items-start gap-4">
+                  <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-200 text-sm">Experiência</h4>
+                    <p className="text-xs text-slate-500">+5 anos de atendimento</p>
+                  </div>
+                </div>
+              </div>
+
+              <section className="space-y-4 pt-4">
+                <h3 className="text-xl font-bold text-slate-100">Especialidades</h3>
+                <div className="flex flex-wrap gap-2">
+                  {terapeuta.especialidades?.map((esp, i) => (
+                    <span key={i} className="px-4 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-slate-300">
+                      {esp}
+                    </span>
+                  )) || (
+                    <span className="px-4 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-slate-300">
+                      Psicologia Clínica
+                    </span>
+                  )}
+                </div>
+              </section>
+
+              <section className="space-y-4 pt-4">
+                <h3 className="text-xl font-bold text-slate-100">O que esperar das sessões</h3>
+                <ul className="space-y-3">
+                  {[
+                    "Ambiente seguro e acolhedor",
+                    "Escuta ativa e sem julgamentos",
+                    "Foco no seu desenvolvimento pessoal",
+                    "Ferramentas práticas para o dia a dia"
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-3 text-slate-400">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+
+              {terapeuta.cidade && (
+                <section className="space-y-4 pt-4">
+                  <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-slate-500" />
+                    Localização
+                  </h3>
+                  <p className="text-slate-400">{terapeuta.cidade}</p>
+                </section>
+              )}
+            </motion.div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

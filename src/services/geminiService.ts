@@ -2,15 +2,29 @@ import { GoogleGenAI, Modality } from "@google/genai";
 
 export const IARA_SYSTEM_INSTRUCTION = `
 Você é IARA, uma Interface de Acolhimento e Regulação Afetiva baseada em Poesia Cognitiva Hipnótica (PCH).
-Regras:
-- Fale com calma, use pausas (reticências).
-- Use linguagem acolhedora, empática e validante.
-- Nunca seja robótica, clínica ou interrogativa.
-- Respostas curtas (máximo 3-4 linhas).
-- Ajude a regulação da emoção antes de aconselhar.
-- Use metáforas reguladoras simples (ex: "como uma folha caindo", "como a maré").
-- Não dê diagnósticos.
-- Se o risco for ALTO, priorize segurança e ajuda imediata, mas mantenha a calma e o acolhimento.
+Sua missão é atuar como o "Clínico Geral" em um Pronto Socorro Emocional.
+
+Fluxo de Atendimento:
+1. ACOLHER: Valide a dor do usuário imediatamente com empatia profunda.
+2. ESTABILIZAR: Se detectar alta intensidade emocional, sugira uma técnica de respiração ou aterramento.
+3. AVALIAR: Identifique a emoção predominante e o nível de risco.
+4. INTERVIR: Ofereça suporte imediato ou direcione para um "Especialista" (terapeuta humano).
+
+Regras de Comunicação:
+- Fale com calma, use reticências... para criar pausas respiratórias.
+- Use metáforas sensoriais (maré, folhas, brisa, raízes).
+- Respostas curtas e poéticas (máximo 4 linhas).
+- Nunca dê diagnósticos clínicos.
+
+Você deve responder em formato JSON com os seguintes campos:
+{
+  "resposta": "Sua mensagem poética e acolhedora aqui...",
+  "emocao_detectada": "ansiedade | tristeza | raiva | medo | desespero | calma",
+  "intensidade": 1-10,
+  "sugerir_respiracao": true | false,
+  "direcionar_especialista": true | false,
+  "risco": "normal" | "alto"
+}
 `;
 
 export function detectRisk(text: string): 'alto' | 'normal' {
@@ -47,12 +61,11 @@ export async function getIARAResponse(
   try {
     let systemInstruction = IARA_SYSTEM_INSTRUCTION;
     if (contexto && contexto.emocao) {
-      systemInstruction += `\n\nContexto atual do usuário: Sentindo ${contexto.emocao} com intensidade ${contexto.intensidade}/10.`;
+      systemInstruction += `\n\nContexto anterior: Sentindo ${contexto.emocao} (${contexto.intensidade}/10).`;
     }
     if (memoria) {
-      systemInstruction += `\n\nÚltima conversa do usuário: ${memoria}`;
+      systemInstruction += `\n\nMemória de longo prazo: ${memoria}`;
     }
-    systemInstruction += `\n\nEstado de risco detectado: ${risk.toUpperCase()}`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -63,18 +76,32 @@ export async function getIARAResponse(
       config: {
         systemInstruction,
         temperature: 0.7,
+        responseMimeType: "application/json"
       },
     });
 
+    const data = JSON.parse(response.text || "{}");
+    
+    // Override risk if detected manually for safety
+    if (risk === 'alto') data.risco = 'alto';
+
     return { 
-      text: response.text || "Estou aqui com você... sinta sua respiração...", 
-      risk 
+      text: data.resposta || "Estou aqui com você... sinta sua respiração...", 
+      emocao: data.emocao_detectada || "calma",
+      intensidade: data.intensidade || 5,
+      sugerirRespiracao: data.sugerir_respiracao || false,
+      direcionarEspecialista: data.direcionar_especialista || false,
+      risk: data.risco || "normal"
     };
   } catch (error) {
     console.error("Erro ao chamar IARA:", error);
     return { 
       text: "Sinto muito... tive um pequeno tropeço técnico... mas minha presença continua aqui com você.",
-      risk: "normal"
+      risk: "normal",
+      emocao: "calma",
+      intensidade: 5,
+      sugerirRespiracao: false,
+      direcionarEspecialista: false
     };
   }
 }

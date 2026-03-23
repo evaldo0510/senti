@@ -11,18 +11,21 @@ service cloud.firestore {
     // Fields:
     //   - uid: string (required)
     //   - email: string (required, email format)
-    //   - displayName: string (optional)
-    //   - photoURL: string (optional)
-    //   - role: string (required, ['patient', 'therapist', 'admin'])
+    //   - nome: string (required)
+    //   - tipo: string (required, ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'admin'])
     //   - createdAt: string (required, date-time)
     //
     // Collection: appointments
     // Document ID: {appointmentId}
     // Fields:
     //   - patientId: string (required)
+    //   - patientNome: string (required)
     //   - therapistId: string (required)
+    //   - therapistNome: string (required)
     //   - date: string (required, date-time)
     //   - status: string (required, ['pending', 'confirmed', 'cancelled', 'completed'])
+    //   - type: string (required, ['video', 'chat', 'presencial'])
+    //   - price: number (required)
     //   - createdAt: string (required, date-time)
     //
     // Collection: messages
@@ -58,8 +61,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+         (request.auth.token.email == "mentefelizterapias@gmail.com"));
     }
 
     function isValidEmail(email) {
@@ -79,19 +82,21 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'especialidade', 'cidade', 'preco', 'rating', 'reviews', 'online', 'presencial']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'nome', 'tipo', 'createdAt', 'especialidades', 'preco', 'disponibilidade', 'biografia', 'fotoUrl', 'cidade', 'rating', 'avaliacoes', 'online', 'favoritos']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
-             data.role in ['patient', 'therapist', 'admin'] &&
+             data.tipo in ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'clinica', 'hospital', 'admin'] &&
              isValidDateString(data.createdAt);
     }
 
     function isValidAppointment(data) {
-      return hasOnlyAllowedFields(['patientId', 'therapistId', 'date', 'status', 'createdAt']) &&
+      return hasOnlyAllowedFields(['patientId', 'patientNome', 'therapistId', 'therapistNome', 'date', 'status', 'type', 'price', 'notes', 'riskLevel', 'createdAt']) &&
              data.patientId is string &&
              data.therapistId is string &&
              isValidDateString(data.date) &&
              data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
+             data.type in ['video', 'chat', 'presencial'] &&
+             data.price is number &&
              isValidDateString(data.createdAt);
     }
 
@@ -117,13 +122,11 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Users can read their own profile. 
-      // Therapists are public for everyone to find them.
-      // WARNING: This might leak therapist emails if not careful.
-      // In a real app, we'd split public/private data.
-      allow read: if isOwner(userId) || (resource.data.role == 'therapist');
+      // Terapeutas are public for everyone to find them.
+      allow read: if isOwner(userId) || (resource.data.tipo == 'terapeuta') || isAdmin();
       
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo != 'admin' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo == resource.data.tipo || isAdmin());
     }
 
     match /appointments/{appointmentId} {

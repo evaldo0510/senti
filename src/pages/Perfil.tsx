@@ -1,0 +1,247 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
+import { 
+  User, 
+  Mail, 
+  MapPin, 
+  Briefcase, 
+  Calendar, 
+  ArrowLeft, 
+  LogOut, 
+  Edit2, 
+  Save, 
+  Camera,
+  ShieldCheck,
+  Activity,
+  HeartPulse
+} from "lucide-react";
+import { auth, logout } from "../services/firebase";
+import { userService } from "../services/userService";
+import { UserProfile } from "../types";
+import { cn } from "../lib/utils";
+
+export default function Perfil() {
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Form state
+  const [nome, setNome] = useState("");
+  const [biografia, setBiografia] = useState("");
+  const [cidade, setCidade] = useState("");
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const user = auth.currentUser;
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      try {
+        const data = await userService.getUser(user.uid);
+        setProfile(data);
+        setNome(data.nome || "");
+        setBiografia(data.biografia || "");
+        setCidade(data.cidade || "");
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [navigate]);
+
+  const handleSave = async () => {
+    if (!profile) return;
+    setSaving(true);
+    try {
+      await userService.updateProfile(profile.uid, {
+        nome,
+        biografia,
+        cidade
+      });
+      setProfile({ ...profile, nome, biografia, cidade });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 font-sans">
+      {/* Header */}
+      <header className="p-6 flex justify-between items-center sticky top-0 bg-slate-950/80 backdrop-blur-md z-20 border-b border-white/5">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors">
+          <ArrowLeft className="w-5 h-5 text-slate-400" />
+        </button>
+        <h1 className="text-lg font-medium text-slate-200">Meu Perfil</h1>
+        <button 
+          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+          disabled={saving}
+          className={cn(
+            "p-2 rounded-full transition-all",
+            isEditing ? "bg-emerald-500 text-white" : "bg-slate-900 border border-white/5 text-slate-400"
+          )}
+        >
+          {saving ? (
+            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          ) : isEditing ? (
+            <Save className="w-5 h-5" />
+          ) : (
+            <Edit2 className="w-5 h-5" />
+          )}
+        </button>
+      </header>
+
+      <main className="p-6 max-w-2xl mx-auto space-y-8">
+        {/* Profile Info */}
+        <div className="flex flex-col items-center space-y-4">
+          <div className="relative">
+            <img 
+              src={profile?.fotoUrl || `https://picsum.photos/seed/${profile?.uid}/200/200`} 
+              alt={profile?.nome} 
+              className="w-32 h-32 rounded-[2rem] object-cover border-4 border-slate-900 shadow-2xl"
+              referrerPolicy="no-referrer"
+            />
+            <button className="absolute -bottom-2 -right-2 p-3 bg-emerald-600 rounded-2xl border-4 border-slate-950 text-white shadow-xl">
+              <Camera className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="text-center">
+            {isEditing ? (
+              <input 
+                type="text"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                className="bg-slate-900 border border-emerald-500/30 rounded-xl px-4 py-2 text-center text-2xl font-serif italic text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            ) : (
+              <h2 className="text-3xl font-serif italic text-white">{profile?.nome}</h2>
+            )}
+            <p className="text-emerald-400 text-sm font-medium uppercase tracking-widest mt-1">
+              {profile?.tipo === 'terapeuta' ? 'Terapeuta Especialista' : 'Paciente'}
+            </p>
+          </div>
+        </div>
+
+        {/* Stats / Badges */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-slate-900/50 border border-white/5 p-4 rounded-3xl text-center space-y-1">
+            <div className="w-8 h-8 bg-emerald-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            </div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Status</p>
+            <p className="text-sm font-medium text-slate-200">Verificado</p>
+          </div>
+          <div className="bg-slate-900/50 border border-white/5 p-4 rounded-3xl text-center space-y-1">
+            <div className="w-8 h-8 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <Activity className="w-4 h-4 text-blue-400" />
+            </div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Nível</p>
+            <p className="text-sm font-medium text-slate-200">Iniciante</p>
+          </div>
+          <div className="bg-slate-900/50 border border-white/5 p-4 rounded-3xl text-center space-y-1">
+            <div className="w-8 h-8 bg-amber-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
+              <HeartPulse className="w-4 h-4 text-amber-400" />
+            </div>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Saúde</p>
+            <p className="text-sm font-medium text-slate-200">Estável</p>
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Biografia</label>
+            {isEditing ? (
+              <textarea 
+                value={biografia}
+                onChange={(e) => setBiografia(e.target.value)}
+                rows={4}
+                className="w-full bg-slate-900 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all resize-none"
+                placeholder="Conte um pouco sobre você..."
+              />
+            ) : (
+              <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4">
+                <p className="text-slate-400 font-light leading-relaxed italic">
+                  {profile?.biografia || "Nenhuma biografia adicionada."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">E-mail</label>
+              <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                <Mail className="w-5 h-5 text-slate-600" />
+                <span className="text-slate-300">{profile?.email}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Cidade</label>
+              {isEditing ? (
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600" />
+                  <input 
+                    type="text"
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+                    placeholder="Sua cidade"
+                  />
+                </div>
+              ) : (
+                <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-slate-600" />
+                  <span className="text-slate-300">{profile?.cidade || "Não informada"}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Membro desde</label>
+            <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
+              <Calendar className="w-5 h-5 text-slate-600" />
+              <span className="text-slate-300">
+                {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="pt-8 space-y-4">
+          <button 
+            onClick={logout}
+            className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-bold hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
+          >
+            <LogOut className="w-5 h-5" />
+            Sair da Conta
+          </button>
+          <p className="text-center text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+            Versão 1.0.0 (Beta)
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}

@@ -9,7 +9,7 @@
         "displayName": { "type": "string", "description": "User's full name" },
         "email": { "type": "string", "format": "email", "description": "User's email" },
         "photoURL": { "type": "string", "description": "Profile picture URL" },
-        "role": { "type": "string", "enum": ["patient", "therapist", "admin"], "description": "User's role" },
+        "role": { "type": "string", "enum": ["usuario", "terapeuta", "empresa", "prefeitura", "clinica", "hospital", "admin"], "description": "User's role" },
         "especialidade": { "type": "string", "description": "Therapist's specialty" },
         "cidade": { "type": "string", "description": "Therapist's city" },
         "preco": { "type": "string", "description": "Therapist's price per session" },

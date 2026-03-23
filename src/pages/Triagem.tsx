@@ -1,41 +1,85 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, AlertTriangle } from "lucide-react";
+import { ArrowRight, AlertTriangle, Activity, Heart, Shield, Info, ArrowLeft } from "lucide-react";
 
 export default function Triagem() {
   const [step, setStep] = useState(0);
   const [emocao, setEmocao] = useState("");
   const [intensidade, setIntensidade] = useState(5);
+  const [risco, setRisco] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
   const handleContinue = () => {
-    navigate("/respiracao", { state: { intensidade, emocao } });
+    if (risco) {
+      navigate("/emergencia");
+    } else {
+      navigate("/respiracao", { state: { intensidade, emocao } });
+    }
   };
 
+  const steps = [
+    { id: 0, label: "Identificação" },
+    { id: 1, label: "Intensidade" },
+    { id: 2, label: "Triagem de Risco" }
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100">
+    <div className="min-h-screen bg-[#0a0502] flex flex-col items-center justify-center p-6 text-slate-100 relative overflow-hidden">
+      
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate("/home")}
+        className="fixed top-8 left-8 p-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all z-50"
+      >
+        <ArrowLeft className="w-6 h-6 text-slate-400" />
+      </button>
+      
+      {/* Atmospheric Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px]"></div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="fixed top-12 left-1/2 -translate-x-1/2 w-full max-w-xs flex gap-2 px-6 z-50">
+        {steps.map((s) => (
+          <div 
+            key={s.id} 
+            className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+              step >= s.id ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-white/10"
+            }`}
+          />
+        ))}
+      </div>
+
       <AnimatePresence mode="wait">
         {step === 0 && (
           <motion.div
             key="step0"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-md space-y-8 text-center"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            className="w-full max-w-md space-y-12 text-center relative z-10"
           >
-            <h3 className="text-3xl font-light tracking-tight text-slate-200">
-              O que está mais forte em você agora?
-            </h3>
-            <div className="grid gap-4">
-              {["Ansiedade", "Tristeza", "Medo", "Raiva", "Confusão"].map((emo) => (
+            <div className="space-y-4">
+              <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/20">
+                <Activity className="w-8 h-8 text-emerald-400" />
+              </div>
+              <h3 className="text-4xl font-black tracking-tighter text-white">
+                O que você está sentindo agora?
+              </h3>
+              <p className="text-slate-400 font-light">Selecione o sentimento predominante para iniciarmos o acolhimento.</p>
+            </div>
+
+            <div className="grid gap-3">
+              {["Ansiedade", "Tristeza Profunda", "Pânico", "Raiva", "Vazio/Solidão"].map((emo) => (
                 <button
                   key={emo}
                   onClick={() => {
                     setEmocao(emo);
                     setStep(1);
                   }}
-                  className="w-full py-4 px-6 bg-slate-900 hover:bg-slate-800 border border-white/5 rounded-2xl text-lg font-medium transition-all active:scale-[0.98] text-slate-300 hover:text-white"
+                  className="w-full py-5 px-6 bg-white/5 hover:bg-emerald-500 hover:text-slate-950 border border-white/5 rounded-3xl text-xl font-bold transition-all active:scale-[0.98] text-slate-300"
                 >
                   {emo}
                 </button>
@@ -47,47 +91,116 @@ export default function Triagem() {
         {step === 1 && (
           <motion.div
             key="step1"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="w-full max-w-md space-y-12 text-center"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            className="w-full max-w-md space-y-16 text-center relative z-10"
           >
             <div className="space-y-4">
-              <h3 className="text-3xl font-light tracking-tight text-slate-200">
-                De 0 a 10... o quanto isso está intenso?
+              <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto border border-blue-500/20">
+                <Heart className="w-8 h-8 text-blue-400" />
+              </div>
+              <h3 className="text-4xl font-black tracking-tighter text-white">
+                Qual a intensidade disso?
               </h3>
-              <p className="text-slate-400">
-                Sendo 0 muito calmo e 10 insuportável.
+              <p className="text-slate-400 font-light">
+                De 0 (leve) a 10 (insuportável).
               </p>
             </div>
 
-            <div className="space-y-8">
-              <div className="relative pt-8 pb-2">
+            <div className="space-y-12">
+              <div className="relative pt-12 pb-4">
                 <input
                   type="range"
                   min="0"
                   max="10"
                   value={intensidade}
                   onChange={(e) => setIntensidade(parseInt(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-emerald-500"
                 />
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 text-5xl font-light text-emerald-400">
+                <motion.div 
+                  key={intensidade}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="absolute top-0 left-1/2 -translate-x-1/2 text-7xl font-black text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                >
                   {intensidade}
-                </div>
+                </motion.div>
               </div>
-              <div className="flex justify-between text-xs text-slate-500 font-medium uppercase tracking-wider">
-                <span>Leve</span>
+              <div className="flex justify-between text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                <span>Calmo</span>
                 <span>Moderado</span>
-                <span>Intenso</span>
+                <span>Crítico</span>
               </div>
             </div>
 
             <button
-              onClick={handleContinue}
-              className="w-full py-4 px-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-medium text-lg transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+              onClick={() => setStep(2)}
+              className="w-full py-6 px-8 bg-white text-slate-950 rounded-[32px] font-black text-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-xl"
             >
-              Continuar <ArrowRight className="w-5 h-5" />
+              Próximo Passo <ArrowRight className="w-6 h-6" />
             </button>
+          </motion.div>
+        )}
+
+        {step === 2 && (
+          <motion.div
+            key="step2"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            className="w-full max-w-md space-y-10 text-center relative z-10"
+          >
+            <div className="space-y-4">
+              <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
+                <Shield className="w-8 h-8 text-red-400" />
+              </div>
+              <h3 className="text-4xl font-black tracking-tighter text-white">
+                Triagem de Segurança
+              </h3>
+              <p className="text-slate-400 font-light">
+                Você sente que corre risco imediato ou tem pensamentos de se machucar?
+              </p>
+            </div>
+
+            <div className="grid gap-4">
+              <button
+                onClick={() => setRisco(true)}
+                className={`w-full py-6 px-8 border-2 rounded-[32px] text-xl font-black transition-all flex items-center justify-between ${
+                  risco === true ? "bg-red-600 border-red-600 text-white" : "bg-white/5 border-white/10 text-slate-300 hover:bg-red-600/10 hover:border-red-600/30"
+                }`}
+              >
+                <span>Sim, preciso de ajuda urgente</span>
+                <AlertTriangle className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => setRisco(false)}
+                className={`w-full py-6 px-8 border-2 rounded-[32px] text-xl font-black transition-all flex items-center justify-between ${
+                  risco === false ? "bg-emerald-600 border-emerald-600 text-white" : "bg-white/5 border-white/10 text-slate-300 hover:bg-emerald-600/10 hover:border-emerald-600/30"
+                }`}
+              >
+                <span>Não, quero apenas conversar</span>
+                <ArrowRight className="w-6 h-6" />
+              </button>
+            </div>
+
+            <AnimatePresence>
+              {risco !== null && (
+                <motion.button
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={handleContinue}
+                  className="w-full py-6 px-8 bg-white text-slate-950 rounded-[32px] font-black text-xl transition-all shadow-2xl"
+                >
+                  Finalizar Triagem
+                </motion.button>
+              )}
+            </AnimatePresence>
+
+            <div className="flex items-center gap-2 justify-center text-slate-500 text-sm">
+              <Info className="w-4 h-4" />
+              <span>Sua resposta é confidencial</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

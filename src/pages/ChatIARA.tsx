@@ -9,7 +9,7 @@ import { analisarEmocao } from "../services/emocaoService";
 import { gerarExercicio } from "../services/pchService";
 import { decidirCaminho } from "../services/decisaoService";
 import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface Message {
   tipo: "user" | "iara";
@@ -25,7 +25,7 @@ export default function ChatIARA() {
 
   const [mensagem, setMensagem] = useState("");
   const [chat, setChat] = useState<Message[]>([
-    { tipo: "iara", texto: "Eu estou aqui com você... e você não precisa resolver tudo agora." }
+    { tipo: "iara", texto: "Olá. Eu sou a IARA, sua assistente de triagem clínica. Como você está se sentindo agora, após a estabilização?" }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [alerta, setAlerta] = useState(false);
@@ -35,6 +35,13 @@ export default function ChatIARA() {
   const [isExercising, setIsExercising] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const steps = [
+    { id: 0, label: "Identificação", completed: true },
+    { id: 1, label: "Sinais Vitais", completed: true },
+    { id: 2, label: "Clínico Geral", active: true },
+    { id: 3, label: "Especialista" }
+  ];
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,6 +63,10 @@ export default function ChatIARA() {
     audio.play().catch(e => console.error("Error playing audio:", e));
   };
 
+  const [emocaoAtual, setEmocaoAtual] = useState<{ emocao: string; intensidade: number }>({ emocao: emocao || "calma", intensidade: intensidade || 5 });
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
   const enviarMensagem = async () => {
     if (!mensagem.trim() || isLoading) return;
 
@@ -65,118 +76,53 @@ export default function ChatIARA() {
     setMensagem("");
     setIsLoading(true);
 
-    const riscoAntes = analisarEmocao(msgAtual);
-
-    if (riscoAntes === "alto") {
-      setAlerta(true);
-      // alert("Você não está sozinho. Vamos buscar ajuda agora."); // Optional alert
-    }
-
     const historico: ChatMessage[] = chat.map(msg => ({
       role: msg.tipo === "user" ? "user" : "model",
       parts: [{ text: msg.texto }]
     }));
 
-    let { resposta, risco } = await falarComIARA(msgAtual, historico, { emocao, intensidade });
-
-    let tipoExercicio = null;
-    if (msgAtual.toLowerCase().includes("ansioso") || msgAtual.toLowerCase().includes("ansiedade")) tipoExercicio = "ansiedade";
-    if (msgAtual.toLowerCase().includes("crise") || msgAtual.toLowerCase().includes("pânico")) tipoExercicio = "crise";
-    if (msgAtual.toLowerCase().includes("pensando demais") || msgAtual.toLowerCase().includes("pensamento")) tipoExercicio = "pensamento";
-
-    const exercicio = gerarExercicio(tipoExercicio);
-
-    if (riscoAntes === "moderado") {
-      resposta += "\n\nTalvez conversar com alguém possa te ajudar...";
-    } else if (riscoAntes === "alto") {
-      resposta = "Eu estou aqui com você...\n\nIsso é importante demais para você enfrentar sozinho.\n\nVamos buscar ajuda agora, juntos.";
-    } else if (tipoExercicio) {
-      resposta += "\n\nVamos fazer isso juntos...";
-    }
-
-    if (resposta.toLowerCase().includes("respira")) {
-      if (!isMuted) falarTexto("Inspira... devagar...");
-    }
-
-    // Salvar dados (simulado para integração futura com Google Sheets/Looker Studio)
-    const salvarDados = async () => {
-      try {
-        const URL_DO_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbx-SUA-URL-AQUI/exec";
-        if (!URL_DO_GOOGLE_SCRIPT.includes("SUA-URL-AQUI")) {
-          await fetch(URL_DO_GOOGLE_SCRIPT, {
-            method: "POST",
-            mode: "no-cors",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              data: new Date().toLocaleDateString('pt-BR'),
-              usuario: "Anônimo",
-              humor: intensidade || 5,
-              risco: riscoAntes,
-              atendimento: "nao",
-              tipo: "IARA"
-            })
-          });
-        }
-      } catch (e) {
-        console.error("Erro ao salvar dados:", e);
-      }
-    };
-    salvarDados();
-
-    if (!isMuted) {
-      falarTexto(resposta);
-    }
-
-    setChat([...novaConversa, { tipo: "iara", texto: resposta }]);
-    setIsLoading(false);
-
-    if (exercicio.length > 0) {
-      setIsExercising(true);
-      let delay = 0;
-      exercicio.forEach((frase) => {
-        setTimeout(() => {
-          if (!isMuted) falarTexto(frase);
-          setChat(prev => [...prev, { tipo: "iara", texto: frase }]);
-        }, delay);
-        delay += 4000;
-      });
+    try {
+      const result = await falarComIARA(msgAtual, historico, emocaoAtual);
       
-      setTimeout(() => {
-        setIsExercising(false);
-      }, delay);
-    }
-
-    // Após resposta e exercício
-    setTimeout(() => {
-      const riscoDepois = analisarEmocao(resposta); // Usando a resposta como proxy do estado, conforme solicitado
-      const decisao = decidirCaminho(riscoAntes, riscoDepois);
-
-      if (decisao === "terapeuta" || decisao === "psicologo") {
-        const terapeutas = encontrarTerapeutas(mensagem);
-        const terapeutaPrincipal = terapeutas[0];
-        const outrosContagem = terapeutas.length - 1;
-        
-        const msg = terapeutaPrincipal 
-          ? `Encontrei alguns profissionais que podem te ajudar, como ${terapeutaPrincipal.nome}${outrosContagem > 0 ? ` e mais ${outrosContagem} especialistas` : ""}.` 
-          : "Talvez seja importante conversar com alguém agora...";
-        
-        if (!isMuted) falarTexto(msg);
-        setChat(prev => [...prev, { tipo: "iara", texto: msg }]);
-        setTimeout(() => navigate(`/profissionais?tipo=${terapeutaPrincipal?.especialidade || decisao}`), 4000);
-      } else if (decisao === "emergencia" || decisao === "psiquiatra") {
-        navigate("/emergencia");
+      setEmocaoAtual({ emocao: result.emocao, intensidade: result.intensidade });
+      
+      if (result.risco === "alto") {
+        setAlerta(true);
       }
-    }, exercicio.length > 0 ? exercicio.length * 4000 + 2000 : 8000);
+
+      setChat([...novaConversa, { tipo: "iara", texto: result.resposta }]);
+      
+      if (!isMuted) {
+        falarTexto(result.resposta);
+      }
+
+      // Handle contextual breathing
+      if (result.sugerirRespiracao) {
+        setTimeout(() => setShowBreathing(true), 1500);
+      }
+
+      // Handle specialist transition
+      if (result.direcionarEspecialista) {
+        setIsTransitioning(true);
+        setTimeout(async () => {
+          const terapeutas = await encontrarTerapeutas(msgAtual);
+          const terapeutaPrincipal = terapeutas[0];
+          navigate(`/profissionais?tipo=${terapeutaPrincipal?.especialidades?.[0] || "geral"}`);
+        }, 5000);
+      }
+
+    } catch (error) {
+      console.error("Erro no chat:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGerarImagem = async () => {
     if (isLoading || isGeneratingImage) return;
     
     setIsGeneratingImage(true);
-    
-    // Get the last user message or use a default prompt
     const lastUserMessage = chat.slice().reverse().find(m => m.tipo === "user")?.texto || "Paz e tranquilidade";
-    
     const imageData = await generateImage(lastUserMessage);
     
     if (imageData) {
@@ -186,7 +132,6 @@ export default function ChatIARA() {
         imagem: imageData 
       }]);
     }
-    
     setIsGeneratingImage(false);
   };
 
@@ -215,19 +160,113 @@ export default function ChatIARA() {
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="flex flex-col h-screen bg-slate-950 text-slate-100"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex flex-col h-screen bg-[#0a0502] text-slate-100 relative overflow-hidden"
     >
-      <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
+      {/* Breathing Overlay */}
+      <AnimatePresence>
+        {showBreathing && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center p-6 text-center"
+          >
+            <div className="space-y-12 max-w-sm w-full">
+              <div className="space-y-4">
+                <h2 className="text-3xl font-black text-emerald-400 tracking-tighter">Respire com a IARA</h2>
+                <p className="text-slate-400">Siga o movimento do círculo para estabilizar seu coração.</p>
+              </div>
+              
+              <div className="relative flex items-center justify-center">
+                <motion.div 
+                  animate={{ scale: [1, 1.5, 1] }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                  className="w-32 h-32 bg-emerald-500/20 rounded-full border-2 border-emerald-500/50 shadow-[0_0_50px_rgba(16,185,129,0.3)]"
+                />
+                <motion.div 
+                  animate={{ scale: [0.8, 1.2, 0.8] }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute w-24 h-24 bg-emerald-400/30 rounded-full blur-xl"
+                />
+                <div className="absolute text-emerald-400 font-bold tracking-widest uppercase text-xs">
+                  <motion.span
+                    animate={{ opacity: [1, 0, 1] }}
+                    transition={{ duration: 8, repeat: Infinity, times: [0, 0.5, 1] }}
+                  >
+                    Inspira...
+                  </motion.span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => setShowBreathing(false)}
+                className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm font-bold uppercase tracking-widest transition-all"
+              >
+                Estou melhor, obrigado
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Transition Overlay */}
+      <AnimatePresence>
+        {isTransitioning && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="fixed bottom-24 left-6 right-6 z-[90] bg-emerald-600 p-6 rounded-[32px] shadow-2xl flex items-center gap-6 border border-emerald-400/30"
+          >
+            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
+              <HeartHandshake className="w-8 h-8 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-black text-white text-lg leading-tight">Conectando com Especialista</h3>
+              <p className="text-emerald-100 text-sm">A IARA identificou que você precisa de um acolhimento humano agora.</p>
+            </div>
+            <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Atmospheric Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[120px]"></div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 w-full max-w-xs flex gap-2 px-6 z-50 pointer-events-none">
+        {steps.map((s, i) => (
+          <div 
+            key={i} 
+            className={`h-1 flex-1 rounded-full transition-all duration-500 ${
+              s.completed || s.active ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-white/10"
+            }`}
+          />
+        ))}
+      </div>
+
+      <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/20 backdrop-blur-xl sticky top-0 z-10 pt-10">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-medium text-emerald-400">IARA</h2>
-            <p className="text-xs text-slate-400">Sua voz interior</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-black tracking-tighter text-emerald-400">IARA</h2>
+              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-emerald-500/20">Clínico Geral</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                emocaoAtual.intensidade > 7 ? "bg-red-500" : "bg-emerald-500"
+              }`} />
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                Detectado: {emocaoAtual.emocao} ({emocaoAtual.intensidade}/10)
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">

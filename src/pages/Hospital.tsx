@@ -1,17 +1,17 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Building2, Users, Activity, LogOut, PlusCircle, FileText } from "lucide-react";
+import { Building2, Users, Activity, LogOut, PlusCircle, FileText, Stethoscope } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
 
-export default function Empresa() {
+export default function Hospital() {
   const navigate = useNavigate();
   const { profile, loading, isAuthReady } = useAuth();
 
   React.useEffect(() => {
     if (isAuthReady && !loading) {
-      if (!profile || (profile.tipo !== 'empresa' && profile.tipo !== 'admin')) {
+      if (!profile || (profile.tipo !== 'hospital' && profile.tipo !== 'admin')) {
         navigate("/login");
       }
     }
@@ -37,22 +37,22 @@ export default function Empresa() {
       <aside className="w-64 bg-slate-900 border-r border-white/5 flex flex-col hidden md:flex">
         <div className="p-6">
           <h1 className="text-xl font-medium text-emerald-400 flex items-center gap-2">
-            <Building2 className="w-6 h-6" />
-            IARA RH
+            <Stethoscope className="w-6 h-6" />
+            IARA Hospital
           </h1>
         </div>
         <nav className="flex-1 px-4 space-y-2">
           <a href="#" className="flex items-center gap-3 px-4 py-3 bg-emerald-900/20 text-emerald-400 rounded-xl">
             <Users className="w-5 h-5" />
-            Colaboradores
+            Pacientes Internos
           </a>
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-xl transition-colors">
             <Activity className="w-5 h-5" />
-            Saúde Emocional
+            Triagem de Emergência
           </a>
           <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-xl transition-colors">
             <FileText className="w-5 h-5" />
-            Relatórios
+            Prontuários
           </a>
         </nav>
         <div className="p-4 border-t border-white/5">
@@ -68,8 +68,8 @@ export default function Empresa() {
         <div className="max-w-5xl mx-auto space-y-8">
           <header className="flex justify-between items-end">
             <div>
-              <h2 className="text-3xl font-light tracking-tight text-slate-200">Painel RH</h2>
-              <p className="text-slate-400 mt-1">Gestão de saúde emocional corporativa.</p>
+              <h2 className="text-3xl font-light tracking-tight text-slate-200">Painel Hospitalar</h2>
+              <p className="text-slate-400 mt-1">Gestão de leitos e atendimentos psicológicos.</p>
             </div>
             <button onClick={handleLogout} className="md:hidden p-2 text-slate-400 hover:text-red-400 rounded-lg">
               <LogOut className="w-5 h-5" />
@@ -83,14 +83,14 @@ export default function Empresa() {
               className="bg-slate-900 border border-white/5 p-6 rounded-2xl"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-slate-400 font-medium">Colaboradores Ativos</h3>
+                <h3 className="text-slate-400 font-medium">Leitos Ativos</h3>
                 <div className="p-2 bg-blue-900/30 rounded-lg">
-                  <Users className="w-5 h-5 text-blue-400" />
+                  <Building2 className="w-5 h-5 text-blue-400" />
                 </div>
               </div>
-              <p className="text-4xl font-light text-slate-100 mt-4">120</p>
+              <p className="text-4xl font-light text-slate-100 mt-4">85</p>
               <p className="text-sm text-emerald-400 mt-2 flex items-center gap-1">
-                <span className="font-medium">+5</span> este mês
+                <span className="font-medium">92%</span> ocupação
               </p>
             </motion.div>
 
@@ -101,13 +101,13 @@ export default function Empresa() {
               className="bg-slate-900 border border-white/5 p-6 rounded-2xl"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-slate-400 font-medium">Indicador Emocional</h3>
-                <div className="p-2 bg-emerald-900/30 rounded-lg">
-                  <Activity className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-slate-400 font-medium">Alertas de Risco</h3>
+                <div className="p-2 bg-red-900/30 rounded-lg">
+                  <Activity className="w-5 h-5 text-red-400" />
                 </div>
               </div>
-              <p className="text-4xl font-light text-slate-100 mt-4">6.8<span className="text-xl text-slate-500">/10</span></p>
-              <p className="text-sm text-slate-500 mt-2">Média geral da empresa</p>
+              <p className="text-4xl font-light text-slate-100 mt-4">4</p>
+              <p className="text-sm text-red-400 mt-2 font-medium">Ação imediata necessária</p>
             </motion.div>
 
             <motion.div 
@@ -117,8 +117,8 @@ export default function Empresa() {
               className="bg-slate-900 border border-white/5 p-6 rounded-2xl flex flex-col justify-center items-center text-center border-dashed hover:bg-slate-800 transition-colors cursor-pointer group"
             >
               <PlusCircle className="w-10 h-10 text-emerald-500 mb-3 group-hover:scale-110 transition-transform" />
-              <h3 className="font-medium text-slate-200">Adicionar Funcionário</h3>
-              <p className="text-sm text-slate-400 mt-1">Enviar convite de acesso</p>
+              <h3 className="font-medium text-slate-200">Novo Prontuário</h3>
+              <p className="text-sm text-slate-400 mt-1">Iniciar triagem hospitalar</p>
             </motion.div>
           </div>
 
@@ -129,33 +129,33 @@ export default function Empresa() {
             className="bg-slate-900 border border-white/5 p-6 rounded-2xl"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-medium text-slate-200">Alertas Anonimizados</h3>
-              <button className="text-sm text-emerald-400 hover:underline">Ver relatório completo</button>
+              <h3 className="text-lg font-medium text-slate-200">Monitoramento em Tempo Real</h3>
+              <button className="text-sm text-emerald-400 hover:underline">Ver mapa de leitos</button>
             </div>
             
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-white/5">
                 <div className="flex items-center gap-4">
-                  <div className="w-2 h-10 bg-yellow-500 rounded-full"></div>
+                  <div className="w-10 h-10 bg-red-900/20 rounded-full flex items-center justify-center text-red-400 font-bold">L12</div>
                   <div>
-                    <p className="font-medium text-slate-200">Aumento de Ansiedade (Setor de Vendas)</p>
-                    <p className="text-sm text-slate-400">Detectado em 15% dos colaboradores do setor nos últimos 7 dias.</p>
+                    <p className="font-medium text-slate-200">Leito 12 - Crise de Ansiedade Aguda</p>
+                    <p className="text-sm text-slate-400">Paciente: Ricardo M. - Há 15 min</p>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-sm font-medium transition-colors">
-                  Ação Recomendada
+                <button className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-medium transition-colors">
+                  Atender Agora
                 </button>
               </div>
               
               <div className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-white/5">
                 <div className="flex items-center gap-4">
-                  <div className="w-2 h-10 bg-emerald-500 rounded-full"></div>
+                  <div className="w-10 h-10 bg-blue-900/20 rounded-full flex items-center justify-center text-blue-400 font-bold">L05</div>
                   <div>
-                    <p className="font-medium text-slate-200">Melhora no Sono Geral</p>
-                    <p className="text-sm text-slate-400">Aumento de 20% nos relatos positivos após campanha de bem-estar.</p>
+                    <p className="font-medium text-slate-200">Leito 05 - Pós-operatório (Suporte)</p>
+                    <p className="text-sm text-slate-400">Paciente: Sandra P. - Há 1 hora</p>
                   </div>
                 </div>
-                <span className="text-sm text-slate-500">Há 2 dias</span>
+                <span className="text-sm text-slate-500">Aguardando Dr. Lucas</span>
               </div>
             </div>
           </motion.div>

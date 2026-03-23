@@ -10,7 +10,7 @@ export default function Dashboard() {
     switch (tipo) {
       case "usuario":
       case "paciente":
-        navigate("/chat");
+        navigate("/home");
         break;
       case "terapeuta":
         navigate("/terapeuta");
@@ -20,6 +20,12 @@ export default function Dashboard() {
         break;
       case "prefeitura":
         navigate("/prefeitura");
+        break;
+      case "clinica":
+        navigate("/clinica");
+        break;
+      case "hospital":
+        navigate("/hospital");
         break;
       default:
         navigate("/login");

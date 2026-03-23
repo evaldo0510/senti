@@ -10,6 +10,7 @@ export interface Message {
 export interface MoodEntry {
   id: string;
   value: number; // 0-10
+  intensity?: number; // 0-10
   note?: string;
   timestamp: Date;
 }
@@ -30,7 +31,9 @@ export interface Appointment {
   patientNome: string;
   therapistId: string;
   therapistNome: string;
+  therapistName?: string; // Alias for therapistNome
   date: string; // ISO string
+  time?: string; // HH:mm
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   type: 'video' | 'chat' | 'presencial';
   price: number;
@@ -50,7 +53,7 @@ export interface DirectMessage {
 
 export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow' | 'sensorial' | 'login' | 'dashboard' | 'terapeuta-panel' | 'empresa-panel' | 'prefeitura-panel';
 
-export type UserType = 'usuario' | 'terapeuta' | 'empresa' | 'prefeitura';
+export type UserType = 'usuario' | 'terapeuta' | 'empresa' | 'prefeitura' | 'clinica' | 'hospital' | 'admin';
 
 export interface Availability {
   day: string; // 'segunda', 'terça', etc.

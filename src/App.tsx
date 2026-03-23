@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
+import DashboardPaciente from "./pages/DashboardPaciente";
 import LandingPro from "./pages/LandingPro";
 import LeadForm from "./pages/LeadForm";
 import VendasEmpresa from "./pages/VendasEmpresa";
@@ -21,13 +22,18 @@ import TerapeutaSetup from "./pages/TerapeutaSetup";
 import TerapeutaCadastro from "./pages/TerapeutaCadastro";
 import Atendimento from "./pages/Atendimento";
 import Registro from "./pages/Registro";
+import TerapeutaPerfil from "./pages/TerapeutaPerfil";
+import LiveIARA from "./pages/LiveIARA";
+import Perfil from "./pages/Perfil";
+import Clinica from "./pages/Clinica";
+import Hospital from "./pages/Hospital";
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<LandingPro />} />
-        <Route path="/home" element={<Home />} />
+        <Route path="/home" element={<DashboardPaciente />} />
         <Route path="/lead" element={<LeadForm />} />
         <Route path="/vendas-empresa" element={<VendasEmpresa />} />
         <Route path="/triagem" element={<Triagem />} />
@@ -41,10 +47,14 @@ function App() {
         <Route path="/prefeitura" element={<Prefeitura />} />
         <Route path="/profissionais" element={<Profissionais />} />
         <Route path="/agendamento/:id" element={<Agendamento />} />
+        <Route path="/terapeuta-perfil/:id" element={<TerapeutaPerfil />} />
         <Route path="/diario" element={<Diario />} />
+        <Route path="/perfil" element={<Perfil />} />
         <Route path="/emergencia" element={<Emergencia />} />
         <Route path="/terapeuta-setup" element={<TerapeutaSetup />} />
-        <Route path="/cadastro-terapeuta" element={<TerapeutaCadastro />} />
+        <Route path="/live-iara" element={<LiveIARA />} />
+        <Route path="/clinica" element={<Clinica />} />
+        <Route path="/hospital" element={<Hospital />} />
         <Route path="/atendimento/:appointmentId" element={<Atendimento />} />
         <Route path="/registro/:appointmentId" element={<Registro />} />
       </Routes>

@@ -41,7 +41,7 @@ export const TerapeutaPage: React.FC = () => {
         
         unsubApps = userService.getMyAppointments((apps) => {
           setAppointments(apps);
-        });
+        }, 'terapeuta');
       }
       setLoading(false);
     };
@@ -59,6 +59,13 @@ export const TerapeutaPage: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const handleToggleOnline = async () => {
+    if (!profile || !auth.currentUser) return;
+    const newStatus = !profile.online;
+    await userService.updateOnlineStatus(auth.currentUser.uid, newStatus);
+    setProfile({ ...profile, online: newStatus });
   };
 
   const pendingAppointments = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed');
@@ -93,10 +100,21 @@ export const TerapeutaPage: React.FC = () => {
           </motion.div>
           <div className="space-y-1">
             <h2 className="text-lg font-serif font-bold text-brand-text truncate max-w-[160px]">{profile?.nome || 'Dr. Terapeuta'}</h2>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
-              <p className="text-[10px] text-brand-green font-bold uppercase tracking-[0.2em]">Disponível</p>
-            </div>
+            <button 
+              onClick={handleToggleOnline}
+              className="flex items-center gap-2 group/status"
+            >
+              <div className={cn(
+                "w-2 h-2 rounded-full transition-all duration-500",
+                profile?.online ? "bg-brand-green animate-pulse" : "bg-brand-text/20"
+              )} />
+              <p className={cn(
+                "text-[10px] font-bold uppercase tracking-[0.2em] transition-colors",
+                profile?.online ? "text-brand-green" : "text-brand-text/40 group-hover/status:text-brand-text/60"
+              )}>
+                {profile?.online ? 'Online' : 'Offline'}
+              </p>
+            </button>
           </div>
         </div>
 
@@ -254,7 +272,7 @@ export const TerapeutaPage: React.FC = () => {
                             <div className="flex flex-col gap-1">
                               <div className="flex items-center gap-2 text-brand-text">
                                 <Clock size={14} className="text-brand-green" />
-                                <span className="text-base font-bold">{appointment.slot}</span>
+                                <span className="text-base font-bold">{new Date(appointment.date).getHours().toString().padStart(2, '0')}:{new Date(appointment.date).getMinutes().toString().padStart(2, '0')}</span>
                               </div>
                               <span className="text-[10px] font-bold uppercase tracking-widest text-brand-text/40">{new Date(appointment.date).toLocaleDateString('pt-BR')}</span>
                             </div>
@@ -280,14 +298,16 @@ export const TerapeutaPage: React.FC = () => {
                                   Confirmar
                                 </motion.button>
                               )}
-                              <motion.button 
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => handleStatusUpdate(appointment.id, 'completed')}
-                                className="px-6 py-3 rounded-2xl bg-brand-slate text-brand-text/60 text-xs font-bold hover:bg-brand-green hover:text-white transition-all shadow-md"
-                              >
-                                Finalizar
-                              </motion.button>
+                              {appointment.status === 'confirmed' && (
+                                <motion.button 
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => handleStatusUpdate(appointment.id, 'completed')}
+                                  className="px-6 py-3 rounded-2xl bg-brand-green text-white text-xs font-bold shadow-lg shadow-brand-green/20"
+                                >
+                                  Marcar como concluído
+                                </motion.button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -447,7 +467,11 @@ export const TerapeutaPage: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {agendaSlots.map((slot) => {
-                const appointment = appointments.find(a => a.slot === slot && new Date(a.date).toDateString() === selectedDate.toDateString());
+                const appointment = appointments.find(a => {
+                  const d = new Date(a.date);
+                  const time = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+                  return time === slot && d.toDateString() === selectedDate.toDateString();
+                });
                 return (
                   <motion.div 
                     key={slot}

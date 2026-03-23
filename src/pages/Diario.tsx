@@ -8,6 +8,7 @@ import { MoodEntry } from "../types";
 export default function Diario() {
   const navigate = useNavigate();
   const [humor, setHumor] = useState<number>(5);
+  const [intensidade, setIntensidade] = useState<number>(5);
   const [nota, setNota] = useState("");
   const [historico, setHistorico] = useState<MoodEntry[]>([]);
   const [salvo, setSalvo] = useState(false);
@@ -20,7 +21,7 @@ export default function Diario() {
   }, []);
 
   const handleSalvar = async () => {
-    await userService.saveMood(humor, nota);
+    await userService.saveMood(humor, intensidade, nota);
     setSalvo(true);
     setNota("");
     
@@ -50,7 +51,7 @@ export default function Diario() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       <header className="p-4 border-b border-white/10 flex items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-        <button onClick={() => navigate("/")} className="p-2 hover:bg-white/10 rounded-full transition-colors mr-4">
+        <button onClick={() => navigate("/home")} className="p-2 hover:bg-white/10 rounded-full transition-colors mr-4">
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
@@ -72,12 +73,13 @@ export default function Diario() {
             <h3 className="text-xl font-medium">Como você está hoje?</h3>
           </div>
 
-          <div className="flex flex-col items-center py-6">
+          <div className="flex flex-col items-center py-6 border-b border-white/5">
             <div className="mb-6 transform transition-transform duration-300 hover:scale-110">
               {getMoodIcon(humor)}
             </div>
             
             <div className="w-full max-w-md px-4">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Humor (0-10)</label>
               <input
                 type="range"
                 min="0"
@@ -86,10 +88,29 @@ export default function Diario() {
                 onChange={(e) => setHumor(parseInt(e.target.value))}
                 className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
-              <div className="flex justify-between text-xs text-slate-500 mt-2 font-medium uppercase tracking-wider">
-                <span>Difícil (0)</span>
-                <span>Razoável (5)</span>
-                <span>Bem (10)</span>
+              <div className="flex justify-between text-[10px] text-slate-500 mt-2 font-medium uppercase tracking-wider">
+                <span>Difícil</span>
+                <span>Razoável</span>
+                <span>Bem</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center py-6">
+            <div className="w-full max-w-md px-4">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Intensidade do Sentimento (0-10)</label>
+              <input
+                type="range"
+                min="0"
+                max="10"
+                value={intensidade}
+                onChange={(e) => setIntensidade(parseInt(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500 mt-2 font-medium uppercase tracking-wider">
+                <span>Leve</span>
+                <span>Moderada</span>
+                <span>Forte</span>
               </div>
             </div>
           </div>
@@ -152,6 +173,9 @@ export default function Diario() {
                     <div className={`w-3 h-3 rounded-full mb-2 ${getMoodColor(entry.value)}`} />
                     <span className="text-2xl font-light">{entry.value}</span>
                     <span className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">{getMoodLabel(entry.value)}</span>
+                    {entry.intensity !== undefined && (
+                      <span className="text-[9px] text-blue-400 font-bold mt-1">Int: {entry.intensity}</span>
+                    )}
                   </div>
                   
                   <div className="flex-1 border-l border-white/5 pl-4">

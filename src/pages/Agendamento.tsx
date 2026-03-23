@@ -48,7 +48,9 @@ export default function Agendamento() {
         patientNome: patientProfile.nome,
         therapistId: profissional.uid,
         therapistNome: profissional.nome,
+        therapistName: profissional.nome,
         date: date.toISOString(),
+        time: horario,
         status: 'pending',
         type: 'video',
         price: profissional.preco || 0
