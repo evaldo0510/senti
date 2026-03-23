@@ -2,63 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, Search, MapPin, Star, Video } from "lucide-react";
-
-export const profissionais = [
-  {
-    id: 1,
-    nome: "Dra. Ana Silva",
-    especialidade: "Psicóloga Clínica (TCC)",
-    rating: 4.9,
-    reviews: 128,
-    online: true,
-    presencial: false,
-    cidade: "São Paulo, SP",
-    preco: "R$ 150/sessão",
-    imagem: "https://picsum.photos/seed/ana/200/200"
-  },
-  {
-    id: 2,
-    nome: "Dr. Carlos Mendes",
-    especialidade: "Psicanalista",
-    rating: 4.8,
-    reviews: 95,
-    online: true,
-    presencial: true,
-    cidade: "Rio de Janeiro, RJ",
-    preco: "R$ 180/sessão",
-    imagem: "https://picsum.photos/seed/carlos/200/200"
-  },
-  {
-    id: 3,
-    nome: "Clínica Acolher",
-    especialidade: "Atendimento Multidisciplinar",
-    rating: 4.7,
-    reviews: 210,
-    online: false,
-    presencial: true,
-    cidade: "Belo Horizonte, MG",
-    preco: "A partir de R$ 100",
-    imagem: "https://picsum.photos/seed/clinica/200/200"
-  },
-  {
-    id: 4,
-    nome: "Dr. Roberto Almeida",
-    especialidade: "Psiquiatra",
-    rating: 4.9,
-    reviews: 310,
-    online: true,
-    presencial: true,
-    cidade: "Curitiba, PR",
-    preco: "R$ 350/consulta",
-    imagem: "https://picsum.photos/seed/roberto/200/200"
-  }
-];
+import { userService } from "../services/userService";
+import { UserProfile } from "../types";
 
 export default function Profissionais() {
   const navigate = useNavigate();
   const location = useLocation();
   const [busca, setBusca] = useState("");
-  const [listaProfissionais, setListaProfissionais] = useState(profissionais);
+  const [listaProfissionais, setListaProfissionais] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -67,17 +19,26 @@ export default function Profissionais() {
       setBusca(tipo);
     }
 
-    const terapeutasCadastrados = JSON.parse(localStorage.getItem("terapeutas_cadastrados") || "[]");
-    if (terapeutasCadastrados.length > 0) {
-      setListaProfissionais([...terapeutasCadastrados, ...profissionais]);
-    }
+    const loadTherapists = async () => {
+      try {
+        const data = await userService.getTherapists();
+        setListaProfissionais(data);
+      } catch (error) {
+        console.error("Erro ao carregar terapeutas:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTherapists();
   }, [location]);
 
-  const profissionaisFiltrados = listaProfissionais.filter(prof => 
-    prof.nome.toLowerCase().includes(busca.toLowerCase()) ||
-    prof.especialidade.toLowerCase().includes(busca.toLowerCase()) ||
-    prof.cidade.toLowerCase().includes(busca.toLowerCase())
-  );
+  const profissionaisFiltrados = listaProfissionais.filter(prof => {
+    const nomeMatch = prof.nome?.toLowerCase().includes(busca.toLowerCase());
+    const especialidadeMatch = prof.especialidades?.some(e => e.toLowerCase().includes(busca.toLowerCase()));
+    const cidadeMatch = prof.cidade?.toLowerCase().includes(busca.toLowerCase());
+    return nomeMatch || especialidadeMatch || cidadeMatch;
+  });
 
   return (
     <motion.div 
@@ -108,15 +69,20 @@ export default function Profissionais() {
         </div>
 
         <div className="space-y-4">
-          {profissionaisFiltrados.length > 0 ? profissionaisFiltrados.map(prof => (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+              <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+              <p className="text-slate-400">Carregando profissionais...</p>
+            </div>
+          ) : profissionaisFiltrados.length > 0 ? profissionaisFiltrados.map(prof => (
             <motion.div 
-              key={prof.id}
+              key={prof.uid}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-slate-900 border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row gap-4"
             >
               <img 
-                src={prof.imagem} 
+                src={prof.fotoUrl || `https://picsum.photos/seed/${prof.uid}/200/200`} 
                 alt={prof.nome} 
                 className="w-20 h-20 rounded-xl object-cover"
                 referrerPolicy="no-referrer"
@@ -125,21 +91,19 @@ export default function Profissionais() {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-lg font-medium text-slate-200">{prof.nome}</h3>
-                    <p className="text-emerald-400 text-sm">{prof.especialidade}</p>
+                    <p className="text-emerald-400 text-sm">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
                   </div>
                   <div className="flex items-center gap-1 bg-slate-800 px-2 py-1 rounded-lg">
                     <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    <span className="text-sm font-medium">{prof.rating}</span>
+                    <span className="text-sm font-medium">{prof.rating || "5.0"}</span>
                   </div>
                 </div>
                 
                 <div className="flex flex-wrap gap-3 text-sm text-slate-400">
-                  {prof.online && (
-                    <span className="flex items-center gap-1">
-                      <Video className="w-4 h-4" /> Online
-                    </span>
-                  )}
-                  {prof.presencial && (
+                  <span className="flex items-center gap-1">
+                    <Video className="w-4 h-4" /> Online
+                  </span>
+                  {prof.cidade && (
                     <span className="flex items-center gap-1">
                       <MapPin className="w-4 h-4" /> {prof.cidade}
                     </span>
@@ -148,9 +112,9 @@ export default function Profissionais() {
               </div>
               
               <div className="flex flex-col justify-between items-end gap-4 sm:border-l border-white/5 sm:pl-4">
-                <span className="text-slate-300 font-medium">{prof.preco}</span>
+                <span className="text-slate-300 font-medium">R$ {prof.preco || "150"}/sessão</span>
                 <button 
-                  onClick={() => navigate(`/agendamento/${prof.id}`)}
+                  onClick={() => navigate(`/agendamento/${prof.uid}`)}
                   className="w-full sm:w-auto px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-colors"
                 >
                   Agendar

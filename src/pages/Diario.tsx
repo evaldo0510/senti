@@ -13,20 +13,16 @@ export default function Diario() {
   const [salvo, setSalvo] = useState(false);
 
   useEffect(() => {
-    carregarHistorico();
+    const unsubscribe = userService.getMoodHistory((hist) => {
+      setHistorico(hist);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const carregarHistorico = () => {
-    const hist = userService.getMoodHistory();
-    // Sort by newest first
-    setHistorico(hist.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-  };
-
-  const handleSalvar = () => {
-    userService.saveMood(humor, nota);
+  const handleSalvar = async () => {
+    await userService.saveMood(humor, nota);
     setSalvo(true);
     setNota("");
-    carregarHistorico();
     
     setTimeout(() => {
       setSalvo(false);

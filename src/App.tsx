@@ -45,8 +45,8 @@ function App() {
         <Route path="/emergencia" element={<Emergencia />} />
         <Route path="/terapeuta-setup" element={<TerapeutaSetup />} />
         <Route path="/cadastro-terapeuta" element={<TerapeutaCadastro />} />
-        <Route path="/atendimento" element={<Atendimento />} />
-        <Route path="/registro" element={<Registro />} />
+        <Route path="/atendimento/:appointmentId" element={<Atendimento />} />
+        <Route path="/registro/:appointmentId" element={<Registro />} />
       </Routes>
     </Router>
   );

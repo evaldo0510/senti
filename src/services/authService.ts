@@ -1,71 +1,58 @@
 import { UserProfile, UserType } from "../types";
-import { auth } from "./firebase";
+import { auth, loginWithGoogle, logout as firebaseLogout } from "./firebase";
 import { userService } from "./userService";
+import { onAuthStateChanged } from "firebase/auth";
 
-// Mock user for development bypass
-const MOCK_USER: UserProfile = {
-  uid: "mock-user-id",
-  nome: "Usuário de Teste",
-  email: "teste@prontosocorro.com",
-  tipo: "usuario",
-  createdAt: new Date().toISOString()
-};
+let currentUserProfile: UserProfile | null = null;
 
-let _isMockMode = true; // Always mock mode now
-let mockUserInstance: UserProfile | null = JSON.parse(localStorage.getItem('iara_user_profile') || 'null');
+// Listen for auth changes to keep profile in sync
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUserProfile = await userService.getUser(user.uid);
+  } else {
+    currentUserProfile = null;
+  }
+});
 
-export const isMockMode = () => _isMockMode;
+export const isMockMode = () => false;
 
 export const registrar = async (email: string, senha: string, nome: string, tipo: UserType = 'usuario') => {
-  const profile = userService.mockLogin(email, tipo);
-  profile.nome = nome;
-  localStorage.setItem('iara_user_profile', JSON.stringify(profile));
-  mockUserInstance = profile;
-  return profile;
+  // For now, we only support Google Login as per guidelines.
+  // This function would normally use createUserWithEmailAndPassword.
+  throw new Error("Registration with email not implemented. Use Google Login.");
 };
 
 export const login = async (email: string, senha: string) => {
-  let mockType: UserType = 'usuario';
-  if (email.includes('empresa')) mockType = 'empresa';
-  else if (email.includes('terapeuta')) mockType = 'terapeuta';
-  else if (email.includes('prefeitura')) mockType = 'prefeitura';
-  
-  const profile = userService.mockLogin(email, mockType);
-  mockUserInstance = profile;
-  return { user: { uid: profile.uid } };
+  // For now, we only support Google Login as per guidelines.
+  throw new Error("Login with email not implemented. Use Google Login.");
 };
 
 export const logout = async () => {
-  localStorage.removeItem('iara_mock_user');
-  localStorage.removeItem('iara_user_profile');
-  mockUserInstance = null;
-  await auth.signOut();
+  await firebaseLogout();
+  currentUserProfile = null;
 };
 
-export const enterDemoMode = (tipo: UserType = 'usuario') => {
-  const profile = userService.mockLogin(`demo-${tipo}@iara.com`, tipo);
-  mockUserInstance = profile;
-  return mockUserInstance;
+export const enterDemoMode = async (tipo: UserType = 'usuario') => {
+  // Demo mode is not supported with real Firebase unless we use anonymous auth.
+  // For now, redirect to login.
+  throw new Error("Demo mode not supported. Please login.");
 };
 
 export const getAuthenticatedUser = () => {
-  return mockUserInstance;
+  return currentUserProfile;
 };
 
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  if (mockUserInstance && mockUserInstance.uid === uid) return mockUserInstance;
-  const profile = userService.getUser();
-  if (profile && profile.uid === uid) return profile;
-  return null;
+  if (currentUserProfile && currentUserProfile.uid === uid) return currentUserProfile;
+  return await userService.getUser(uid);
 };
 
 export const updateUserProfile = async (uid: string, data: Partial<UserProfile>) => {
-  const profile = userService.getUser();
-  if (profile && profile.uid === uid) {
-    const updated = { ...profile, ...data };
-    localStorage.setItem('iara_user_profile', JSON.stringify(updated));
-    mockUserInstance = updated;
+  await userService.updateProfile(uid, data);
+  if (currentUserProfile && currentUserProfile.uid === uid) {
+    currentUserProfile = { ...currentUserProfile, ...data };
   }
 };
 
 export { auth };
+

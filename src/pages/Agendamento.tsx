@@ -1,16 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Calendar, Clock, CheckCircle } from "lucide-react";
-import { profissionais } from "./Profissionais";
+import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { userService } from "../services/userService";
+import { UserProfile } from "../types";
+import { auth } from "../services/firebase";
 
 export default function Agendamento() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [horario, setHorario] = useState("");
   const [confirmado, setConfirmado] = useState(false);
+  const [profissional, setProfissional] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [booking, setBooking] = useState(false);
 
-  const profissional = profissionais.find(p => p.id === Number(id)) || profissionais[0];
+  useEffect(() => {
+    if (id) {
+      userService.getUser(id).then(p => {
+        setProfissional(p);
+        setLoading(false);
+      });
+    }
+  }, [id]);
 
   const horariosDisponiveis = [
     "10:00",
@@ -18,6 +30,53 @@ export default function Agendamento() {
     "14:00",
     "16:00",
   ];
+
+  const handleConfirmar = async () => {
+    if (!profissional || !horario || !auth.currentUser) return;
+
+    setBooking(true);
+    try {
+      const patientProfile = await userService.getUser(auth.currentUser.uid);
+      if (!patientProfile) throw new Error("Perfil do paciente não encontrado");
+
+      const date = new Date();
+      const [hours, minutes] = horario.split(':');
+      date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      await userService.createAppointment({
+        patientId: auth.currentUser.uid,
+        patientNome: patientProfile.nome,
+        therapistId: profissional.uid,
+        therapistNome: profissional.nome,
+        date: date.toISOString(),
+        status: 'pending',
+        type: 'video',
+        price: profissional.preco || 0
+      });
+      setConfirmado(true);
+    } catch (error) {
+      console.error("Erro ao agendar:", error);
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!profissional) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100 text-center">
+        <h2 className="text-2xl font-medium text-slate-200">Terapeuta não encontrado</h2>
+        <button onClick={() => navigate(-1)} className="mt-4 text-emerald-400">Voltar</button>
+      </div>
+    );
+  }
 
   if (confirmado) {
     return (
@@ -38,10 +97,10 @@ export default function Agendamento() {
 
           <div className="bg-slate-800/50 rounded-2xl p-6 space-y-4 text-left border border-white/5">
             <div className="flex items-center gap-4">
-              <img src={profissional.imagem} alt={profissional.nome} className="w-12 h-12 rounded-full object-cover" />
+              <img src={profissional.fotoUrl || `https://picsum.photos/seed/${profissional.uid}/200`} alt={profissional.nome} className="w-12 h-12 rounded-full object-cover" />
               <div>
                 <p className="font-medium text-slate-200">{profissional.nome}</p>
-                <p className="text-sm text-slate-400">{profissional.especialidade}</p>
+                <p className="text-sm text-slate-400">{profissional.especialidades?.join(', ')}</p>
               </div>
             </div>
             <div className="pt-4 border-t border-white/5 flex items-center gap-3 text-slate-300">
@@ -76,10 +135,10 @@ export default function Agendamento() {
         </header>
 
         <div className="bg-slate-900 border border-white/5 rounded-2xl p-6 flex items-center gap-4">
-          <img src={profissional.imagem} alt={profissional.nome} className="w-16 h-16 rounded-xl object-cover" />
+          <img src={profissional.fotoUrl || `https://picsum.photos/seed/${profissional.uid}/200`} alt={profissional.nome} className="w-16 h-16 rounded-xl object-cover" />
           <div>
             <h3 className="font-medium text-slate-200">{profissional.nome}</h3>
-            <p className="text-sm text-slate-400">{profissional.preco}</p>
+            <p className="text-sm text-slate-400">R$ {profissional.preco}/sessão</p>
           </div>
         </div>
 
@@ -118,10 +177,12 @@ export default function Agendamento() {
             </div>
 
             <button
-              onClick={() => setConfirmado(true)}
-              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98]"
+              onClick={handleConfirmar}
+              disabled={booking}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              Confirmar e Pagar ({profissional.preco.split('/')[0]})
+              {booking && <Loader2 className="w-5 h-5 animate-spin" />}
+              Confirmar e Pagar (R$ {profissional.preco})
             </button>
           </motion.div>
         )}

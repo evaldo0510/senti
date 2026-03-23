@@ -474,10 +474,10 @@ export const TerapeutaPage: React.FC = () => {
                         <p className="text-[10px] font-bold uppercase tracking-widest text-brand-green">Ocupado</p>
                         <p className="font-serif text-xl font-bold text-brand-text leading-tight">{appointment.patientNome}</p>
                         <button 
-                          onClick={() => navigate(`/direct-chat/${appointment.patientId}`)}
+                          onClick={() => navigate(`/atendimento/${appointment.id}`)}
                           className="text-xs font-bold text-brand-green hover:underline flex items-center gap-2"
                         >
-                          Ver Detalhes <ArrowRight size={12} />
+                          Iniciar Atendimento <ArrowRight size={12} />
                         </button>
                       </div>
                     ) : (

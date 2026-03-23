@@ -31,8 +31,11 @@ export interface Appointment {
   therapistId: string;
   therapistNome: string;
   date: string; // ISO string
-  slot: string; // '09:00'
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  type: 'video' | 'chat' | 'presencial';
+  price: number;
+  notes?: string;
+  riskLevel?: 'baixo' | 'moderado' | 'alto';
   createdAt: string;
 }
 
@@ -74,8 +77,10 @@ export interface UserProfile {
   disponibilidade?: Availability[];
   biografia?: string;
   fotoUrl?: string;
+  cidade?: string;
   rating?: number;
   avaliacoes?: Avaliacao[];
+  online?: boolean;
   // Campos para pacientes
   favoritos?: string[]; // Array of therapist UIDs
 }

@@ -1,3 +1,5 @@
+import { getIARAResponse } from "./geminiService";
+
 export interface ChatMessage {
   role: "user" | "model";
   parts: { text: string }[];
@@ -17,27 +19,14 @@ export async function falarComIARA(
     const memoria = localStorage.getItem("ultimaMensagem") || "Nenhuma conversa anterior.";
     localStorage.setItem("ultimaMensagem", mensagemUsuario);
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        mensagemUsuario,
-        historico,
-        contexto,
-        memoria
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
+    const result = await getIARAResponse(mensagemUsuario, historico, contexto, memoria);
+    
+    return {
+      resposta: result.text,
+      risco: result.risk as "normal" | "alto"
+    };
   } catch (error) {
-    console.error("Error calling /api/chat:", error);
+    console.error("Error calling IARA service:", error);
     return { resposta: "Algo deu errado, mas eu continuo aqui com você.", risco: "normal" };
   }
 }

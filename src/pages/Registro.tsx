@@ -1,21 +1,47 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, Save, FileText, Clock, AlertCircle } from "lucide-react";
+import { userService } from "../services/userService";
+import { Appointment } from "../types";
 
 export default function Registro() {
   const navigate = useNavigate();
+  const { appointmentId } = useParams<{ appointmentId: string }>();
   const [nota, setNota] = useState("");
-  const [risco, setRisco] = useState("baixo");
+  const [risco, setRisco] = useState<Appointment['riskLevel']>("baixo");
   const [isSaved, setIsSaved] = useState(false);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const salvar = () => {
-    if (!nota.trim()) return;
-    console.log("Registro salvo:", { nota, risco });
-    setIsSaved(true);
-    setTimeout(() => {
-      navigate("/terapeuta");
-    }, 1500);
+  useEffect(() => {
+    if (!appointmentId) return;
+    const fetchAppointment = async () => {
+      const app = await userService.getAppointment(appointmentId);
+      if (app) {
+        setAppointment(app);
+        setNota(app.notes || "");
+        setRisco(app.riskLevel || "baixo");
+      }
+    };
+    fetchAppointment();
+  }, [appointmentId]);
+
+  const salvar = async () => {
+    if (!nota.trim() || !appointmentId) return;
+    
+    setIsLoading(true);
+    try {
+      await userService.updateAppointmentNotes(appointmentId, nota, risco);
+      setIsSaved(true);
+      setTimeout(() => {
+        navigate("/terapeuta");
+      }, 1500);
+    } catch (error) {
+      console.error("Error saving record:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -27,7 +53,7 @@ export default function Registro() {
           </button>
           <div>
             <h1 className="text-2xl font-light text-slate-200">Registro Clínico</h1>
-            <p className="text-slate-400 text-sm">Paciente: Maria Silva</p>
+            <p className="text-slate-400 text-sm">Paciente: {appointment?.patientNome || "Carregando..."}</p>
           </div>
         </header>
 
@@ -39,14 +65,14 @@ export default function Registro() {
           <div className="flex flex-wrap gap-4 items-center justify-between border-b border-white/5 pb-6">
             <div className="flex items-center gap-2 text-slate-400">
               <Clock className="w-5 h-5" />
-              <span>Data: {new Date().toLocaleDateString('pt-BR')}</span>
+              <span>Data: {appointment?.date ? new Date(appointment.date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}</span>
             </div>
             
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-400">Nível de Risco:</span>
               <select 
                 value={risco}
-                onChange={(e) => setRisco(e.target.value)}
+                onChange={(e) => setRisco(e.target.value as Appointment['riskLevel'])}
                 className="bg-slate-950 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               >
                 <option value="baixo">Baixo</option>
@@ -80,7 +106,7 @@ export default function Registro() {
           <div className="pt-4 flex justify-end">
             <button 
               onClick={salvar}
-              disabled={!nota.trim() || isSaved}
+              disabled={!nota.trim() || isSaved || isLoading}
               className={`px-6 py-3 rounded-xl font-medium transition-colors flex items-center gap-2 ${
                 isSaved 
                   ? "bg-emerald-500 text-white" 
@@ -92,7 +118,7 @@ export default function Registro() {
               ) : (
                 <>
                   <Save className="w-5 h-5" />
-                  Salvar Prontuário
+                  {isLoading ? "Salvando..." : "Salvar Prontuário"}
                 </>
               )}
             </button>

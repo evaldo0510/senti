@@ -1,9 +1,10 @@
 {
-  "apiKey": "AIzaSyC9HbwP50yMna6IDq_XDdUN-xkd3u0q35U",
-  "authDomain": "prontosocorroemocional-a6bd6.firebaseapp.com",
-  "projectId": "prontosocorroemocional-a6bd6",
-  "storageBucket": "prontosocorroemocional-a6bd6.firebasestorage.app",
-  "messagingSenderId": "459937815726",
-  "appId": "1:459937815726:web:f7b4d37e23ee97157de13f",
-  "measurementId": "G-LTG3G8W4Q3"
+  "projectId": "marcenariaappgit-3825936-68fd8",
+  "appId": "1:252242119928:web:8db0d16c3d40a3b7203f0d",
+  "apiKey": "AIzaSyCR_RgErwHskLGSrLUvNU-XhE6IQ5ujmtQ",
+  "authDomain": "marcenariaappgit-3825936-68fd8.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-58181161-2fe4-4dec-b68c-74875505175d",
+  "storageBucket": "marcenariaappgit-3825936-68fd8.firebasestorage.app",
+  "messagingSenderId": "252242119928",
+  "measurementId": ""
 }

@@ -1,108 +1,75 @@
-import { io, Socket } from "socket.io-client";
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  or,
+  and
+} from 'firebase/firestore';
 import { DirectMessage } from "../types";
 
-const STORAGE_KEY = 'mock_direct_messages';
-let socket: Socket | null = null;
-
-const getMessages = (): DirectMessage[] => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  return stored ? JSON.parse(stored) : [];
-};
-
-const saveMessages = (messages: DirectMessage[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-};
-
 export const chatService = {
-  init: (userId: string) => {
-    if (socket) return;
-    
-    // In development, the socket server is on the same host/port
-    socket = io();
-    
-    socket.on("connect", () => {
-      console.log("Connected to chat server");
-      socket?.emit("join", userId);
-    });
-
-    socket.on("new_message", (message: DirectMessage) => {
-      const messages = getMessages();
-      // Avoid duplicates
-      if (!messages.find(m => m.id === message.id)) {
-        messages.push(message);
-        saveMessages(messages);
-        window.dispatchEvent(new Event('storage'));
-      }
-    });
-
-    return () => {
-      socket?.disconnect();
-      socket = null;
-    };
-  },
-
   sendMessage: async (senderId: string, receiverId: string, text: string, appointmentId?: string) => {
-    if (socket) {
-      socket.emit("send_message", { senderId, receiverId, text, appointmentId });
-    } else {
-      // Fallback to local storage if socket is not connected
-      const messageId = Date.now().toString();
-      const messageData: DirectMessage = {
-        id: messageId,
+    const path = 'messages';
+    try {
+      const messageData = {
         senderId,
         receiverId,
         text,
         timestamp: new Date().toISOString(),
         appointmentId: appointmentId || null
       };
-
-      const messages = getMessages();
-      messages.push(messageData);
-      saveMessages(messages);
-      window.dispatchEvent(new Event('storage'));
-      return messageId;
+      const docRef = await addDoc(collection(db, path), messageData);
+      return docRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
     }
   },
 
   listenMessages: (userId: string, otherId: string, callback: (messages: DirectMessage[]) => void) => {
-    const updateMessages = () => {
-      const allMessages = getMessages();
-      const filtered = allMessages.filter(m => 
-        (m.senderId === userId && m.receiverId === otherId) ||
-        (m.senderId === otherId && m.receiverId === userId)
-      ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      
-      callback(filtered);
-    };
-
-    updateMessages();
-    window.addEventListener('storage', updateMessages);
+    const path = 'messages';
     
-    // Also poll every second as a fallback
-    const intervalId = setInterval(updateMessages, 1000);
+    // Query for messages where (sender=userId AND receiver=otherId) OR (sender=otherId AND receiver=userId)
+    const q = query(
+      collection(db, path),
+      or(
+        and(where("senderId", "==", userId), where("receiverId", "==", otherId)),
+        and(where("senderId", "==", otherId), where("receiverId", "==", userId))
+      ),
+      orderBy("timestamp", "asc")
+    );
 
-    return () => {
-      window.removeEventListener('storage', updateMessages);
-      clearInterval(intervalId);
-    };
+    return onSnapshot(q, (snapshot) => {
+      const messages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as DirectMessage[];
+      callback(messages);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    });
   },
 
   listenMessagesByAppointment: (appointmentId: string, callback: (messages: DirectMessage[]) => void) => {
-    const updateMessages = () => {
-      const allMessages = getMessages();
-      const filtered = allMessages.filter(m => m.appointmentId === appointmentId)
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-      
-      callback(filtered);
-    };
+    const path = 'messages';
+    const q = query(
+      collection(db, path),
+      where("appointmentId", "==", appointmentId),
+      orderBy("timestamp", "asc")
+    );
 
-    updateMessages();
-    window.addEventListener('storage', updateMessages);
-    const intervalId = setInterval(updateMessages, 1000);
-
-    return () => {
-      window.removeEventListener('storage', updateMessages);
-      clearInterval(intervalId);
-    };
+    return onSnapshot(q, (snapshot) => {
+      const messages = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as DirectMessage[];
+      callback(messages);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    });
   }
 };
+

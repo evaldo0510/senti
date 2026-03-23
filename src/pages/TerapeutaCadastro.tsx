@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, User, Stethoscope, FileText, MapPin, DollarSign } from "lucide-react";
+import { userService } from "../services/userService";
+import { auth } from "../services/firebase";
 
 export default function TerapeutaCadastro() {
   const navigate = useNavigate();
@@ -10,30 +12,37 @@ export default function TerapeutaCadastro() {
   const [descricao, setDescricao] = useState("");
   const [cidade, setCidade] = useState("");
   const [preco, setPreco] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!nome || !especialidade) return;
+    const user = auth.currentUser;
+    if (!user) {
+      alert("Você precisa estar logado para criar um perfil profissional.");
+      return;
+    }
 
-    const lista = JSON.parse(localStorage.getItem("terapeutas_cadastrados") || "[]");
+    setLoading(true);
+    try {
+      await userService.syncProfile(user, 'terapeuta');
+      await userService.updateProfile(user.uid, {
+        nome,
+        especialidades: [especialidade],
+        biografia: descricao,
+        cidade,
+        preco: parseFloat(preco.replace(/[^0-9.]/g, '')) || 0,
+        fotoUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${nome}`,
+        rating: 5.0,
+        avaliacoes: []
+      });
 
-    const novoTerapeuta = {
-      id: Date.now(),
-      nome,
-      especialidade,
-      descricao,
-      cidade,
-      preco,
-      rating: 5.0,
-      reviews: 0,
-      online: true,
-      presencial: cidade.length > 0,
-      imagem: `https://api.dicebear.com/7.x/avataaars/svg?seed=${nome}`
-    };
-
-    lista.push(novoTerapeuta);
-    localStorage.setItem("terapeutas_cadastrados", JSON.stringify(lista));
-
-    navigate("/profissionais");
+      navigate("/profissionais");
+    } catch (error) {
+      console.error("Erro ao salvar perfil:", error);
+      alert("Erro ao salvar perfil. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -131,10 +140,15 @@ export default function TerapeutaCadastro() {
 
         <button 
           onClick={salvar}
-          disabled={!nome || !especialidade}
-          className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-medium transition-colors relative z-10"
+          disabled={!nome || !especialidade || loading}
+          className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-medium transition-colors relative z-10 flex items-center justify-center gap-2"
         >
-          Salvar Perfil
+          {loading ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              Salvando...
+            </>
+          ) : "Salvar Perfil"}
         </button>
       </motion.div>
     </div>

@@ -1,14 +1,18 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText } from "lucide-react";
+import { chatService } from "../services/chatService";
+import { auth } from "../services/firebase";
+import { userService } from "../services/userService";
+import { Appointment } from "../types";
 
 export default function Atendimento() {
   const navigate = useNavigate();
+  const { appointmentId } = useParams<{ appointmentId: string }>();
   const [mensagem, setMensagem] = useState("");
-  const [chat, setChat] = useState([
-    { tipo: "paciente", texto: "Olá, estou precisando de ajuda. Estou me sentindo muito ansiosa hoje." }
-  ]);
+  const [chat, setChat] = useState<any[]>([]);
+  const [appointment, setAppointment] = useState<Appointment | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -16,13 +20,42 @@ export default function Atendimento() {
   };
 
   useEffect(() => {
+    if (!appointmentId) return;
+
+    // Fetch appointment details
+    const fetchAppointment = async () => {
+      try {
+        const app = await userService.getAppointment(appointmentId);
+        if (app) {
+          setAppointment(app);
+        }
+      } catch (error) {
+        console.error("Error fetching appointment:", error);
+      }
+    };
+    fetchAppointment();
+
+    // Listen for messages
+    const unsubscribe = chatService.listenMessagesByAppointment(appointmentId, (messages) => {
+      setChat(messages);
+    });
+
+    return () => unsubscribe();
+  }, [appointmentId]);
+
+  useEffect(() => {
     scrollToBottom();
   }, [chat]);
 
-  const enviar = () => {
-    if (!mensagem.trim()) return;
-    setChat([...chat, { tipo: "terapeuta", texto: mensagem }]);
-    setMensagem("");
+  const enviar = async () => {
+    if (!mensagem.trim() || !appointmentId || !auth.currentUser) return;
+    
+    try {
+      await chatService.sendMessage(appointmentId, auth.currentUser.uid, mensagem);
+      setMensagem("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -36,18 +69,18 @@ export default function Atendimento() {
     <div className="flex flex-col h-screen bg-slate-950 text-slate-100">
       <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate("/terapeuta")} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-400 font-medium border border-emerald-500/20">
-              M
+              {appointment?.patientNome?.[0] || "P"}
             </div>
             <div>
-              <h2 className="text-lg font-medium text-slate-200">Maria Silva</h2>
+              <h2 className="text-lg font-medium text-slate-200">{appointment?.patientNome || "Paciente"}</h2>
               <p className="text-xs text-emerald-400 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                Online agora
+                Em atendimento
               </p>
             </div>
           </div>
@@ -60,7 +93,7 @@ export default function Atendimento() {
             <Phone className="w-5 h-5" />
           </button>
           <button 
-            onClick={() => navigate("/registro")}
+            onClick={() => navigate(`/registro/${appointmentId}`)}
             className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-300 rounded-full text-sm font-medium transition-colors border border-emerald-500/20 ml-2"
           >
             <FileText className="w-4 h-4" />
@@ -70,25 +103,30 @@ export default function Atendimento() {
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        <div className="text-center text-xs text-slate-500 my-4">
-          Hoje, 14:30
-        </div>
+        {chat.length === 0 && (
+          <div className="text-center text-slate-500 py-10 italic">
+            Nenhuma mensagem ainda. Inicie a conversa.
+          </div>
+        )}
         
         {chat.map((m, i) => (
           <motion.div 
-            key={i}
+            key={m.id || i}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`flex ${m.tipo === "terapeuta" ? "justify-end" : "justify-start"}`}
+            className={`flex ${m.senderId === auth.currentUser?.uid ? "justify-end" : "justify-start"}`}
           >
             <div 
               className={`max-w-[80%] p-4 rounded-2xl ${
-                m.tipo === "terapeuta" 
+                m.senderId === auth.currentUser?.uid 
                   ? "bg-emerald-600 text-white rounded-tr-sm" 
                   : "bg-slate-800 text-slate-200 rounded-tl-sm border border-white/5"
               }`}
             >
-              <p className="leading-relaxed whitespace-pre-wrap">{m.texto}</p>
+              <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
+              <p className="text-[10px] opacity-50 mt-1 text-right">
+                {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ""}
+              </p>
             </div>
           </motion.div>
         ))}

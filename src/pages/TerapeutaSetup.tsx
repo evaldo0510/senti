@@ -1,29 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { User, Briefcase, DollarSign, ArrowRight, Activity } from "lucide-react";
+import { userService } from "../services/userService";
+import { auth } from "../services/firebase";
 
 export default function TerapeutaSetup() {
   const navigate = useNavigate();
   const [nome, setNome] = useState("");
   const [especialidade, setEspecialidade] = useState("");
   const [preco, setPreco] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const salvar = () => {
-    if (!nome || !especialidade) return;
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (auth.currentUser) {
+        const profile = await userService.getUser(auth.currentUser.uid);
+        if (profile) {
+          setNome(profile.nome || "");
+          setEspecialidade(profile.especialidades?.[0] || "");
+          setPreco(profile.preco?.toString() || "");
+        }
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const salvar = async () => {
+    if (!nome || !especialidade || !auth.currentUser) return;
     
-    // Simulating saving to database
-    localStorage.setItem("tipo", "terapeuta");
-    localStorage.setItem("terapeuta_perfil", JSON.stringify({
-      nome,
-      especialidade,
-      preco,
-      online: true,
-      agenda: [],
-      pacientes: []
-    }));
-    
-    navigate("/terapeuta");
+    setIsLoading(true);
+    try {
+      await userService.updateProfile(auth.currentUser.uid, {
+        nome,
+        especialidades: [especialidade],
+        preco: parseFloat(preco) || 0,
+        tipo: 'terapeuta',
+        online: true
+      });
+      
+      localStorage.setItem("tipo", "terapeuta");
+      navigate("/terapeuta");
+    } catch (error) {
+      console.error("Error saving profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -93,10 +115,10 @@ export default function TerapeutaSetup() {
 
         <button 
           onClick={salvar}
-          disabled={!nome || !especialidade}
+          disabled={!nome || !especialidade || isLoading}
           className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
         >
-          Salvar e Continuar
+          {isLoading ? "Salvando..." : "Salvar e Continuar"}
           <ArrowRight className="w-5 h-5" />
         </button>
       </motion.div>

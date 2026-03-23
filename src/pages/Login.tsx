@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { HeartPulse, ArrowLeft, Mail, Lock, User, Briefcase, Building2, Landmark } from "lucide-react";
 import { loginWithGoogle } from "../services/firebase";
+import { userService } from "../services/userService";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -20,9 +21,12 @@ export default function Login() {
 
   const handleGoogleLogin = async () => {
     try {
-      await loginWithGoogle();
-      localStorage.setItem("tipo", tipoSelecionado);
-      navigate("/dashboard");
+      const user = await loginWithGoogle();
+      if (user) {
+        await userService.syncProfile(user, tipoSelecionado);
+        localStorage.setItem("tipo", tipoSelecionado);
+        navigate("/dashboard");
+      }
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login com Google.");
     }

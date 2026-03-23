@@ -1,81 +1,81 @@
 {
   "entities": {
-    "users": {
-      "title": "UserProfile",
-      "description": "Perfil do usuário na plataforma",
+    "User": {
+      "title": "User",
+      "description": "User profile for patients and therapists",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "description": "ID único do Firebase Auth" },
-        "nome": { "type": "string", "description": "Nome completo" },
-        "email": { "type": "string", "format": "email", "description": "E-mail de login" },
-        "tipo": { 
-          "type": "string", 
-          "enum": ["usuario", "terapeuta", "empresa", "prefeitura"],
-          "description": "Tipo de perfil de acesso"
-        },
-        "createdAt": { "type": "string", "format": "date-time", "description": "Data de criação da conta" },
-        "especialidades": { "type": "array", "items": { "type": "string" }, "description": "Especialidades do terapeuta" },
-        "preco": { "type": "number", "description": "Preço da sessão" },
-        "biografia": { "type": "string", "description": "Biografia do terapeuta" },
-        "fotoUrl": { "type": "string", "description": "URL da foto de perfil" },
-        "rating": { "type": "number", "description": "Avaliação média" },
-        "disponibilidade": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "day": { "type": "string" },
-              "slots": { "type": "array", "items": { "type": "string" } }
-            }
-          }
-        }
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "description": "User's full name" },
+        "email": { "type": "string", "format": "email", "description": "User's email" },
+        "photoURL": { "type": "string", "description": "Profile picture URL" },
+        "role": { "type": "string", "enum": ["patient", "therapist", "admin"], "description": "User's role" },
+        "especialidade": { "type": "string", "description": "Therapist's specialty" },
+        "cidade": { "type": "string", "description": "Therapist's city" },
+        "preco": { "type": "string", "description": "Therapist's price per session" },
+        "rating": { "type": "number", "description": "Therapist's rating" },
+        "reviews": { "type": "number", "description": "Number of reviews" },
+        "online": { "type": "boolean", "description": "If therapist offers online sessions" },
+        "presencial": { "type": "boolean", "description": "If therapist offers in-person sessions" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
       },
-      "required": ["uid", "nome", "email", "tipo", "createdAt"]
+      "required": ["uid", "email", "role"]
     },
-    "appointments": {
+    "Appointment": {
       "title": "Appointment",
-      "description": "Agendamento de sessão",
+      "description": "Scheduled session between a patient and a therapist",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "patientId": { "type": "string" },
-        "patientNome": { "type": "string" },
-        "therapistId": { "type": "string" },
-        "therapistNome": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "slot": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "patientId": { "type": "string", "description": "UID of the patient" },
+        "therapistId": { "type": "string", "description": "UID of the therapist" },
+        "date": { "type": "string", "format": "date-time", "description": "Session date and time" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"], "description": "Appointment status" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },
-      "required": ["id", "patientId", "therapistId", "date", "slot", "status", "createdAt"]
+      "required": ["patientId", "therapistId", "date", "status"]
     },
-    "direct_messages": {
-      "title": "DirectMessage",
-      "description": "Mensagem direta entre paciente e terapeuta",
+    "Message": {
+      "title": "Message",
+      "description": "Chat message between users",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "senderId": { "type": "string" },
-        "receiverId": { "type": "string" },
-        "text": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "appointmentId": { "type": "string" }
+        "senderId": { "type": "string", "description": "UID of the sender" },
+        "receiverId": { "type": "string", "description": "UID of the receiver" },
+        "text": { "type": "string", "description": "Message content" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Message timestamp" },
+        "appointmentId": { "type": "string", "description": "Optional appointment context" }
       },
-      "required": ["id", "senderId", "receiverId", "text", "timestamp"]
+      "required": ["senderId", "receiverId", "text", "timestamp"]
+    },
+    "EmotionLog": {
+      "title": "EmotionLog",
+      "description": "Log of user's emotional state",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user" },
+        "emotion": { "type": "string", "description": "Emotion name" },
+        "intensity": { "type": "number", "description": "Intensity from 1 to 10" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Log timestamp" }
+      },
+      "required": ["userId", "emotion", "intensity", "timestamp"]
     }
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": "users",
-      "description": "Coleção de perfis de usuários"
+    "users": {
+      "schema": "User",
+      "description": "Collection of user profiles"
     },
-    "/appointments/{appointmentId}": {
-      "schema": "appointments",
-      "description": "Coleção de agendamentos"
+    "appointments": {
+      "schema": "Appointment",
+      "description": "Collection of scheduled sessions"
     },
-    "/direct_messages/{messageId}": {
-      "schema": "direct_messages",
-      "description": "Coleção de mensagens diretas"
+    "messages": {
+      "schema": "Message",
+      "description": "Collection of chat messages"
+    },
+    "emotion_logs": {
+      "schema": "EmotionLog",
+      "description": "Collection of emotional state logs"
     }
   }
 }

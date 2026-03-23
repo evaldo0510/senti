@@ -36,14 +36,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientPr
         date.setDate(date.getDate() + 1);
       }
       
+      const [hours, minutes] = selectedSlot.split(':');
+      date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      
       await userService.createAppointment({
         patientId: auth.currentUser.uid,
         patientNome: patientProfile.nome,
         therapistId: therapist.uid,
         therapistNome: therapist.nome,
-        date: date.toISOString().split('T')[0],
-        slot: selectedSlot,
-        status: 'pending'
+        date: date.toISOString(),
+        status: 'pending',
+        type: 'video',
+        price: therapist.preco || 0
       });
       
       setSuccess(true);

@@ -1,46 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     // ===============================================================
     // Assumed Data Model
     // ===============================================================
     //
     // Collection: users
-    // Document ID: userId (Firebase UID)
+    // Document ID: {userId} (Auth UID)
     // Fields:
-    //   - uid: string (required, immutable) - ID do usuário
-    //   - nome: string (required) - Nome completo
-    //   - email: string (required, immutable) - E-mail
-    //   - tipo: string (required, enum: ['usuario', 'terapeuta', 'empresa', 'prefeitura']) - Perfil
-    //   - createdAt: string (required, immutable) - Data de criação
-    //   - especialidades: list (optional) - Especialidades
-    //   - preco: number (optional) - Preço
-    //   - biografia: string (optional) - Biografia
-    //   - fotoUrl: string (optional) - URL da foto
-    //   - disponibilidade: list (optional) - Disponibilidade
+    //   - uid: string (required)
+    //   - email: string (required, email format)
+    //   - displayName: string (optional)
+    //   - photoURL: string (optional)
+    //   - role: string (required, ['patient', 'therapist', 'admin'])
+    //   - createdAt: string (required, date-time)
     //
     // Collection: appointments
-    // Document ID: appointmentId
+    // Document ID: {appointmentId}
     // Fields:
-    //   - id: string (required)
     //   - patientId: string (required)
-    //   - patientNome: string (required)
     //   - therapistId: string (required)
-    //   - therapistNome: string (required)
-    //   - date: string (required)
-    //   - slot: string (required)
-    //   - status: string (required, enum: ['pending', 'confirmed', 'cancelled', 'completed'])
-    //   - createdAt: string (required)
+    //   - date: string (required, date-time)
+    //   - status: string (required, ['pending', 'confirmed', 'cancelled', 'completed'])
+    //   - createdAt: string (required, date-time)
     //
-    // Collection: direct_messages
-    // Document ID: messageId
+    // Collection: messages
+    // Document ID: {messageId}
     // Fields:
-    //   - id: string (required)
     //   - senderId: string (required)
     //   - receiverId: string (required)
-    //   - text: string (required)
-    //   - timestamp: string (required)
+    //   - text: string (required, max 1000 chars)
+    //   - timestamp: string (required, date-time)
     //   - appointmentId: string (optional)
+    //
+    // Collection: emotion_logs
+    // Document ID: {logId}
+    // Fields:
+    //   - userId: string (required)
+    //   - emotion: string (required)
+    //   - intensity: number (required, 1-10)
+    //   - timestamp: string (required, date-time)
     //
     // ===============================================================
 
@@ -57,44 +57,58 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
-          (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
     }
 
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'nome', 'email', 'tipo', 'createdAt']) &&
-             data.uid is string && data.uid.size() > 0 &&
-             data.nome is string && data.nome.size() >= 2 && data.nome.size() <= 100 &&
-             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
-             data.tipo in ['usuario', 'terapeuta', 'empresa', 'prefeitura'] &&
-             data.createdAt is string &&
-             (!('especialidades' in data) || data.especialidades is list) &&
-             (!('preco' in data) || data.preco is number) &&
-             (!('biografia' in data) || data.biografia is string) &&
-             (!('fotoUrl' in data) || data.fotoUrl is string) &&
-             (!('disponibilidade' in data) || data.disponibilidade is list);
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'especialidade', 'cidade', 'preco', 'rating', 'reviews', 'online', 'presencial']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.role in ['patient', 'therapist', 'admin'] &&
+             isValidDateString(data.createdAt);
     }
 
     function isValidAppointment(data) {
-      return data.keys().hasAll(['id', 'patientId', 'therapistId', 'date', 'slot', 'status', 'createdAt']) &&
-             data.id is string &&
+      return hasOnlyAllowedFields(['patientId', 'therapistId', 'date', 'status', 'createdAt']) &&
              data.patientId is string &&
              data.therapistId is string &&
-             data.date is string &&
-             data.slot is string &&
+             isValidDateString(data.date) &&
              data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
-             data.createdAt is string;
+             isValidDateString(data.createdAt);
     }
 
-    function isValidDirectMessage(data) {
-      return data.keys().hasAll(['id', 'senderId', 'receiverId', 'text', 'timestamp']) &&
-             data.id is string &&
-             data.senderId is string &&
+    function isValidMessage(data) {
+      return hasOnlyAllowedFields(['senderId', 'receiverId', 'text', 'timestamp', 'appointmentId']) &&
+             data.senderId == request.auth.uid &&
              data.receiverId is string &&
-             data.text is string && data.text.size() > 0 && data.text.size() <= 2000 &&
-             data.timestamp is string &&
-             (!('appointmentId' in data) || data.appointmentId is string);
+             data.text is string && data.text.size() <= 1000 &&
+             isValidDateString(data.timestamp);
+    }
+
+    function isValidEmotionLog(data) {
+      return hasOnlyAllowedFields(['userId', 'emotion', 'intensity', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.emotion is string &&
+             data.intensity is number && data.intensity >= 1 && data.intensity <= 10 &&
+             isValidDateString(data.timestamp);
     }
 
     // ===============================================================
@@ -102,70 +116,35 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      // Qualquer um autenticado pode ler perfis (para busca de terapeutas, etc)
-      // Mas em um sistema real, poderíamos restringir mais.
-      allow read: if isAuthenticated();
+      // Users can read their own profile. 
+      // Therapists are public for everyone to find them.
+      // WARNING: This might leak therapist emails if not careful.
+      // In a real app, we'd split public/private data.
+      allow read: if isOwner(userId) || (resource.data.role == 'therapist');
       
-      // Criação: Usuário pode criar seu próprio perfil se os dados forem válidos
-      allow create: if isOwner(userId) && 
-                      isValidUser(request.resource.data) &&
-                      request.resource.data.uid == request.auth.uid;
-      
-      // Atualização: Apenas o dono ou admin pode atualizar, e não pode mudar campos imutáveis
-      allow update: if (isOwner(userId) || isAdmin()) &&
-                      isValidUser(request.resource.data) &&
-                      request.resource.data.uid == resource.data.uid &&
-                      request.resource.data.email == resource.data.email &&
-                      request.resource.data.createdAt == resource.data.createdAt;
-      
-      // Deleção: Apenas admin
-      allow delete: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
     }
 
     match /appointments/{appointmentId} {
-      // Leitura: Paciente ou Terapeuta envolvido
-      allow read: if isAuthenticated() && 
-                    (request.auth.uid == resource.data.patientId || 
-                     request.auth.uid == resource.data.therapistId || 
-                     isAdmin());
-      
-      // Criação: Paciente pode criar
-      allow create: if isAuthenticated() && 
-                      isValidAppointment(request.resource.data) &&
-                      request.resource.data.patientId == request.auth.uid;
-      
-      // Atualização: Paciente ou Terapeuta envolvido
-      allow update: if isAuthenticated() && 
-                      isValidAppointment(request.resource.data) &&
-                      (request.auth.uid == resource.data.patientId || 
-                       request.auth.uid == resource.data.therapistId || 
-                       isAdmin());
-      
-      // Deleção: Apenas admin
-      allow delete: if isAdmin();
+      allow read: if isAuthenticated() && (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(request.resource.data.patientId) && isValidAppointment(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin()) && isValidAppointment(request.resource.data);
     }
 
-    match /direct_messages/{messageId} {
-      // Leitura: Se o usuário é o remetente ou o destinatário
-      allow read: if isAuthenticated() && 
-                    (request.auth.uid == resource.data.senderId || 
-                     request.auth.uid == resource.data.receiverId || 
-                     isAdmin());
-      
-      // Criação: Usuário pode enviar se ele for o senderId
-      allow create: if isAuthenticated() && 
-                      isValidDirectMessage(request.resource.data) &&
-                      request.resource.data.senderId == request.auth.uid;
-      
-      // Atualização: Apenas se for o destinatário ou remetente (ex: marcar como lida ou editar)
-      allow update: if isAuthenticated() && 
-                      isValidDirectMessage(request.resource.data) &&
-                      (request.auth.uid == resource.data.receiverId || 
-                       request.auth.uid == resource.data.senderId || 
-                       isAdmin());
-      
-      // Deleção: Apenas admin
-      allow delete: if isAdmin();
+    match /messages/{messageId} {
+      allow read: if isAuthenticated() && (isOwner(resource.data.senderId) || isOwner(resource.data.receiverId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(request.resource.data.senderId) && isValidMessage(request.resource.data);
+    }
+
+    match /emotion_logs/{logId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(request.resource.data.userId) && isValidEmotionLog(request.resource.data);
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
     }
   }
 }

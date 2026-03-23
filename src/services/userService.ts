@@ -1,144 +1,218 @@
 import { MoodEntry, Appointment, UserProfile, UserType } from '../types';
-import { MOCK_THERAPISTS } from './mockData';
-import { auth } from './firebase';
-
-const STORAGE_KEY_MOOD = 'iara_mood_history';
-const STORAGE_KEY_THERAPISTS = 'iara_therapists';
-const STORAGE_KEY_APPOINTMENTS = 'iara_appointments';
-const STORAGE_KEY_USER_PROFILE = 'iara_user_profile';
-
-// Initialize mock data if not present
-if (!localStorage.getItem(STORAGE_KEY_THERAPISTS)) {
-  localStorage.setItem(STORAGE_KEY_THERAPISTS, JSON.stringify(MOCK_THERAPISTS));
-}
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  Timestamp,
+  addDoc
+} from 'firebase/firestore';
 
 export const userService = {
-  saveMood: (value: number, note?: string) => {
-    const history = userService.getMoodHistory();
-    const newEntry: MoodEntry = {
-      id: crypto.randomUUID(),
-      value,
-      note,
-      timestamp: new Date(),
-    };
-    localStorage.setItem(STORAGE_KEY_MOOD, JSON.stringify([...history, newEntry]));
-    return newEntry;
+  saveMood: async (value: number, note?: string) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    const path = 'emotion_logs';
+    try {
+      const newEntry = {
+        userId: user.uid,
+        emotion: note || 'Registro de humor',
+        intensity: value,
+        timestamp: new Date().toISOString()
+      };
+      await addDoc(collection(db, path), newEntry);
+      return newEntry;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
   },
 
-  getMoodHistory: (): MoodEntry[] => {
-    const data = localStorage.getItem(STORAGE_KEY_MOOD);
-    if (!data) return [];
-    return JSON.parse(data).map((entry: any) => ({
-      ...entry,
-      timestamp: new Date(entry.timestamp),
-    }));
+  getMoodHistory: (callback: (history: any[]) => void) => {
+    const user = auth.currentUser;
+    if (!user) return () => {};
+
+    const path = 'emotion_logs';
+    const q = query(
+      collection(db, path),
+      where("userId", "==", user.uid),
+      orderBy("timestamp", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const history = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(history);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    });
   },
 
-  getUser: () => {
-    const data = localStorage.getItem(STORAGE_KEY_USER_PROFILE);
-    if (data) return JSON.parse(data);
-    return { name: 'Usuário' };
+  getUser: async (uid: string): Promise<UserProfile | null> => {
+    const path = `users/${uid}`;
+    try {
+      const docSnap = await getDoc(doc(db, 'users', uid));
+      if (docSnap.exists()) {
+        return docSnap.data() as UserProfile;
+      }
+      return null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return null;
+    }
   },
 
   getTherapists: async (): Promise<UserProfile[]> => {
-    const data = localStorage.getItem(STORAGE_KEY_THERAPISTS);
-    return data ? JSON.parse(data) : MOCK_THERAPISTS;
+    const path = 'users';
+    try {
+      const q = query(collection(db, path), where("role", "==", "therapist"));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as UserProfile);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
   },
 
   createAppointment: async (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
-    const appointments = await userService.getAppointments();
-    const newAppointment: Appointment = {
-      ...appointment,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      status: 'pending' as const
-    };
-    const updated = [...appointments, newAppointment];
-    localStorage.setItem(STORAGE_KEY_APPOINTMENTS, JSON.stringify(updated));
-    window.dispatchEvent(new Event('storage'));
-    return newAppointment;
+    const path = 'appointments';
+    try {
+      const newAppointment = {
+        ...appointment,
+        createdAt: new Date().toISOString(),
+        status: 'pending' as const
+      };
+      const docRef = await addDoc(collection(db, path), newAppointment);
+      return { id: docRef.id, ...newAppointment };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
   },
 
-  getAppointments: async (): Promise<Appointment[]> => {
-    const data = localStorage.getItem(STORAGE_KEY_APPOINTMENTS);
-    return data ? JSON.parse(data) : [];
+  getAppointment: async (id: string): Promise<Appointment | null> => {
+    const path = `appointments/${id}`;
+    try {
+      const docSnap = await getDoc(doc(db, 'appointments', id));
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Appointment;
+      }
+      return null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return null;
+    }
   },
 
   getMyAppointments: (callback: (appointments: Appointment[]) => void) => {
     const user = auth.currentUser;
     if (!user) return () => {};
     
-    const uid = user.uid;
-    const update = async () => {
-      const appointments = await userService.getAppointments();
-      const filtered = appointments.filter(a => a.patientId === uid || a.therapistId === uid)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      callback(filtered);
-    };
+    const path = 'appointments';
+    // We need two queries or a complex one with indexes. 
+    // For simplicity, we'll use two and merge or just one if the user is patient.
+    const q = query(
+      collection(db, path),
+      where("patientId", "==", user.uid),
+      orderBy("date", "desc")
+    );
 
-    update();
-    window.addEventListener('storage', update);
-    const intervalId = setInterval(update, 2000); // Polling as fallback
-
-    return () => {
-      window.removeEventListener('storage', update);
-      clearInterval(intervalId);
-    };
+    return onSnapshot(q, (snapshot) => {
+      const appointments = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Appointment[];
+      callback(appointments);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    });
   },
 
   updateAppointmentStatus: async (id: string, status: Appointment['status']) => {
-    const appointments = await userService.getAppointments();
-    const updated = appointments.map(a => a.id === id ? { ...a, status } : a);
-    localStorage.setItem(STORAGE_KEY_APPOINTMENTS, JSON.stringify(updated));
-    window.dispatchEvent(new Event('storage'));
+    const path = `appointments/${id}`;
+    try {
+      await updateDoc(doc(db, 'appointments', id), { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   },
 
-  toggleFavorite: async (userId: string, therapistId: string, currentFavorites: string[] = []) => {
-    const isFavorited = currentFavorites.includes(therapistId);
-    const newFavorites = isFavorited 
-      ? currentFavorites.filter(id => id !== therapistId)
-      : [...currentFavorites, therapistId];
-    
-    // Update local profile
-    const profile = userService.getUser();
-    const updatedProfile = { ...profile, favoritos: newFavorites };
-    localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(updatedProfile));
-    
-    return newFavorites;
+  updateAppointmentNotes: async (id: string, notes: string, riskLevel: Appointment['riskLevel']) => {
+    const path = `appointments/${id}`;
+    try {
+      await updateDoc(doc(db, 'appointments', id), { 
+        notes, 
+        riskLevel,
+        status: 'completed' 
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   },
 
-  addReview: async (therapistId: string, currentReviews: any[] = [], review: any) => {
-    const therapists = await userService.getTherapists();
-    const therapist = therapists.find(t => t.uid === therapistId);
-    if (!therapist) return { newReviews: currentReviews, averageRating: 0 };
-
-    const newReviews = [...(therapist.avaliacoes || []), review];
-    const totalRating = newReviews.reduce((sum, r) => sum + r.nota, 0);
-    const averageRating = totalRating / newReviews.length;
-
-    const updatedTherapists = therapists.map(t => 
-      t.uid === therapistId 
-        ? { ...t, avaliacoes: newReviews, rating: averageRating } 
-        : t
-    );
-    localStorage.setItem(STORAGE_KEY_THERAPISTS, JSON.stringify(updatedTherapists));
-    
-    return { newReviews, averageRating };
+  toggleFavorite: async (userId: string, therapistId: string, isFavorited: boolean) => {
+    const path = `users/${userId}`;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        favoritos: isFavorited ? arrayRemove(therapistId) : arrayUnion(therapistId)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   },
 
-  // Mock login/signup for the app
-  mockLogin: (email: string, type: UserType) => {
-    const uid = `user-${crypto.randomUUID()}`;
-    const userProfile: UserProfile = {
-      uid,
-      nome: email.split('@')[0],
-      email,
-      tipo: type,
-      createdAt: new Date().toISOString(),
-      favoritos: []
-    };
-    localStorage.setItem(STORAGE_KEY_USER_PROFILE, JSON.stringify(userProfile));
-    localStorage.setItem('iara_mock_user', JSON.stringify({ uid, email }));
-    return userProfile;
+  addReview: async (therapistId: string, review: any) => {
+    const path = `users/${therapistId}`;
+    try {
+      // This is a bit complex for a simple updateDoc if we want to update average rating too.
+      // For now, just add to the array.
+      await updateDoc(doc(db, 'users', therapistId), {
+        avaliacoes: arrayUnion(review)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  syncProfile: async (user: any, type: UserType = 'usuario') => {
+    const path = `users/${user.uid}`;
+    try {
+      const docSnap = await getDoc(doc(db, 'users', user.uid));
+      if (!docSnap.exists()) {
+        const profile: UserProfile = {
+          uid: user.uid,
+          nome: user.displayName || user.email?.split('@')[0] || 'Usuário',
+          email: user.email || '',
+          tipo: type,
+          createdAt: new Date().toISOString(),
+          favoritos: []
+        };
+        await setDoc(doc(db, 'users', user.uid), profile);
+        return profile;
+      }
+      return docSnap.data() as UserProfile;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  updateProfile: async (uid: string, data: Partial<UserProfile>) => {
+    const path = `users/${uid}`;
+    try {
+      await updateDoc(doc(db, 'users', uid), data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   }
 };
+
