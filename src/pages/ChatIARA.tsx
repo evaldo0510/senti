@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { falarComIARA, ChatMessage } from "../services/iaraService";
-import { encontrarTerapeuta } from "../services/matchService";
+import { encontrarTerapeutas } from "../services/matchService";
 import { generateImage } from "../services/geminiService";
 import { falarTexto } from "../services/voiceService";
 import { ouvirUsuario } from "../services/audioInput";
 import { analisarEmocao } from "../services/emocaoService";
 import { gerarExercicio } from "../services/pchService";
 import { decidirCaminho } from "../services/decisaoService";
-import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic } from "lucide-react";
+import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book } from "lucide-react";
 import { motion } from "motion/react";
 
 interface Message {
@@ -152,12 +152,17 @@ export default function ChatIARA() {
       const decisao = decidirCaminho(riscoAntes, riscoDepois);
 
       if (decisao === "terapeuta" || decisao === "psicologo") {
-        const terapeuta = encontrarTerapeuta(mensagem);
-        const msg = terapeuta ? `Posso te conectar com ${terapeuta.nome}, especialista em ${terapeuta.especialidade}.` : "Talvez seja importante conversar com alguém agora...";
+        const terapeutas = encontrarTerapeutas(mensagem);
+        const terapeutaPrincipal = terapeutas[0];
+        const outrosContagem = terapeutas.length - 1;
+        
+        const msg = terapeutaPrincipal 
+          ? `Encontrei alguns profissionais que podem te ajudar, como ${terapeutaPrincipal.nome}${outrosContagem > 0 ? ` e mais ${outrosContagem} especialistas` : ""}.` 
+          : "Talvez seja importante conversar com alguém agora...";
         
         if (!isMuted) falarTexto(msg);
         setChat(prev => [...prev, { tipo: "iara", texto: msg }]);
-        setTimeout(() => navigate(`/profissionais?tipo=${terapeuta?.especialidade || decisao}`), 4000);
+        setTimeout(() => navigate(`/profissionais?tipo=${terapeutaPrincipal?.especialidade || decisao}`), 4000);
       } else if (decisao === "emergencia" || decisao === "psiquiatra") {
         navigate("/emergencia");
       }
@@ -226,6 +231,13 @@ export default function ChatIARA() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={() => navigate("/diario")}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-900/30 hover:bg-indigo-800/50 text-indigo-300 rounded-full text-sm font-medium transition-colors border border-indigo-500/20"
+          >
+            <Book className="w-4 h-4" />
+            <span className="hidden sm:inline">Diário</span>
+          </button>
           <button 
             onClick={toggleMute}
             className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
