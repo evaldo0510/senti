@@ -1,5 +1,7 @@
-// Mock Firebase implementation using localStorage
-import { UserProfile } from '../types';
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 export enum OperationType {
   CREATE = 'create',
@@ -10,43 +12,82 @@ export enum OperationType {
   WRITE = 'write',
 }
 
-// Mock Auth
-const listeners: ((user: any) => void)[] = [];
+const app = initializeApp(firebaseConfig);
+export const db = (firebaseConfig as any).firestoreDatabaseId 
+  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId) 
+  : getFirestore(app);
+export const auth = getAuth(app);
 
-export const auth = {
-  get currentUser() {
-    return JSON.parse(localStorage.getItem('iara_mock_user') || 'null');
-  },
-  onAuthStateChanged: (callback: (user: any) => void) => {
-    listeners.push(callback);
-    const user = JSON.parse(localStorage.getItem('iara_mock_user') || 'null');
-    callback(user);
-    return () => {
-      const index = listeners.indexOf(callback);
-      if (index > -1) listeners.splice(index, 1);
-    };
-  },
-  signOut: async () => {
-    localStorage.removeItem('iara_mock_user');
-    listeners.forEach(cb => cb(null));
+export const loginWithGoogle = async () => {
+  const provider = new GoogleAuthProvider();
+  try {
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
+  } catch (error) {
+    console.error("Error logging in with Google", error);
+    throw error;
   }
 };
 
-export const loginMock = (user: any) => {
-  localStorage.setItem('iara_mock_user', JSON.stringify(user));
-  listeners.forEach(cb => cb(user));
-};
-
 export const logout = async () => {
-  await auth.signOut();
-  window.location.reload();
+  try {
+    await signOut(auth);
+    window.location.reload();
+  } catch (error) {
+    console.error("Error signing out", error);
+  }
 };
 
-// Mock Firestore (not really used directly anymore, but keeping for compatibility)
-export const db = {};
-
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  console.error(`Mock Firestore Error [${operationType}] at ${path}:`, error);
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string;
+    email?: string | null;
+    emailVerified?: boolean;
+    isAnonymous?: boolean;
+    tenantId?: string | null;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
 }
 
-export const isFirebaseOffline = false;
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// Test connection
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if(error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration. ");
+    }
+  }
+}
+testConnection();
