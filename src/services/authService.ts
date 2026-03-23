@@ -1,5 +1,5 @@
 import { UserProfile, UserType } from "../types";
-import { auth, loginMock } from "./firebase";
+import { auth } from "./firebase";
 import { userService } from "./userService";
 
 // Mock user for development bypass
@@ -21,7 +21,6 @@ export const registrar = async (email: string, senha: string, nome: string, tipo
   profile.nome = nome;
   localStorage.setItem('iara_user_profile', JSON.stringify(profile));
   mockUserInstance = profile;
-  loginMock({ uid: profile.uid, email: profile.email });
   return profile;
 };
 
@@ -33,7 +32,6 @@ export const login = async (email: string, senha: string) => {
   
   const profile = userService.mockLogin(email, mockType);
   mockUserInstance = profile;
-  loginMock({ uid: profile.uid, email: profile.email });
   return { user: { uid: profile.uid } };
 };
 
@@ -47,7 +45,6 @@ export const logout = async () => {
 export const enterDemoMode = (tipo: UserType = 'usuario') => {
   const profile = userService.mockLogin(`demo-${tipo}@iara.com`, tipo);
   mockUserInstance = profile;
-  loginMock({ uid: profile.uid, email: profile.email });
   return mockUserInstance;
 };
 

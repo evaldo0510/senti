@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { HeartPulse, ArrowLeft, Mail, Lock } from "lucide-react";
+import { HeartPulse, ArrowLeft, Mail, Lock, User, Briefcase, Building2, Landmark } from "lucide-react";
 import { loginWithGoogle } from "../services/firebase";
 
 export default function Login() {
@@ -9,16 +9,19 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [tipoSelecionado, setTipoSelecionado] = useState<"usuario" | "terapeuta" | "empresa" | "prefeitura">("usuario");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     // Simulate email login
+    localStorage.setItem("tipo", tipoSelecionado);
     navigate("/dashboard");
   };
 
   const handleGoogleLogin = async () => {
     try {
       await loginWithGoogle();
+      localStorage.setItem("tipo", tipoSelecionado);
       navigate("/dashboard");
     } catch (err: any) {
       setError(err.message || "Erro ao fazer login com Google.");
@@ -42,10 +45,10 @@ export default function Login() {
             <HeartPulse className="w-8 h-8 text-emerald-400" />
           </div>
           <h2 className="text-3xl font-light tracking-tight text-slate-200">
-            Acesso Profissional
+            Acesso ao Sistema
           </h2>
           <p className="text-slate-400">
-            Entrar como terapeuta, clínica ou gestor.
+            Selecione seu perfil para entrar.
           </p>
         </div>
 
@@ -54,6 +57,57 @@ export default function Login() {
             {error}
           </div>
         )}
+
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => setTipoSelecionado("usuario")}
+            className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${
+              tipoSelecionado === "usuario" 
+                ? "bg-emerald-900/40 border-emerald-500/50 text-emerald-400" 
+                : "bg-slate-900 border-white/10 text-slate-400 hover:bg-slate-800"
+            }`}
+          >
+            <User className="w-5 h-5" />
+            <span className="text-sm font-medium">Paciente</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipoSelecionado("terapeuta")}
+            className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${
+              tipoSelecionado === "terapeuta" 
+                ? "bg-emerald-900/40 border-emerald-500/50 text-emerald-400" 
+                : "bg-slate-900 border-white/10 text-slate-400 hover:bg-slate-800"
+            }`}
+          >
+            <Briefcase className="w-5 h-5" />
+            <span className="text-sm font-medium">Terapeuta</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipoSelecionado("empresa")}
+            className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${
+              tipoSelecionado === "empresa" 
+                ? "bg-emerald-900/40 border-emerald-500/50 text-emerald-400" 
+                : "bg-slate-900 border-white/10 text-slate-400 hover:bg-slate-800"
+            }`}
+          >
+            <Building2 className="w-5 h-5" />
+            <span className="text-sm font-medium">Empresa (RH)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTipoSelecionado("prefeitura")}
+            className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-colors ${
+              tipoSelecionado === "prefeitura" 
+                ? "bg-emerald-900/40 border-emerald-500/50 text-emerald-400" 
+                : "bg-slate-900 border-white/10 text-slate-400 hover:bg-slate-800"
+            }`}
+          >
+            <Landmark className="w-5 h-5" />
+            <span className="text-sm font-medium">Prefeitura</span>
+          </button>
+        </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-2">

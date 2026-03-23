@@ -1,5 +1,10 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
+// Ensure fetch is available globally for @google/genai in Node environments
+if (typeof globalThis.fetch === 'undefined') {
+  globalThis.fetch = fetch;
+}
+
 const apiKey = (process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY) as string;
 const ai = new GoogleGenAI({ apiKey });
 
@@ -87,21 +92,20 @@ export async function getIARAResponse(
 
 export async function generateSpeech(text: string) {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore is a soft, calm voice
-          },
-        },
+    const response = await fetch('/api/speech', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ text })
     });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    return base64Audio;
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.audio;
   } catch (error) {
     console.error("Erro ao gerar voz:", error);
     return null;
@@ -110,28 +114,20 @@ export async function generateSpeech(text: string) {
 
 export async function generateImage(prompt: string) {
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: `Gere uma imagem sensorial e calmante baseada neste conceito: ${prompt}. A imagem deve ser abstrata, suave, com cores relaxantes e sem figuras humanas nítidas. Estilo: arte digital etérea, minimalista.`,
-          },
-        ],
+    const response = await fetch('/api/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-        },
-      },
+      body: JSON.stringify({ prompt })
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return null;
+
+    const data = await response.json();
+    return data.image;
   } catch (error) {
     console.error("Erro ao gerar imagem:", error);
     return null;

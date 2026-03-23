@@ -1,12 +1,20 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { falarComIARA, ChatMessage } from "../services/iaraService";
-import { Send, ArrowLeft, HeartHandshake, AlertTriangle } from "lucide-react";
+import { generateImage } from "../services/geminiService";
+import { falarTexto } from "../services/voiceService";
+import { ouvirUsuario } from "../services/audioInput";
+import { analisarEmocao } from "../services/emocaoService";
+import { gerarExercicio } from "../services/pchService";
+import { decidirCaminho } from "../services/decisaoService";
+import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic } from "lucide-react";
 import { motion } from "motion/react";
 
 interface Message {
   tipo: "user" | "iara";
   texto: string;
+  audio?: string | null;
+  imagem?: string | null;
 }
 
 export default function ChatIARA() {
@@ -20,7 +28,12 @@ export default function ChatIARA() {
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [alerta, setAlerta] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [isExercising, setIsExercising] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -28,29 +41,144 @@ export default function ChatIARA() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [chat, alerta]);
+  }, [chat, alerta, isGeneratingImage]);
+
+  const playAudio = (base64Audio: string) => {
+    if (isMuted) return;
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    
+    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
+    audioRef.current = audio;
+    audio.play().catch(e => console.error("Error playing audio:", e));
+  };
 
   const enviarMensagem = async () => {
     if (!mensagem.trim() || isLoading) return;
 
     const novaConversa: Message[] = [...chat, { tipo: "user", texto: mensagem }];
     setChat(novaConversa);
+    const msgAtual = mensagem;
     setMensagem("");
     setIsLoading(true);
+
+    const riscoAntes = analisarEmocao(msgAtual);
+
+    if (riscoAntes === "alto") {
+      setAlerta(true);
+      // alert("Você não está sozinho. Vamos buscar ajuda agora."); // Optional alert
+    }
 
     const historico: ChatMessage[] = chat.map(msg => ({
       role: msg.tipo === "user" ? "user" : "model",
       parts: [{ text: msg.texto }]
     }));
 
-    const { resposta, risco } = await falarComIARA(mensagem, historico, { emocao, intensidade });
+    let { resposta, risco } = await falarComIARA(msgAtual, historico, { emocao, intensidade });
 
-    if (risco === "alto") {
-      setAlerta(true);
+    let tipoExercicio = null;
+    if (msgAtual.toLowerCase().includes("ansioso") || msgAtual.toLowerCase().includes("ansiedade")) tipoExercicio = "ansiedade";
+    if (msgAtual.toLowerCase().includes("crise") || msgAtual.toLowerCase().includes("pânico")) tipoExercicio = "crise";
+    if (msgAtual.toLowerCase().includes("pensando demais") || msgAtual.toLowerCase().includes("pensamento")) tipoExercicio = "pensamento";
+
+    const exercicio = gerarExercicio(tipoExercicio);
+
+    if (riscoAntes === "moderado") {
+      resposta += "\n\nTalvez conversar com alguém possa te ajudar...";
+    } else if (riscoAntes === "alto") {
+      resposta = "Eu estou aqui com você...\n\nIsso é importante demais para você enfrentar sozinho.\n\nVamos buscar ajuda agora, juntos.";
+    } else if (tipoExercicio) {
+      resposta += "\n\nVamos fazer isso juntos...";
+    }
+
+    if (resposta.toLowerCase().includes("respira")) {
+      if (!isMuted) falarTexto("Inspira... devagar...");
+    }
+
+    // Salvar dados (simulado para integração futura com Google Sheets/Looker Studio)
+    const salvarDados = async () => {
+      try {
+        const URL_DO_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbx-SUA-URL-AQUI/exec";
+        if (!URL_DO_GOOGLE_SCRIPT.includes("SUA-URL-AQUI")) {
+          await fetch(URL_DO_GOOGLE_SCRIPT, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              data: new Date().toLocaleDateString('pt-BR'),
+              usuario: "Anônimo",
+              humor: intensidade || 5,
+              risco: riscoAntes,
+              atendimento: "nao",
+              tipo: "IARA"
+            })
+          });
+        }
+      } catch (e) {
+        console.error("Erro ao salvar dados:", e);
+      }
+    };
+    salvarDados();
+
+    if (!isMuted) {
+      falarTexto(resposta);
     }
 
     setChat([...novaConversa, { tipo: "iara", texto: resposta }]);
     setIsLoading(false);
+
+    if (exercicio.length > 0) {
+      setIsExercising(true);
+      let delay = 0;
+      exercicio.forEach((frase) => {
+        setTimeout(() => {
+          if (!isMuted) falarTexto(frase);
+          setChat(prev => [...prev, { tipo: "iara", texto: frase }]);
+        }, delay);
+        delay += 4000;
+      });
+      
+      setTimeout(() => {
+        setIsExercising(false);
+      }, delay);
+    }
+
+    // Após resposta e exercício
+    setTimeout(() => {
+      const riscoDepois = analisarEmocao(resposta); // Usando a resposta como proxy do estado, conforme solicitado
+      const decisao = decidirCaminho(riscoAntes, riscoDepois);
+
+      if (decisao === "terapeuta" || decisao === "psicologo") {
+        if (!isMuted) falarTexto("Talvez seja importante conversar com alguém agora...");
+        setChat(prev => [...prev, { tipo: "iara", texto: "Talvez seja importante conversar com alguém agora..." }]);
+        setTimeout(() => navigate(`/profissionais?tipo=${decisao}`), 3000);
+      } else if (decisao === "emergencia" || decisao === "psiquiatra") {
+        navigate("/emergencia");
+      }
+    }, exercicio.length > 0 ? exercicio.length * 4000 + 2000 : 8000);
+  };
+
+  const handleGerarImagem = async () => {
+    if (isLoading || isGeneratingImage) return;
+    
+    setIsGeneratingImage(true);
+    
+    // Get the last user message or use a default prompt
+    const lastUserMessage = chat.slice().reverse().find(m => m.tipo === "user")?.texto || "Paz e tranquilidade";
+    
+    const imageData = await generateImage(lastUserMessage);
+    
+    if (imageData) {
+      setChat(prev => [...prev, { 
+        tipo: "iara", 
+        texto: "Criei esta imagem para ajudar você a se acalmar e focar no momento presente...", 
+        imagem: imageData 
+      }]);
+    }
+    
+    setIsGeneratingImage(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -58,6 +186,22 @@ export default function ChatIARA() {
       e.preventDefault();
       enviarMensagem();
     }
+  };
+
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+    if (!isMuted && audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+
+  const handleMicClick = () => {
+    if (isListening) return;
+    setIsListening(true);
+    ouvirUsuario(
+      (texto) => setMensagem(texto),
+      () => setIsListening(false)
+    );
   };
 
   return (
@@ -77,16 +221,33 @@ export default function ChatIARA() {
             <p className="text-xs text-slate-400">Sua voz interior</p>
           </div>
         </div>
-        <button 
-          onClick={() => navigate("/profissionais")}
-          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-300 rounded-full text-sm font-medium transition-colors border border-emerald-500/20"
-        >
-          <HeartHandshake className="w-4 h-4" />
-          <span className="hidden sm:inline">Falar com Terapeuta</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={toggleMute}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
+            title={isMuted ? "Ativar som" : "Desativar som"}
+          >
+            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+          </button>
+          <button 
+            onClick={() => navigate("/profissionais")}
+            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-300 rounded-full text-sm font-medium transition-colors border border-emerald-500/20"
+          >
+            <HeartHandshake className="w-4 h-4" />
+            <span className="hidden sm:inline">Falar com Terapeuta</span>
+          </button>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {isExercising && (
+          <div className="flex justify-center my-4">
+            <div 
+              className="w-20 h-20 rounded-full bg-emerald-500 mx-auto"
+              style={{ animation: "pulse 4s infinite" }}
+            />
+          </div>
+        )}
         {alerta && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
@@ -119,10 +280,18 @@ export default function ChatIARA() {
               }`}
             >
               <p className="leading-relaxed whitespace-pre-wrap">{msg.texto}</p>
+              {msg.imagem && (
+                <img 
+                  src={msg.imagem} 
+                  alt="Imagem gerada pela IARA" 
+                  className="mt-3 rounded-xl w-full object-cover shadow-md border border-white/10"
+                  referrerPolicy="no-referrer"
+                />
+              )}
             </div>
           </motion.div>
         ))}
-        {isLoading && (
+        {(isLoading || isGeneratingImage) && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -140,6 +309,26 @@ export default function ChatIARA() {
 
       <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-white/10">
         <div className="max-w-4xl mx-auto relative flex items-end gap-2">
+          <button
+            onClick={handleMicClick}
+            disabled={isLoading || isListening}
+            className={`p-3 rounded-xl transition-colors flex items-center justify-center flex-shrink-0 ${
+              isListening 
+                ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse" 
+                : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-white/10"
+            }`}
+            title="Falar"
+          >
+            <Mic className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleGerarImagem}
+            disabled={isLoading || isGeneratingImage}
+            className="p-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 disabled:text-slate-600 text-slate-300 rounded-xl transition-colors flex-shrink-0 border border-white/10"
+            title="Gerar imagem calmante"
+          >
+            <ImageIcon className="w-5 h-5" />
+          </button>
           <textarea
             value={mensagem}
             onChange={(e) => setMensagem(e.target.value)}

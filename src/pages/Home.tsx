@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { HeartPulse, MessageCircle } from "lucide-react";
+import { HeartPulse, MessageCircle, BookOpen } from "lucide-react";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -44,6 +44,14 @@ export default function Home() {
           >
             <MessageCircle className="w-5 h-5" />
             Quero conversar
+          </button>
+
+          <button 
+            onClick={() => navigate("/diario")}
+            className="w-full py-4 px-6 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-2xl font-medium transition-all border border-white/5 flex items-center justify-center gap-2 active:scale-[0.98]"
+          >
+            <BookOpen className="w-5 h-5" />
+            Meu Diário Emocional
           </button>
         </div>
       </motion.div>

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, Search, MapPin, Star, Video } from "lucide-react";
 
@@ -39,12 +39,39 @@ export const profissionais = [
     cidade: "Belo Horizonte, MG",
     preco: "A partir de R$ 100",
     imagem: "https://picsum.photos/seed/clinica/200/200"
+  },
+  {
+    id: 4,
+    nome: "Dr. Roberto Almeida",
+    especialidade: "Psiquiatra",
+    rating: 4.9,
+    reviews: 310,
+    online: true,
+    presencial: true,
+    cidade: "Curitiba, PR",
+    preco: "R$ 350/consulta",
+    imagem: "https://picsum.photos/seed/roberto/200/200"
   }
 ];
 
 export default function Profissionais() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [busca, setBusca] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tipo = params.get("tipo");
+    if (tipo) {
+      setBusca(tipo);
+    }
+  }, [location]);
+
+  const profissionaisFiltrados = profissionais.filter(prof => 
+    prof.nome.toLowerCase().includes(busca.toLowerCase()) ||
+    prof.especialidade.toLowerCase().includes(busca.toLowerCase()) ||
+    prof.cidade.toLowerCase().includes(busca.toLowerCase())
+  );
 
   return (
     <motion.div 
@@ -75,7 +102,7 @@ export default function Profissionais() {
         </div>
 
         <div className="space-y-4">
-          {profissionais.map(prof => (
+          {profissionaisFiltrados.length > 0 ? profissionaisFiltrados.map(prof => (
             <motion.div 
               key={prof.id}
               initial={{ opacity: 0, y: 10 }}
@@ -124,7 +151,11 @@ export default function Profissionais() {
                 </button>
               </div>
             </motion.div>
-          ))}
+          )) : (
+            <div className="text-center py-12 text-slate-400">
+              Nenhum profissional encontrado para "{busca}".
+            </div>
+          )}
         </div>
       </div>
     </motion.div>
