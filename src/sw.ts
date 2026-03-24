@@ -1,8 +1,9 @@
 import { precacheAndRoute } from 'workbox-precaching';
 
-const swSelf = self as any;
+// @ts-ignore
+precacheAndRoute(self.__WB_MANIFEST);
 
-precacheAndRoute(swSelf.__WB_MANIFEST);
+const swSelf = self as any;
 
 swSelf.addEventListener('push', (event: any) => {
   const data = event.data ? event.data.json() : { title: 'SENTI', body: 'Você tem uma nova atualização.' };
