@@ -35,21 +35,21 @@ export default function Login() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
-      className="min-h-screen bg-[#f5f5f0] flex flex-col items-center justify-center p-6 text-[#1a1a1a]"
+      className="min-h-screen bg-[#f5f5f0] flex flex-col items-center justify-center p-4 sm:p-6 text-[#1a1a1a]"
     >
-      <div className="w-full max-w-md space-y-8 bg-white p-10 rounded-[3rem] border border-black/5 shadow-2xl">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-black/5 rounded-full transition-colors mb-4">
+      <div className="w-full max-w-md space-y-6 sm:space-y-8 bg-white p-6 sm:p-10 rounded-[2.5rem] sm:rounded-[3rem] border border-black/5 shadow-2xl">
+        <button onClick={() => navigate(-1)} className="p-3 -ml-2 hover:bg-black/5 rounded-full transition-colors mb-2 min-w-[44px] min-h-[44px] flex items-center justify-center">
           <ArrowLeft className="w-5 h-5 text-[#4a4a4a]" />
         </button>
 
-        <div className="space-y-6 text-center">
-          <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
-            <HeartPulse className="w-8 h-8 text-emerald-600" />
+        <div className="space-y-4 sm:space-y-6 text-center">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto border border-emerald-100">
+            <HeartPulse className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-600" />
           </div>
-          <h2 className="text-4xl font-serif font-bold tracking-tight text-[#1a1a1a]">
+          <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-[#1a1a1a]">
             Bem-vindo de volta
           </h2>
-          <p className="text-[#6a6a6a] font-light">
+          <p className="text-[#6a6a6a] font-light text-sm sm:text-base">
             Selecione seu perfil para entrar.
           </p>
         </div>

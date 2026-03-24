@@ -105,9 +105,16 @@ export default function Terapeuta() {
     await userService.updateAppointmentStatus(id, status);
   };
 
+  const toggleOnlineStatus = async () => {
+    if (profile) {
+      const newStatus = !profile.online;
+      await userService.updateOnlineStatus(profile.uid, newStatus);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 flex text-slate-100">
-      {/* Sidebar */}
+    <div className="min-h-screen bg-slate-950 flex text-slate-100 pb-24 lg:pb-0">
+      {/* Sidebar - Desktop only */}
       <aside className="w-64 bg-slate-900 border-r border-white/5 flex flex-col hidden lg:flex sticky top-0 h-screen">
         <div className="p-8">
           <h1 className="text-2xl font-bold text-emerald-400 flex items-center gap-2">
@@ -218,35 +225,59 @@ export default function Terapeuta() {
           )}
 
           {/* Header */}
-          <header className="flex justify-between items-start">
-            <div>
-              <h2 className="text-4xl font-bold tracking-tight text-slate-100">
+          <header className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1">
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-slate-100">
                 {activeTab === 'dashboard' && `Olá, Dr(a). ${profile?.nome?.split(' ')[0]}`}
                 {activeTab === 'agenda' && 'Minha Agenda'}
                 {activeTab === 'pacientes' && 'Meus Pacientes'}
                 {activeTab === 'financeiro' && 'Gestão Financeira'}
                 {activeTab === 'perfil' && 'Meu Perfil'}
               </h2>
-              <p className="text-slate-500 mt-2 text-lg">
-                {activeTab === 'dashboard' && `Você tem ${stats.pending} agendamentos pendentes para hoje.`}
+              <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-lg">
+                {activeTab === 'dashboard' && `Você tem ${stats.pending} agendamentos pendentes.`}
                 {activeTab === 'agenda' && 'Gerencie seus horários e sessões.'}
                 {activeTab === 'pacientes' && 'Acompanhe o progresso de quem você cuida.'}
-                {activeTab === 'financeiro' && 'Acompanhe seus ganhos e taxas da plataforma.'}
+                {activeTab === 'financeiro' && 'Acompanhe seus ganhos e taxas.'}
                 {activeTab === 'perfil' && 'Mantenha suas informações atualizadas.'}
               </p>
             </div>
-            <div className="flex gap-3">
-              <div className="hidden lg:block">
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-end items-center">
+              {/* Uber-like Online Toggle */}
+              <button 
+                onClick={toggleOnlineStatus}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all border",
+                  profile?.online 
+                    ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400" 
+                    : "bg-slate-800 border-white/10 text-slate-500"
+                )}
+              >
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  profile?.online ? "bg-emerald-500 animate-pulse" : "bg-slate-600"
+                )} />
+                {profile?.online ? "ONLINE" : "OFFLINE"}
+              </button>
+
+              <div className="hidden xl:block">
                 <div className="bg-emerald-900/20 border border-emerald-500/20 px-4 py-2 rounded-full flex items-center gap-2 text-sm text-emerald-400">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                   Dica: {tips[currentTip]}
                 </div>
               </div>
-              <button className="p-3 bg-slate-900 rounded-2xl border border-white/5 relative">
+              <button 
+                aria-label="Notificações"
+                className="p-3 bg-slate-900 rounded-2xl border border-white/5 relative min-w-[48px] min-h-[48px] flex items-center justify-center"
+              >
                 <Bell className="w-6 h-6 text-slate-400" />
-                <span className="absolute top-3 right-3 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-slate-900"></span>
+                <span className="absolute top-3.5 right-3.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-slate-900"></span>
               </button>
-              <button onClick={handleLogout} className="lg:hidden p-3 bg-slate-900 rounded-2xl border border-white/5 text-slate-400 hover:text-red-400">
+              <button 
+                onClick={handleLogout} 
+                aria-label="Sair"
+                className="lg:hidden p-3 bg-slate-900 rounded-2xl border border-white/5 text-slate-400 hover:text-red-400 min-w-[48px] min-h-[48px] flex items-center justify-center"
+              >
                 <LogOut className="w-6 h-6" />
               </button>
             </div>
@@ -535,6 +566,60 @@ export default function Terapeuta() {
           )}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-white/5 px-2 pb-safe pt-2 flex justify-around items-center z-30 lg:hidden">
+        <button 
+          onClick={() => setActiveTab("dashboard")}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            activeTab === 'dashboard' ? "text-emerald-400" : "text-slate-500"
+          )}
+        >
+          <Activity className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Dash</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("agenda")}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            activeTab === 'agenda' ? "text-emerald-400" : "text-slate-500"
+          )}
+        >
+          <Calendar className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Agenda</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("pacientes")}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            activeTab === 'pacientes' ? "text-emerald-400" : "text-slate-500"
+          )}
+        >
+          <Users className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Pacientes</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("financeiro")}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            activeTab === 'financeiro' ? "text-emerald-400" : "text-slate-500"
+          )}
+        >
+          <DollarSign className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Ganhos</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("perfil")}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            activeTab === 'perfil' ? "text-emerald-400" : "text-slate-500"
+          )}
+        >
+          <Settings className="w-6 h-6" />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Perfil</span>
+        </button>
+      </nav>
     </div>
   );
 }

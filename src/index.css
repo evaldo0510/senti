@@ -15,6 +15,18 @@
   --breakpoint-xs: 360px;
 }
 
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility h-safe {
+  height: calc(100% + env(safe-area-inset-top) + env(safe-area-inset-bottom));
+}
+
 :root {
   --brand-bg: #F8FAFC;
   --brand-dark: #F1F5F9;
@@ -88,5 +100,17 @@ h1, h2, h3, h4 {
 @keyframes pulse-bg {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
+}
+
+@utility card-hover {
+  @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl active:scale-[0.98];
+}
+
+@utility pulse-green {
+  @apply relative;
+  &::after {
+    content: '';
+    @apply absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20;
+  }
 }
 

@@ -107,10 +107,10 @@ export default function Registro() {
             <button 
               onClick={salvar}
               disabled={!nota.trim() || isSaved || isLoading}
-              className={`px-6 py-3 rounded-xl font-medium transition-colors flex items-center gap-2 ${
+              className={`w-full sm:w-auto px-6 py-4 sm:py-3 rounded-2xl sm:rounded-xl font-bold sm:font-medium transition-colors flex items-center justify-center gap-2 min-h-[56px] sm:min-h-[44px] ${
                 isSaved 
                   ? "bg-emerald-500 text-white" 
-                  : "bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white shadow-lg shadow-emerald-900/20"
               }`}
             >
               {isSaved ? (

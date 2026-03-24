@@ -12,6 +12,9 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     biografia: 'Especialista em transtornos de ansiedade com mais de 10 anos de experiência.',
     fotoUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300&h=300',
     rating: 4.9,
+    online: true,
+    latitude: -23.5505,
+    longitude: -46.6333,
     avaliacoes: [
       { userId: 'u1', userName: 'João', nota: 5, comentario: 'Excelente profissional!', data: new Date().toISOString() }
     ]
@@ -27,6 +30,9 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     biografia: 'Focado em ajudar pessoas a superarem momentos difíceis e transições de vida.',
     fotoUrl: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=300&h=300',
     rating: 4.7,
+    online: true,
+    latitude: -23.5555,
+    longitude: -46.6383,
     avaliacoes: []
   },
   {
@@ -40,6 +46,9 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     biografia: 'Praticante de mindfulness e especialista em terapias integrativas.',
     fotoUrl: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=300&h=300',
     rating: 4.8,
+    online: false,
+    latitude: -23.5605,
+    longitude: -46.6433,
     avaliacoes: []
   }
 ];

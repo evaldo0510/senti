@@ -262,38 +262,38 @@ export default function LiveIARA() {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col overflow-hidden font-sans">
       {/* Header */}
-      <header className="p-6 flex justify-between items-center z-20 bg-gradient-to-b from-slate-950 to-transparent">
+      <header className="p-4 sm:p-6 flex justify-between items-center z-20 bg-gradient-to-b from-slate-950 to-transparent">
         <button 
           onClick={() => navigate("/home")}
-          className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all backdrop-blur-md border border-white/10"
+          className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all backdrop-blur-md border border-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
         >
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
-        <div className="flex items-center gap-3 bg-emerald-500/20 px-4 py-2 rounded-full border border-emerald-500/30 backdrop-blur-md">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-          <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">IARA Live Session</span>
+        <div className="flex items-center gap-2 sm:gap-3 bg-emerald-500/20 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-emerald-500/30 backdrop-blur-md">
+          <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-emerald-500 rounded-full animate-pulse" />
+          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-emerald-400 whitespace-nowrap">IARA Live Session</span>
         </div>
-        <div className="w-12" /> {/* Spacer */}
+        <div className="w-10 sm:w-12" /> {/* Spacer */}
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 relative flex flex-col items-center justify-center p-6">
+      <main className="flex-1 relative flex flex-col items-center justify-center p-4 sm:p-6">
         {/* AI Video (Placeholder/Visualization) */}
-        <div className="w-full max-w-4xl aspect-video bg-slate-900 rounded-[3rem] border border-white/5 overflow-hidden relative shadow-2xl">
-          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-6">
+        <div className="w-full max-w-4xl aspect-[4/3] sm:aspect-video bg-slate-900 rounded-[2rem] sm:rounded-[3rem] border border-white/5 overflow-hidden relative shadow-2xl">
+          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 sm:space-y-6">
             <motion.div 
               animate={{ 
                 scale: [1, 1.1, 1],
                 rotate: [0, 5, -5, 0]
               }}
               transition={{ duration: 4, repeat: Infinity }}
-              className="w-32 h-32 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30"
+              className="w-24 h-24 sm:w-32 sm:h-32 bg-emerald-500/20 rounded-full flex items-center justify-center border border-emerald-500/30"
             >
-              <Sparkles className="w-16 h-16 text-emerald-400" />
+              <Sparkles className="w-12 h-12 sm:w-16 sm:h-16 text-emerald-400" />
             </motion.div>
-            <div className="text-center space-y-2">
-              <h2 className="text-2xl font-serif italic text-emerald-400">IARA</h2>
-              <p className="text-slate-500 text-sm font-light">Acolhimento em tempo real</p>
+            <div className="text-center space-y-1 sm:space-y-2">
+              <h2 className="text-xl sm:text-2xl font-serif italic text-emerald-400">IARA</h2>
+              <p className="text-slate-500 text-[10px] sm:text-sm font-light uppercase tracking-widest">Acolhimento em tempo real</p>
             </div>
           </div>
 
@@ -304,9 +304,9 @@ export default function LiveIARA() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-10 left-10 right-10 bg-black/40 backdrop-blur-xl p-6 rounded-3xl border border-white/10"
+                className="absolute bottom-6 left-6 right-6 sm:bottom-10 sm:left-10 sm:right-10 bg-black/40 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/10"
               >
-                <p className="text-lg text-center font-light leading-relaxed italic">"{aiTranscription}"</p>
+                <p className="text-sm sm:text-lg text-center font-light leading-relaxed italic">"{aiTranscription}"</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -315,12 +315,12 @@ export default function LiveIARA() {
         {/* User Video (Picture in Picture) */}
         <motion.div 
           drag
-          dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
-          className="absolute bottom-32 right-10 w-48 aspect-[3/4] bg-slate-800 rounded-3xl border-2 border-emerald-500/30 overflow-hidden shadow-2xl z-30 cursor-move"
+          dragConstraints={{ left: -100, right: 100, top: -100, bottom: 100 }}
+          className="absolute bottom-28 right-4 sm:bottom-32 sm:right-10 w-32 sm:w-48 aspect-[3/4] bg-slate-800 rounded-2xl sm:rounded-3xl border-2 border-emerald-500/30 overflow-hidden shadow-2xl z-30 cursor-move"
         >
           {!isCameraOn && (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-              <VideoOff className="w-8 h-8 text-slate-600" />
+              <VideoOff className="w-6 h-6 sm:w-8 sm:h-8 text-slate-600" />
             </div>
           )}
           <video 
@@ -333,7 +333,7 @@ export default function LiveIARA() {
           <canvas ref={canvasRef} width="320" height="240" className="hidden" />
           
           {/* Audio Level Indicator */}
-          <div className="absolute bottom-4 left-4 right-4 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="absolute bottom-3 left-3 right-3 h-1 bg-white/10 rounded-full overflow-hidden">
             <motion.div 
               animate={{ width: `${Math.min(audioLevel * 500, 100)}%` }}
               className="h-full bg-emerald-500"
@@ -348,9 +348,9 @@ export default function LiveIARA() {
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="absolute top-32 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-md px-6 py-2 rounded-full border border-white/10"
+              className="absolute top-24 sm:top-32 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-md px-4 py-1.5 sm:px-6 sm:py-2 rounded-full border border-white/10 max-w-[80%] text-center"
             >
-              <p className="text-xs text-slate-400 font-medium uppercase tracking-widest flex items-center gap-2">
+              <p className="text-[10px] sm:text-xs text-slate-400 font-medium uppercase tracking-widest flex items-center justify-center gap-2 truncate">
                 <Mic className="w-3 h-3" /> {transcription}
               </p>
             </motion.div>
@@ -359,34 +359,34 @@ export default function LiveIARA() {
       </main>
 
       {/* Controls */}
-      <footer className="p-10 flex items-center justify-center gap-6 z-20 bg-gradient-to-t from-slate-950 to-transparent">
+      <footer className="p-6 sm:p-10 flex items-center justify-center gap-4 sm:gap-6 z-20 bg-gradient-to-t from-slate-950 to-transparent pb-safe">
         <button 
           onClick={toggleMic}
-          className={`p-6 rounded-full transition-all border ${
+          className={`p-4 sm:p-6 rounded-full transition-all border min-w-[56px] min-h-[56px] flex items-center justify-center ${
             isMicOn 
               ? "bg-white/10 border-white/10 hover:bg-white/20 text-white" 
               : "bg-red-500/20 border-red-500/30 text-red-500"
           }`}
         >
-          {isMicOn ? <Mic className="w-8 h-8" /> : <MicOff className="w-8 h-8" />}
+          {isMicOn ? <Mic className="w-6 h-6 sm:w-8 sm:h-8" /> : <MicOff className="w-6 h-6 sm:w-8 sm:h-8" />}
         </button>
 
         <button 
           onClick={endCall}
-          className="p-8 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-2xl shadow-red-900/40 hover:scale-110 active:scale-95"
+          className="p-6 sm:p-8 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-2xl shadow-red-900/40 hover:scale-110 active:scale-95 min-w-[72px] min-h-[72px] flex items-center justify-center"
         >
-          <PhoneOff className="w-10 h-10" />
+          <PhoneOff className="w-8 h-8 sm:w-10 sm:h-10" />
         </button>
 
         <button 
           onClick={toggleCamera}
-          className={`p-6 rounded-full transition-all border ${
+          className={`p-4 sm:p-6 rounded-full transition-all border min-w-[56px] min-h-[56px] flex items-center justify-center ${
             isCameraOn 
               ? "bg-white/10 border-white/10 hover:bg-white/20 text-white" 
               : "bg-red-500/20 border-red-500/30 text-red-500"
           }`}
         >
-          {isCameraOn ? <Video className="w-8 h-8" /> : <VideoOff className="w-8 h-8" />}
+          {isCameraOn ? <Video className="w-6 h-6 sm:w-8 sm:h-8" /> : <VideoOff className="w-6 h-6 sm:w-8 sm:h-8" />}
         </button>
       </footer>
 

@@ -114,45 +114,48 @@ export default function DashboardPaciente() {
   const dicaHoje = dicasDoDia[new Date().getDate() % dicasDoDia.length];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-24 transition-colors">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-32 transition-colors">
       <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
 
       {/* Header */}
-      <header className="p-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
-            <HeartPulse className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+      <header className="px-4 py-4 sm:px-6 sm:py-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
+            <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <div>
-            <h1 className="text-lg font-medium text-slate-800 dark:text-slate-200">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-medium text-slate-800 dark:text-slate-200 truncate">
               {getGreeting()}, <span className="text-emerald-600 dark:text-emerald-400">{userProfile?.nome?.split(' ')[0] || "Paciente"}</span>
             </h1>
-            <p className="text-xs text-slate-500">SENTI App</p>
+            <p className="text-[10px] sm:text-xs text-slate-500">SENTI App</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           <button 
             onClick={toggleTheme}
-            className="p-2 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Alternar tema"
+            className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
           </button>
           <button 
             onClick={() => setIsFeedbackOpen(true)}
-            className="p-2 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Enviar feedback"
+            className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <MessageSquarePlus className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           </button>
           <button 
             onClick={() => navigate("/perfil")}
-            className="p-2 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Ver perfil"
+            className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <User className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           </button>
         </div>
       </header>
 
-      <main className="p-6 max-w-2xl mx-auto space-y-8">
+      <main className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 sm:space-y-8">
         {/* Notification Prompt */}
         {notificationPermission === 'default' && (
           <motion.div 
@@ -180,6 +183,47 @@ export default function DashboardPaciente() {
           </motion.div>
         )}
         
+        {/* SENTI Go - Instant Help (Uber-like) */}
+        <motion.section 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-slate-900 border border-emerald-500/30 rounded-[2.5rem] p-6 text-white shadow-2xl relative overflow-hidden group"
+        >
+          <div className="absolute -right-8 -top-8 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Zap className="w-40 h-40 text-emerald-400" />
+          </div>
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/30 backdrop-blur-md">
+                <Zap className="w-7 h-7 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black tracking-tight">SENTI Go</h3>
+                <p className="text-emerald-400/80 text-xs font-bold uppercase tracking-widest">Ajuda Instantânea</p>
+              </div>
+            </div>
+            
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Precisa falar com alguém agora? O <span className="text-white font-bold">SENTI Go</span> encontra o primeiro terapeuta disponível para você em segundos.
+            </p>
+
+            <button 
+              onClick={() => {
+                const onlineTherapist = featuredTherapists.find(t => t.online);
+                if (onlineTherapist) {
+                  navigate(`/agendamento/${onlineTherapist.uid}`);
+                } else {
+                  navigate("/profissionais");
+                }
+              }}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-base transition-all shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-3 active:scale-95"
+            >
+              Conectar Agora
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.section>
+
         {/* Dica do Dia */}
         <motion.section
           initial={{ opacity: 0, y: 10 }}
@@ -199,7 +243,7 @@ export default function DashboardPaciente() {
         <motion.section 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group shadow-sm"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group shadow-sm card-hover"
         >
           <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
             <Activity className="w-24 h-24 text-emerald-500 dark:text-emerald-400" />
@@ -244,7 +288,7 @@ export default function DashboardPaciente() {
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden"
+          className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden card-hover"
         >
           <div className="absolute -right-6 -top-6 opacity-20">
             <Smartphone className="w-32 h-32 rotate-12" />
@@ -270,7 +314,7 @@ export default function DashboardPaciente() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           onClick={() => navigate("/reset21")}
-          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm"
+          className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm card-hover"
         >
           <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
             <Calendar className="w-32 h-32 text-emerald-500 dark:text-emerald-400" />
@@ -296,7 +340,7 @@ export default function DashboardPaciente() {
         <motion.section 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/40 relative overflow-hidden"
+          className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/40 relative overflow-hidden card-hover"
         >
           <div className="absolute -right-4 -bottom-4 opacity-20">
             <Sparkles className="w-32 h-32" />
@@ -432,37 +476,42 @@ export default function DashboardPaciente() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-lg border-t border-slate-200 dark:border-white/5 p-4 flex justify-around items-center z-30">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/5 px-2 pb-safe pt-2 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
         <button 
           onClick={() => navigate("/home")}
-          className="flex flex-col items-center gap-1 text-emerald-600 dark:text-emerald-400"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-emerald-600 dark:text-emerald-400 min-w-[64px]"
         >
           <Zap className="w-6 h-6" />
           <span className="text-[10px] font-bold uppercase tracking-widest">Início</span>
         </button>
         <button 
           onClick={() => navigate("/profissionais")}
-          className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
         >
           <Search className="w-6 h-6" />
           <span className="text-[10px] font-bold uppercase tracking-widest">Buscar</span>
         </button>
-        <button 
-          onClick={() => navigate("/live-iara")}
-          className="w-14 h-14 bg-emerald-600 dark:bg-emerald-500 rounded-full flex items-center justify-center -mt-10 shadow-xl shadow-emerald-600/20 dark:shadow-emerald-900/40 border-4 border-white dark:border-slate-950 active:scale-90 transition-transform"
-        >
-          <Video className="w-7 h-7 text-white" />
-        </button>
+        
+        <div className="relative -mt-10">
+          <button 
+            onClick={() => navigate("/live-iara")}
+            aria-label="Sessão IARA Live"
+            className="w-16 h-16 bg-emerald-600 dark:bg-emerald-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-600/40 dark:shadow-emerald-900/60 border-4 border-white dark:border-slate-950 active:scale-90 transition-all hover:scale-105"
+          >
+            <Video className="w-8 h-8 text-white" />
+          </button>
+        </div>
+
         <button 
           onClick={() => navigate("/diario")}
-          className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
         >
           <BookOpen className="w-6 h-6" />
           <span className="text-[10px] font-bold uppercase tracking-widest">Diário</span>
         </button>
         <button 
           onClick={() => navigate("/perfil")}
-          className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
         >
           <User className="w-6 h-6" />
           <span className="text-[10px] font-bold uppercase tracking-widest">Perfil</span>

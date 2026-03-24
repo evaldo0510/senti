@@ -14,15 +14,19 @@ import {
   Camera,
   ShieldCheck,
   Activity,
-  HeartPulse
+  HeartPulse,
+  Bell,
+  Zap
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
+import { usePWA } from "../contexts/PWAContext";
 
 export default function Perfil() {
   const navigate = useNavigate();
+  const { notificationPermission, requestNotificationPermission } = usePWA();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -75,6 +79,17 @@ export default function Perfil() {
     }
   };
 
+  const testNotification = () => {
+    if (Notification.permission === 'granted') {
+      new Notification("SENTI App", {
+        body: "Esta é uma notificação de teste! Suas notificações estão funcionando corretamente.",
+        icon: "/icons/icon-192x192.png"
+      });
+    } else {
+      requestNotificationPermission();
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -86,16 +101,17 @@ export default function Perfil() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 font-sans">
       {/* Header */}
-      <header className="p-6 flex justify-between items-center sticky top-0 bg-slate-950/80 backdrop-blur-md z-20 border-b border-white/5">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors">
+      <header className="px-4 py-4 sm:p-6 flex justify-between items-center sticky top-0 bg-slate-950/80 backdrop-blur-md z-20 border-b border-white/5">
+        <button onClick={() => navigate(-1)} className="p-3 -ml-2 hover:bg-white/5 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
           <ArrowLeft className="w-5 h-5 text-slate-400" />
         </button>
-        <h1 className="text-lg font-medium text-slate-200">Meu Perfil</h1>
+        <h1 className="text-base sm:text-lg font-medium text-slate-200">Meu Perfil</h1>
         <button 
           onClick={() => isEditing ? handleSave() : setIsEditing(true)}
           disabled={saving}
+          aria-label={isEditing ? "Salvar" : "Editar"}
           className={cn(
-            "p-2 rounded-full transition-all",
+            "p-3 rounded-full transition-all min-w-[44px] min-h-[44px] flex items-center justify-center",
             isEditing ? "bg-emerald-500 text-white" : "bg-slate-900 border border-white/5 text-slate-400"
           )}
         >
@@ -224,6 +240,48 @@ export default function Perfil() {
               <span className="text-slate-300">
                 {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A"}
               </span>
+            </div>
+          </div>
+
+          {/* Notification Settings */}
+          <div className="space-y-4 pt-4">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Configurações de Notificação</label>
+            <div className="bg-slate-900/30 border border-white/5 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-200">Notificações Push</p>
+                    <p className="text-xs text-slate-500">
+                      Status: {notificationPermission === 'granted' ? 'Ativadas' : notificationPermission === 'denied' ? 'Bloqueadas' : 'Não configuradas'}
+                    </p>
+                  </div>
+                </div>
+                {notificationPermission !== 'granted' ? (
+                  <button 
+                    onClick={requestNotificationPermission}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all"
+                  >
+                    Ativar
+                  </button>
+                ) : (
+                  <div className="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                    Ativo
+                  </div>
+                )}
+              </div>
+              
+              {notificationPermission === 'granted' && (
+                <button 
+                  onClick={testNotification}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl text-xs font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  Testar Notificação
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2, AlertCircle, Zap } from "lucide-react";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { auth } from "../services/firebase";
@@ -35,6 +35,12 @@ export default function Agendamento() {
       userService.getUser(id).then(p => {
         setProfissional(p);
         setLoading(false);
+        
+        // If instant mode, auto-select first available time
+        const params = new URLSearchParams(location.search);
+        if (params.get("instant") === "true") {
+          setHorario(horariosDisponiveis[0]);
+        }
       });
     }
   }, [id, location]);
@@ -172,11 +178,19 @@ export default function Agendamento() {
       className="min-h-screen bg-slate-950 text-slate-100 p-6"
     >
       <div className="max-w-md mx-auto space-y-8">
-        <header className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-medium text-slate-200">Agendar Sessão</h1>
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-medium text-slate-200">Agendar Sessão</h1>
+          </div>
+          {new URLSearchParams(location.search).get("instant") === "true" && (
+            <div className="bg-emerald-600 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg shadow-emerald-900/20">
+              <Zap className="w-3.5 h-3.5 text-white" />
+              <span className="text-[10px] font-bold text-white uppercase tracking-widest">SENTI Go</span>
+            </div>
+          )}
         </header>
 
         {error && (

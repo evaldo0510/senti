@@ -87,6 +87,8 @@ export interface UserProfile {
   avaliacoes?: Avaliacao[];
   online?: boolean;
   desconto?: number; // Porcentagem de desconto (0-100)
+  latitude?: number;
+  longitude?: number;
   // Campos para pacientes
   favoritos?: string[]; // Array of therapist UIDs
 }
