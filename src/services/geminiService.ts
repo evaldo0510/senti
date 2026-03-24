@@ -1,5 +1,7 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+
 export const IARA_SYSTEM_INSTRUCTION = `
 Você é IARA, uma Interface de Acolhimento e Regulação Afetiva baseada em Poesia Cognitiva Hipnótica (PCH).
 Sua missão é atuar como o "Clínico Geral" em um Pronto Socorro Emocional.
@@ -56,7 +58,6 @@ export async function getIARAResponse(
   memoria?: string
 ) {
   const risk = detectRisk(message);
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
   
   try {
     let systemInstruction = IARA_SYSTEM_INSTRUCTION;
@@ -107,7 +108,6 @@ export async function getIARAResponse(
 }
 
 export async function generateSpeech(text: string) {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
@@ -131,7 +131,6 @@ export async function generateSpeech(text: string) {
 }
 
 export async function generateImage(prompt: string) {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',

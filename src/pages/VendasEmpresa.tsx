@@ -19,7 +19,7 @@ export default function VendasEmpresa() {
 
   const abrirWhatsApp = () => {
     const numero = "5511999999999";
-    const mensagem = encodeURIComponent("Olá, gostaria de uma demonstração do PSE para minha empresa.");
+    const mensagem = encodeURIComponent("Olá, gostaria de uma demonstração do ReSet Emocional PCH para minha empresa.");
     window.open(`https://wa.me/${numero}?text=${mensagem}`, "_blank");
   };
 
@@ -33,7 +33,7 @@ export default function VendasEmpresa() {
             <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(168,85,247,0.3)] group-hover:scale-110 transition-transform">
               <Building2 className="w-6 h-6 text-slate-950 fill-current" />
             </div>
-            <span className="text-xl font-bold tracking-tighter text-white">PSE Empresas</span>
+            <span className="text-xl font-bold tracking-tighter text-white">ReSet PCH Empresas</span>
           </div>
           
           <div className="flex items-center gap-4">
@@ -190,9 +190,9 @@ export default function VendasEmpresa() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
           <div className="flex items-center gap-3">
             <Building2 className="w-5 h-5 text-purple-500" />
-            <span className="font-bold text-white">PSE Empresas — Saúde Mental Corporativa</span>
+            <span className="font-bold text-white">ReSet PCH Empresas — Saúde Mental Corporativa</span>
           </div>
-          <p className="text-slate-600 text-xs">© 2026 PSE. Todos os direitos reservados.</p>
+          <p className="text-slate-600 text-xs">© 2026 ReSet Emocional PCH. Todos os direitos reservados.</p>
         </div>
       </footer>
 

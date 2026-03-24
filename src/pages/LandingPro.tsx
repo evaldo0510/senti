@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { usePWA } from "../contexts/PWAContext";
 import { 
   Heart, 
   Shield, 
@@ -25,37 +26,18 @@ import {
 
 export default function LandingPro() {
   const navigate = useNavigate();
-
-  const [installPrompt, setInstallPrompt] = React.useState<any>(null);
-
-  React.useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
-  }, []);
-
-  const handleInstall = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === "accepted") {
-      setInstallPrompt(null);
-    }
-  };
+  const { handleInstall, isInstallable } = usePWA();
 
   const abrirWhatsApp = () => {
     const numero = "5511999999999";
-    const mensagem = encodeURIComponent("Olá, gostaria de saber mais sobre o PSE para minha empresa/prefeitura.");
+    const mensagem = encodeURIComponent("Olá, gostaria de saber mais sobre a SENTI para minha empresa/prefeitura.");
     window.open(`https://wa.me/${numero}?text=${mensagem}`, "_blank");
   };
 
   return (
     <div className="min-h-screen bg-[#f5f5f0] text-[#1a1a1a] font-sans selection:bg-emerald-500/30 overflow-x-hidden relative">
       
-      {/* ATMOSPHERIC BACKGROUND (Recipe 6/7 Hybrid) */}
+      {/* ATMOSPHERIC BACKGROUND */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[10%] left-[5%] w-[600px] h-[600px] bg-emerald-100 rounded-full blur-[120px] opacity-60"></div>
         <div className="absolute bottom-[10%] right-[5%] w-[500px] h-[500px] bg-amber-50 rounded-full blur-[100px] opacity-50"></div>
@@ -73,7 +55,7 @@ export default function LandingPro() {
       >
         <div className="absolute inset-0 bg-white animate-ping opacity-20"></div>
         <AlertCircle className="w-8 h-8 text-white relative z-10" />
-        <span className="text-[10px] font-black text-white relative z-10 uppercase tracking-tighter">SOS CRISE</span>
+        <span className="text-[10px] font-black text-white relative z-10 uppercase tracking-tighter">SENTI SOS</span>
       </motion.button>
 
       {/* NAVIGATION */}
@@ -81,18 +63,25 @@ export default function LandingPro() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate("/")}>
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-[0_10px_20px_rgba(5,150,105,0.2)] group-hover:scale-110 transition-transform">
-              <RefreshCw className="w-6 h-6 text-white" />
+              <Heart className="w-6 h-6 text-white fill-current" />
             </div>
-            <span className="text-xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">ReSet PCH</span>
+            <span className="text-2xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">SENTI</span>
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#4a4a4a]">
-            <a href="#jornada" className="hover:text-emerald-700 transition-colors">O Método</a>
-            <a href="#solucao" className="hover:text-emerald-700 transition-colors">Como funciona</a>
-            <a href="#segmentos" className="hover:text-emerald-700 transition-colors">Para quem</a>
+            <a href="#metodo" className="hover:text-emerald-700 transition-colors">O Método</a>
+            <a href="#solucao" className="hover:text-emerald-700 transition-colors">Acolhimento</a>
+            <a href="#segmentos" className="hover:text-emerald-700 transition-colors">Ecossistema</a>
           </div>
 
           <div className="flex items-center gap-4">
+            <button 
+              onClick={handleInstall}
+              className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-xs font-bold transition-all text-slate-600"
+            >
+              <Smartphone className="w-4 h-4" />
+              {isInstallable ? "Instalar App" : "Baixar App"}
+            </button>
             <button 
               onClick={() => navigate("/login")} 
               className="hidden sm:block text-sm font-semibold text-[#4a4a4a] hover:text-[#1a1a1a] transition-colors px-4"
@@ -101,10 +90,9 @@ export default function LandingPro() {
             </button>
             <button 
               onClick={() => navigate("/reset")} 
-              className="px-6 py-2.5 bg-emerald-600 text-white hover:bg-emerald-700 rounded-full text-sm font-bold transition-all hover:shadow-[0_10px_20px_rgba(5,150,105,0.2)] active:scale-95 flex items-center gap-2"
+              className="px-8 py-3 bg-emerald-600 text-white hover:bg-emerald-700 rounded-full text-sm font-bold transition-all hover:shadow-[0_10px_20px_rgba(5,150,105,0.2)] active:scale-95 flex items-center gap-2"
             >
-              <RefreshCw className="w-4 h-4" />
-              ReSet Agora
+              Começar Agora
             </button>
           </div>
         </div>
@@ -116,10 +104,10 @@ export default function LandingPro() {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-[0.2em]"
+            className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-[10px] font-bold uppercase tracking-[0.3em]"
           >
-            <RefreshCw className="w-4 h-4 animate-spin-slow" />
-            Ferramenta de Regulação Emocional em Tempo Real
+            <Sparkles className="w-3 h-3" />
+            A inteligência que acolhe a sua dor
           </motion.div>
 
           <div className="space-y-8 relative">
@@ -129,9 +117,9 @@ export default function LandingPro() {
               transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="relative"
             >
-              <h1 className="text-6xl md:text-[8vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[1] italic">
-                Você não precisa <br />
-                <span className="text-emerald-700 font-bold not-italic">continuar reagindo igual.</span>
+              <h1 className="text-7xl md:text-[10vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[0.85] italic">
+                Onde sua dor <br />
+                <span className="text-emerald-700 font-bold not-italic">encontra pausa.</span>
               </h1>
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-200/40 rounded-full blur-3xl animate-pulse"></div>
             </motion.div>
@@ -142,8 +130,8 @@ export default function LandingPro() {
               transition={{ duration: 0.8, delay: 0.3 }}
               className="text-xl md:text-3xl text-[#4a4a4a] max-w-4xl mx-auto leading-relaxed font-light"
             >
-              O que você sente pode não mudar na hora… <br/>
-              mas como você responde pode mudar agora.
+              A SENTI é o primeiro ecossistema de regulação emocional <br/>
+              que une IA clínica e conexão humana em tempo real.
             </motion.p>
           </div>
 
@@ -158,33 +146,31 @@ export default function LandingPro() {
               className="group w-full sm:w-auto px-12 py-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[32px] text-2xl font-bold transition-all hover:scale-105 flex items-center justify-center gap-4 shadow-[0_20px_40px_-10px_rgba(5,150,105,0.3)] active:scale-95"
             >
               <RefreshCw className="w-6 h-6" />
-              ReSet Agora
+              ReSet Emocional
             </button>
-            <div className="flex flex-col items-center gap-2">
-              <button 
-                onClick={() => navigate("/profissionais")}
-                className="w-full sm:w-auto px-10 py-5 bg-white hover:bg-slate-50 text-slate-700 rounded-[32px] text-lg font-bold transition-all flex items-center justify-center gap-3 border border-slate-200 shadow-sm group"
-              >
-                <MessageCircle className="w-5 h-5" />
-                Falar com alguém
-              </button>
-            </div>
+            <button 
+              onClick={() => navigate("/profissionais")}
+              className="w-full sm:w-auto px-10 py-5 bg-white hover:bg-slate-50 text-slate-700 rounded-[32px] text-lg font-bold transition-all flex items-center justify-center gap-3 border border-slate-200 shadow-sm group"
+            >
+              <Users className="w-5 h-5" />
+              Terapeutas Online
+            </button>
           </motion.div>
         </div>
       </section>
 
       {/* JORNADA DO PACIENTE */}
-      <section id="jornada" className="py-40 px-6 relative z-10">
+      <section id="metodo" className="py-40 px-6 relative z-10">
         <div className="max-w-7xl mx-auto space-y-32">
           <div className="grid md:grid-cols-2 gap-12 items-end">
             <div className="space-y-6">
               <div className="w-12 h-1 bg-emerald-600"></div>
               <h2 className="text-5xl md:text-7xl font-serif italic text-[#1a1a1a] tracking-tight leading-none">
-                O Fluxo do <br /> <span className="text-emerald-700 font-bold not-italic">Cuidado</span>
+                O Fluxo do <br /> <span className="text-emerald-700 font-bold not-italic">Acolhimento</span>
               </h2>
             </div>
             <p className="text-xl text-[#4a4a4a] max-w-md pb-4 border-l-2 border-emerald-200 pl-8 font-light">
-              Inspirado no protocolo de Manchester, nosso sistema garante que ninguém fique sem resposta no momento da dor.
+              Inspirado no protocolo de Manchester, a SENTI garante que ninguém fique sem resposta no momento da dor.
             </p>
           </div>
 
@@ -193,29 +179,29 @@ export default function LandingPro() {
               { 
                 icon: Activity, 
                 step: "01", 
-                title: "Triagem Inteligente", 
-                desc: "Avaliação instantânea de risco e estado emocional através de IA clínica.",
+                title: "Triagem Clínica", 
+                desc: "Avaliação instantânea de risco e estado emocional através de nossa IA proprietária.",
                 color: "bg-white"
               },
               { 
                 icon: Stethoscope, 
                 step: "02", 
-                title: "Estabilização", 
-                desc: "Técnicas de regulação afetiva para baixar a intensidade da crise.",
+                title: "ReSet Imediato", 
+                desc: "Técnicas de regulação afetiva PCH para baixar a intensidade da crise agora.",
                 color: "bg-white"
               },
               { 
                 icon: MessageCircle, 
                 step: "03", 
                 title: "Acolhimento IARA", 
-                desc: "Suporte profundo e validante com nossa Interface de Acolhimento.",
+                desc: "Suporte profundo, validante e empático com nossa Interface de Acolhimento.",
                 color: "bg-white"
               },
               { 
                 icon: UserPlus, 
                 step: "04", 
                 title: "Conexão Humana", 
-                desc: "Direcionamento preciso para o especialista ideal para o seu caso.",
+                desc: "Direcionamento para o especialista ideal em nossa rede de terapeutas premium.",
                 color: "bg-white"
               }
             ].map((item, i) => (
@@ -248,10 +234,10 @@ export default function LandingPro() {
         <div className="max-w-7xl mx-auto space-y-24">
           <div className="text-center space-y-8">
             <h2 className="text-5xl md:text-8xl font-serif italic text-[#1a1a1a] tracking-tight leading-[1]">
-              Para quem é o <br /> <span className="text-emerald-700 font-bold not-italic">acolhimento?</span>
+              Um ecossistema <br /> <span className="text-emerald-700 font-bold not-italic">completo.</span>
             </h2>
             <p className="text-2xl text-[#4a4a4a] max-w-3xl mx-auto font-light">
-              Uma solução escalável que humaniza a tecnologia para diferentes necessidades.
+              Soluções escaláveis que humanizam a tecnologia para diferentes necessidades.
             </p>
           </div>
 
@@ -259,25 +245,25 @@ export default function LandingPro() {
             {[
               { 
                 icon: MessageCircle, 
-                title: "Usuário", 
+                title: "SENTI App", 
                 desc: "Apoio emocional imediato no seu bolso. Triagem inteligente, acolhimento com a IARA e conexão com especialistas 24h.", 
-                features: ["Acolhimento 24/7", "Diário de Humor", "Chat com Especialistas"],
+                features: ["Acolhimento 24/7", "ReSet Emocional", "Jornada 21 Dias"],
                 path: "/login",
                 label: "Para Você",
                 theme: "emerald"
               },
               { 
                 icon: Stethoscope, 
-                title: "Terapeuta", 
-                desc: "Seja parte da nossa rede de especialistas. Gerencie sua agenda, atenda pacientes de todo o Brasil e tenha suporte clínico completo.", 
-                features: ["Gestão de Agenda", "Prontuário Eletrônico", "Pagamentos Seguros"],
+                title: "SENTI Pro", 
+                desc: "Faça parte da nossa rede de especialistas. Gerencie sua agenda, atenda pacientes de todo o Brasil e utilize nossa IA de suporte.", 
+                features: ["Gestão de Agenda", "Prontuário Inteligente", "Pagamentos Seguros"],
                 path: "/login",
                 label: "Para Profissionais",
                 theme: "emerald"
               },
               { 
                 icon: Building2, 
-                title: "Empresa", 
+                title: "SENTI Business", 
                 desc: "Cuidado estratégico com o colaborador. Reduza o burnout, melhore o clima e cuide do seu maior ativo: as pessoas.", 
                 features: ["Relatórios de Bem-estar", "Suporte ao Colaborador", "Prevenção de Burnout"],
                 path: "/vendas-empresa",
@@ -310,30 +296,10 @@ export default function LandingPro() {
                   onClick={() => navigate(item.path)}
                   className="w-full py-5 bg-emerald-600 text-white rounded-[24px] font-bold transition-all flex items-center justify-center gap-3 group/btn text-lg hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
                 >
-                  {item.title === "Usuário" ? "Entrar como Paciente" : item.title === "Terapeuta" ? "Entrar como Terapeuta" : "Saiba Mais"}
+                  {item.title === "SENTI App" ? "Entrar como Paciente" : item.title === "SENTI Pro" ? "Entrar como Terapeuta" : "Saiba Mais"}
                   <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
                 </button>
               </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* TRUST & SECURITY SECTION */}
-      <section className="py-32 px-6 relative z-10 border-y border-black/5 bg-white/20">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-12">
-            {[
-              { title: "Privacidade Total", desc: "Seus dados são criptografados e o anonimato é garantido em todos os níveis." },
-              { title: "Protocolo Clínico", desc: "Metodologia baseada em evidências e protocolos internacionais de crise." },
-              { title: "Disponibilidade 24/7", desc: "Nossa triagem nunca dorme. Acolhimento imediato a qualquer hora." },
-              { title: "Conexão Segura", desc: "Intermediação ética entre pacientes e profissionais de saúde mental." }
-            ].map((item, i) => (
-              <div key={i} className="space-y-4">
-                <div className="w-8 h-1 bg-emerald-600/30"></div>
-                <h4 className="text-lg font-bold text-[#1a1a1a] uppercase tracking-tight">{item.title}</h4>
-                <p className="text-[#6a6a6a] text-sm leading-relaxed font-light">{item.desc}</p>
-              </div>
             ))}
           </div>
         </div>
@@ -350,11 +316,11 @@ export default function LandingPro() {
               className="relative z-10 max-w-4xl mx-auto"
             >
               <h2 className="text-3xl md:text-5xl font-serif italic text-[#1a1a1a] leading-tight mb-12">
-                "O PSE não é apenas uma ferramenta, é o respiro que eu precisava quando senti que o mundo estava desabando. A triagem foi rápida e o acolhimento da IARA me deu a clareza para buscar ajuda profissional."
+                "A SENTI não é apenas uma ferramenta, é o respiro que eu precisava quando senti que o mundo estava desabando. A triagem foi rápida e o acolhimento da IARA me deu a clareza para buscar ajuda profissional."
               </h2>
               <div className="flex flex-col items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center">
-                  <Heart className="w-8 h-8 text-emerald-600" />
+                  <Heart className="w-8 h-8 text-emerald-600 fill-current" />
                 </div>
                 <div>
                   <p className="text-[#1a1a1a] font-bold uppercase tracking-widest text-sm">Ana Paula S.</p>
@@ -366,48 +332,27 @@ export default function LandingPro() {
         </div>
       </section>
 
-      {/* PWA INSTALL SECTION */}
-      <section className="py-40 px-6 relative z-10">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-emerald-900 text-white rounded-[64px] p-12 md:p-24 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-1/2 h-full bg-white/5 blur-[120px] rounded-full"></div>
-            <div className="relative z-10 grid md:grid-cols-2 gap-16 items-center">
-              <div className="space-y-10 text-center md:text-left">
-                <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full bg-white/10 border border-white/20 text-emerald-100 text-xs font-bold uppercase tracking-widest">
-                  <Smartphone className="w-4 h-4" />
-                  Experiência Nativa
-                </div>
-                <h2 className="text-5xl md:text-7xl font-serif italic tracking-tight leading-[1]">
-                  Tenha o PSE <br /> <span className="text-emerald-400 font-bold not-italic">sempre com você.</span>
-                </h2>
-                <p className="text-xl text-emerald-100/80 font-light leading-relaxed">
-                  Instale nosso aplicativo diretamente no seu celular para acesso instantâneo, notificações de cuidado e suporte offline em momentos críticos.
-                </p>
-                <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                  <button 
-                    onClick={handleInstall}
-                    className="px-10 py-5 bg-white text-emerald-900 rounded-[28px] font-bold text-xl transition-all hover:scale-105 shadow-2xl flex items-center gap-3 disabled:opacity-50"
-                    disabled={!installPrompt}
-                  >
-                    {installPrompt ? "Instalar App" : "App Instalado"}
-                    <ArrowRight className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-              <div className="relative hidden md:block">
-                <div className="aspect-[9/16] w-full max-w-[300px] mx-auto bg-emerald-800 rounded-[48px] border-[8px] border-emerald-700 shadow-2xl relative overflow-hidden">
-                  <div className="p-8 space-y-6">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center">
-                      <Activity className="w-6 h-6 text-emerald-800" />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-4 w-3/4 bg-white/20 rounded-full"></div>
-                      <div className="h-4 w-1/2 bg-white/10 rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* DOWNLOAD APP SECTION */}
+      <section className="py-24 px-6 relative z-10">
+        <div className="max-w-5xl mx-auto bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-[64px] p-12 md:p-20 text-white text-center space-y-12 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_rgba(255,255,255,0.1)_0%,_transparent_70%)]"></div>
+          <div className="space-y-6 relative z-10">
+            <h2 className="text-4xl md:text-6xl font-serif italic leading-tight">
+              Sua saúde mental <br /> <span className="font-bold not-italic">não pode esperar.</span>
+            </h2>
+            <p className="text-xl text-emerald-100 max-w-2xl mx-auto font-light">
+              Tenha o ecossistema SENTI completo no seu celular. Acolhimento imediato, triagem e especialistas a um toque de distância.
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 relative z-10">
+            <button 
+              onClick={handleInstall}
+              className="w-full sm:w-auto px-10 py-5 bg-white text-emerald-900 rounded-3xl font-bold text-lg hover:bg-emerald-50 transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95"
+            >
+              <Smartphone className="w-6 h-6" />
+              {isInstallable ? "Instalar Aplicativo" : "Baixar Aplicativo"}
+            </button>
           </div>
         </div>
       </section>
@@ -417,8 +362,8 @@ export default function LandingPro() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12">
           <div className="space-y-4 text-center md:text-left">
             <div className="flex items-center gap-3 justify-center md:justify-start">
-              <Heart className="w-8 h-8 text-emerald-600" />
-              <span className="text-2xl font-serif italic font-bold text-[#1a1a1a] tracking-tight">PSE — Pronto Socorro Emocional</span>
+              <Heart className="w-8 h-8 text-emerald-600 fill-current" />
+              <span className="text-3xl font-serif italic font-bold text-[#1a1a1a] tracking-tight">SENTI</span>
             </div>
             <p className="text-[#6a6a6a] max-w-sm font-light">Cuidado emocional acessível, imediato e humano. Porque sua mente não pode esperar.</p>
           </div>
@@ -439,11 +384,9 @@ export default function LandingPro() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto pt-20 flex flex-col md:flex-row items-center justify-between gap-6 opacity-60">
-          <p className="text-[#6a6a6a] text-xs">© 2026 PSE. Todos os direitos reservados.</p>
+          <p className="text-[#6a6a6a] text-xs">© 2026 SENTI. Todos os direitos reservados.</p>
         </div>
       </footer>
-
     </div>
-
   );
 }

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowRight, AlertTriangle, Activity, Heart, Shield, Info, ArrowLeft } from "lucide-react";
+import { salvarDadosAnalytics } from "../services/analyticsService";
 
 export default function Triagem() {
   const [step, setStep] = useState(0);
@@ -11,6 +12,23 @@ export default function Triagem() {
   const navigate = useNavigate();
 
   const handleContinue = () => {
+    // Determinar o nível de risco com base na intensidade e resposta de risco
+    let nivelRisco = "leve";
+    if (risco) {
+      nivelRisco = "alto";
+    } else if (intensidade >= 7) {
+      nivelRisco = "moderado";
+    }
+
+    // Salvar dados no Google Sheets para o Looker Studio
+    salvarDadosAnalytics({
+      usuario: "Anônimo", // Pode ser substituído pelo nome do usuário logado se houver auth
+      humor: intensidade,
+      risco: nivelRisco,
+      atendimento: "sim",
+      tipo: "IARA"
+    });
+
     if (risco) {
       navigate("/emergencia");
     } else {

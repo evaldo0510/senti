@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { auth } from "../services/firebase";
+import { salvarDadosAnalytics } from "../services/analyticsService";
 
 export default function LiveIARA() {
   const navigate = useNavigate();
@@ -25,28 +26,6 @@ export default function LiveIARA() {
   const [transcription, setTranscription] = useState("");
   const [aiTranscription, setAiTranscription] = useState("");
   const [audioLevel, setAudioLevel] = useState(0);
-
-  const salvarDadosAnalytics = () => {
-    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "URL_DO_GOOGLE_SCRIPT";
-    if (scriptUrl === "URL_DO_GOOGLE_SCRIPT") return;
-    
-    // Fire and forget
-    fetch(scriptUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: new Date().toLocaleDateString('pt-BR'),
-        usuario: auth.currentUser?.displayName || "Anônimo",
-        humor: 5, // Valor padrão para live
-        risco: "moderado", // Valor padrão
-        atendimento: "sim",
-        tipo: "IARA Live"
-      })
-    }).catch(err => console.error("Erro ao salvar analytics:", err));
-  };
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -103,7 +82,13 @@ export default function LiveIARA() {
             },
             onclose: () => {
               setIsConnected(false);
-              salvarDadosAnalytics();
+              salvarDadosAnalytics({
+                usuario: auth.currentUser?.displayName || "Anônimo",
+                humor: 5,
+                risco: "moderado",
+                atendimento: "sim",
+                tipo: "IARA Live"
+              });
               navigate("/home");
             },
             onerror: (error: any) => {
@@ -128,11 +113,26 @@ export default function LiveIARA() {
   }, []);
 
   const cleanup = () => {
-    if (sessionRef.current) sessionRef.current.close();
+    if (sessionRef.current) {
+      try {
+        sessionRef.current.close();
+      } catch (e) {
+        // Ignore
+      }
+      sessionRef.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
-    if (audioContextRef.current) audioContextRef.current.close();
+    if (processorRef.current) {
+      processorRef.current.disconnect();
+      processorRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
   };
 
   const startAudioStreaming = () => {

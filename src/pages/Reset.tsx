@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw, Calendar } from "lucide-react";
 import { auth } from "../services/firebase";
+import { salvarDadosAnalytics } from "../services/analyticsService";
 
 const etapas = [
   "O que você está sentindo agora?",
@@ -27,36 +28,26 @@ export default function Reset() {
   const [respostas, setRespostas] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [mensagemIara, setMensagemIara] = useState("");
-
-  const salvarDadosAnalytics = () => {
-    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "URL_DO_GOOGLE_SCRIPT";
-    if (scriptUrl === "URL_DO_GOOGLE_SCRIPT") return;
-    
-    fetch(scriptUrl, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: new Date().toLocaleDateString('pt-BR'),
-        usuario: auth.currentUser?.displayName || "Anônimo",
-        humor: 5, // Valor padrão para reset
-        risco: "moderado", // Valor padrão
-        atendimento: "nao",
-        tipo: "ReSet"
-      })
-    }).catch(err => console.error("Erro ao salvar analytics:", err));
-  };
+  const [error, setError] = useState(false);
 
   const proximo = (resposta: string) => {
-    if (!resposta.trim()) return;
+    if (!resposta.trim()) {
+      setError(true);
+      return;
+    }
+    setError(false);
     
     setRespostas([...respostas, resposta]);
     setMensagemIara(respostaReset(step));
     
     if (step + 1 >= etapas.length) {
-      salvarDadosAnalytics();
+      salvarDadosAnalytics({
+        usuario: auth.currentUser?.displayName || "Anônimo",
+        humor: 5,
+        risco: "moderado",
+        atendimento: "nao",
+        tipo: "ReSet"
+      });
     }
     
     setStep(step + 1);
@@ -84,7 +75,7 @@ export default function Reset() {
         </button>
         <div className="flex items-center gap-2">
           <RefreshCw className="w-5 h-5 text-emerald-400" />
-          <span className="font-bold tracking-widest uppercase text-sm text-emerald-400">ReSet Emocional</span>
+          <span className="font-bold tracking-widest uppercase text-sm text-emerald-400">ReSet Emocional PCH</span>
         </div>
         <div className="w-11" />
       </header>
@@ -117,24 +108,38 @@ export default function Reset() {
             </div>
 
             <div className="space-y-4">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    proximo(inputValue);
-                  }
-                }}
-                placeholder="Digite sua resposta..."
-                className="w-full bg-slate-900/50 border border-white/10 rounded-2xl p-4 text-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
-                autoFocus
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    if (e.target.value.trim()) setError(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      proximo(inputValue);
+                    }
+                  }}
+                  placeholder="Digite sua resposta..."
+                  className={`w-full h-[56px] bg-[#0F172A] border ${error ? 'border-red-500' : 'border-[#1E293B]'} rounded-[12px] px-[20px] py-[16px] text-[16px] text-[#FFFFFF] placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all font-sans`}
+                  autoFocus
+                />
+                {error && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-red-500 text-xs mt-1 absolute left-0"
+                  >
+                    Por favor, escreva algo antes de continuar.
+                  </motion.p>
+                )}
+              </div>
               
               <button 
                 onClick={handleResetClick}
                 disabled={!inputValue.trim()}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.2)] disabled:shadow-none"
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-2xl font-bold text-lg transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.2)] disabled:shadow-none mt-6"
               >
                 <RefreshCw className="w-5 h-5" />
                 ReSet Agora
@@ -160,6 +165,13 @@ export default function Reset() {
             </div>
             
             <div className="pt-8 space-y-4">
+              <button 
+                onClick={() => navigate("/reset21")}
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+              >
+                <Calendar className="w-5 h-5" />
+                Iniciar Jornada 21 Dias
+              </button>
               <button 
                 onClick={() => navigate("/profissionais")}
                 className="w-full py-4 bg-white/10 hover:bg-white/20 border border-white/10 text-white rounded-2xl font-bold transition-all"

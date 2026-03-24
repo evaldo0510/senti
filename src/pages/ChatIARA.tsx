@@ -8,9 +8,11 @@ import { ouvirUsuario } from "../services/audioInput";
 import { analisarEmocao } from "../services/emocaoService";
 import { gerarExercicio } from "../services/pchService";
 import { decidirCaminho } from "../services/decisaoService";
-import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book } from "lucide-react";
+import { playPCM, stopAllAudio } from "../services/audioPlayer";
+import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book, MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { auth } from "../services/firebase";
+import { salvarDadosAnalytics } from "../services/analyticsService";
 
 interface Message {
   tipo: "user" | "iara";
@@ -26,7 +28,7 @@ export default function ChatIARA() {
 
   const [mensagem, setMensagem] = useState("");
   const [chat, setChat] = useState<Message[]>([
-    { tipo: "iara", texto: "Olá. Eu sou a IARA, sua assistente de triagem clínica. Como você está se sentindo agora, após a estabilização?" }
+    { tipo: "iara", texto: "Olá. Eu sou a IARA, a inteligência de acolhimento da SENTI. Como você está se sentindo agora?" }
   ]);
   const [isLoading, setIsLoading] = useState(false);
   const [alerta, setAlerta] = useState(false);
@@ -35,7 +37,7 @@ export default function ChatIARA() {
   const [isListening, setIsListening] = useState(false);
   const [isExercising, setIsExercising] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
 
   const steps = [
     { id: 0, label: "Identificação", completed: true },
@@ -52,46 +54,42 @@ export default function ChatIARA() {
     scrollToBottom();
   }, [chat, alerta, isGeneratingImage]);
 
-  const playAudio = (base64Audio: string) => {
+  useEffect(() => {
+    const speakInitial = async () => {
+      if (!isMuted && chat.length === 1 && chat[0].tipo === "iara") {
+        const base64Audio = await falarTexto(chat[0].texto);
+        if (base64Audio) {
+          playAudio(base64Audio);
+        }
+      }
+    };
+    speakInitial();
+
+    return () => {
+      stopAllAudio();
+    };
+  }, []);
+
+  const playAudio = async (base64Audio: string) => {
     if (isMuted) return;
     
-    if (audioRef.current) {
-      audioRef.current.pause();
+    if (currentAudioSource.current) {
+      try {
+        currentAudioSource.current.stop();
+      } catch (e) {
+        // Ignore if already stopped
+      }
     }
     
-    const audio = new Audio(`data:audio/mp3;base64,${base64Audio}`);
-    audioRef.current = audio;
-    audio.play().catch(e => console.error("Error playing audio:", e));
+    const source = await playPCM(base64Audio);
+    if (source) {
+      currentAudioSource.current = source;
+    }
   };
 
   const [emocaoAtual, setEmocaoAtual] = useState<{ emocao: string; intensidade: number }>({ emocao: emocao || "calma", intensidade: intensidade || 5 });
   const [showBreathing, setShowBreathing] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-
-  const salvarDadosAnalytics = (intensidade: number, risco: string, direcionarEspecialista: boolean) => {
-    const scriptUrl = import.meta.env.VITE_GOOGLE_SCRIPT_URL || "URL_DO_GOOGLE_SCRIPT";
-    if (scriptUrl === "URL_DO_GOOGLE_SCRIPT") {
-      console.log("Configure VITE_GOOGLE_SCRIPT_URL no .env para salvar dados no Looker Studio");
-      return;
-    }
-    
-    // Fire and forget
-    fetch(scriptUrl, {
-      method: "POST",
-      mode: "no-cors", // Necessário para evitar erro de CORS com Google Apps Script
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        data: new Date().toLocaleDateString('pt-BR'),
-        usuario: auth.currentUser?.displayName || "Anônimo",
-        humor: intensidade,
-        risco: risco,
-        atendimento: direcionarEspecialista ? "sim" : "nao",
-        tipo: "IARA"
-      })
-    }).catch(err => console.error("Erro ao salvar analytics:", err));
-  };
 
   const enviarMensagem = async () => {
     if (!mensagem.trim() || isLoading) return;
@@ -117,12 +115,21 @@ export default function ChatIARA() {
       }
 
       // Salva os dados para o Looker Studio
-      salvarDadosAnalytics(result.intensidade, result.risco, result.direcionarEspecialista);
+      salvarDadosAnalytics({
+        usuario: auth.currentUser?.displayName || "Anônimo",
+        humor: result.intensidade,
+        risco: result.risco,
+        atendimento: result.direcionarEspecialista ? "sim" : "nao",
+        tipo: "IARA"
+      });
 
       setChat([...novaConversa, { tipo: "iara", texto: result.resposta }]);
       
       if (!isMuted) {
-        falarTexto(result.resposta);
+        const base64Audio = await falarTexto(result.resposta);
+        if (base64Audio) {
+          playAudio(base64Audio);
+        }
       }
 
       // Handle contextual breathing
@@ -172,9 +179,14 @@ export default function ChatIARA() {
   };
 
   const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (!isMuted && audioRef.current) {
-      audioRef.current.pause();
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    if (newMuted && currentAudioSource.current) {
+      try {
+        currentAudioSource.current.stop();
+      } catch (e) {
+        // Ignore
+      }
     }
   };
 
@@ -185,6 +197,13 @@ export default function ChatIARA() {
       (texto) => setMensagem(texto),
       () => setIsListening(false)
     );
+  };
+
+  const handleReplay = async (texto: string) => {
+    const base64Audio = await falarTexto(texto);
+    if (base64Audio) {
+      playAudio(base64Audio);
+    }
   };
 
   return (
@@ -300,6 +319,13 @@ export default function ChatIARA() {
         </div>
         <div className="flex items-center gap-2">
           <button 
+            onClick={() => navigate("/chat")}
+            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-full text-sm font-medium transition-colors border border-emerald-500/20"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Falar com IARA</span>
+          </button>
+          <button 
             onClick={() => navigate("/diario")}
             className="flex items-center gap-2 px-3 py-1.5 bg-indigo-900/30 hover:bg-indigo-800/50 text-indigo-300 rounded-full text-sm font-medium transition-colors border border-indigo-500/20"
           >
@@ -364,6 +390,15 @@ export default function ChatIARA() {
               }`}
             >
               <p className="leading-relaxed whitespace-pre-wrap">{msg.texto}</p>
+              {msg.tipo === "iara" && (
+                <button 
+                  onClick={() => handleReplay(msg.texto)}
+                  className="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-widest transition-colors"
+                >
+                  <Volume2 className="w-3 h-3" />
+                  Ouvir novamente
+                </button>
+              )}
               {msg.imagem && (
                 <img 
                   src={msg.imagem} 

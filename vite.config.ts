@@ -11,30 +11,23 @@ export default defineConfig(({mode}) => {
       react(), 
       tailwindcss(),
       VitePWA({
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.ts',
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
-          name: 'PSE - Pronto Socorro Emocional',
-          short_name: 'PSE',
-          description: 'Apoio emocional imediato e acolhimento humano.',
+          name: 'SENTI',
+          short_name: 'SENTI',
+          description: 'SENTI: Onde sua dor encontra pausa.',
           theme_color: '#020617',
           background_color: '#020617',
           display: 'standalone',
           icons: [
             {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
+              src: 'icon.svg',
+              sizes: '192x192 512x512',
+              type: 'image/svg+xml',
               purpose: 'any maskable'
             }
           ]
@@ -47,7 +40,6 @@ export default defineConfig(({mode}) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        'node-fetch': 'cross-fetch',
       },
     },
     server: {

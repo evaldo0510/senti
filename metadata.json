@@ -1,5 +1,5 @@
 {
-  "name": "Pronto Socorro Emocional",
-  "description": "Plataforma de acolhimento emocional com IA (IARA), conexão com terapeutas e acompanhamento diário.",
+  "name": "SENTI",
+  "description": "SENTI: Onde sua dor encontra pausa. Inteligência de acolhimento, regulação emocional e conexão com especialistas.",
   "requestFramePermissions": ["microphone"]
 }

@@ -10,6 +10,7 @@ export default function TerapeutaSetup() {
   const [nome, setNome] = useState("");
   const [especialidade, setEspecialidade] = useState("");
   const [preco, setPreco] = useState("");
+  const [desconto, setDesconto] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -20,6 +21,7 @@ export default function TerapeutaSetup() {
           setNome(profile.nome || "");
           setEspecialidade(profile.especialidades?.[0] || "");
           setPreco(profile.preco?.toString() || "");
+          setDesconto(profile.desconto?.toString() || "0");
         }
       }
     };
@@ -35,6 +37,7 @@ export default function TerapeutaSetup() {
         nome,
         especialidades: [especialidade],
         preco: parseFloat(preco) || 0,
+        desconto: parseFloat(desconto) || 0,
         tipo: 'terapeuta',
         online: true
       });
@@ -97,7 +100,7 @@ export default function TerapeutaSetup() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-400 ml-1">Valor da Sessão (R$)</label>
+            <label className="text-sm font-medium text-slate-400 ml-1">Valor que deseja receber (R$)</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <DollarSign className="h-5 w-5 text-slate-500" />
@@ -110,6 +113,27 @@ export default function TerapeutaSetup() {
                 className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-400 ml-1">Desconto Especial (%)</label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <ArrowRight className="h-5 w-5 text-slate-500" />
+              </div>
+              <input
+                type="number"
+                value={desconto}
+                onChange={(e) => setDesconto(e.target.value)}
+                placeholder="0"
+                min="0"
+                max="100"
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+            <p className="text-[10px] text-slate-500 ml-1">
+              * O desconto será aplicado sobre o seu valor e beneficiará o cliente final. Uma taxa de 10% da plataforma será aplicada sobre o valor final.
+            </p>
           </div>
         </div>
 

@@ -1,13 +1,22 @@
-export function falarTexto(texto: string) {
-  if (!('speechSynthesis' in window)) return;
+import { generateSpeech } from "./geminiService";
+
+export async function falarTexto(texto: string): Promise<string | null> {
+  // Tenta usar a API do Gemini para voz mais humana
+  const base64Audio = await generateSpeech(texto);
   
-  // Cancela falas anteriores
-  window.speechSynthesis.cancel();
+  if (base64Audio) {
+    return base64Audio;
+  }
 
-  const speech = new SpeechSynthesisUtterance(texto);
-  speech.lang = "pt-BR";
-  speech.rate = 0.85; // Fala mais lenta e calma
-  speech.pitch = 1;
-
-  window.speechSynthesis.speak(speech);
+  // Fallback para síntese de voz nativa do navegador
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const speech = new SpeechSynthesisUtterance(texto);
+    speech.lang = "pt-BR";
+    speech.rate = 0.85;
+    speech.pitch = 1;
+    window.speechSynthesis.speak(speech);
+  }
+  
+  return null;
 }

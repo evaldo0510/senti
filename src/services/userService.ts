@@ -244,6 +244,19 @@ export const userService = {
     }
   },
 
+  savePushSubscription: async (subscription: PushSubscription) => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const path = `users/${user.uid}`;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        pushSubscription: JSON.parse(JSON.stringify(subscription))
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
   seedMockData: async () => {
     const { MOCK_THERAPISTS } = await import('./mockData');
     const therapists = await userService.getTherapists();

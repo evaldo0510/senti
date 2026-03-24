@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
+import { usePWA } from "../contexts/PWAContext";
 import { 
   Users, 
   Calendar, 
@@ -14,7 +15,9 @@ import {
   Video,
   MessageCircle,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  DollarSign,
+  PieChart
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
@@ -24,6 +27,7 @@ import { cn } from "../lib/utils";
 
 export default function Terapeuta() {
   const navigate = useNavigate();
+  const { handleInstall, isInstallable, notificationPermission, requestNotificationPermission } = usePWA();
   const { profile, loading, isAuthReady } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [stats, setStats] = useState({
@@ -46,13 +50,18 @@ export default function Terapeuta() {
         // Calculate stats
         const pending = apps.filter(a => a.status === 'pending').length;
         const completed = apps.filter(a => a.status === 'completed').length;
-        const revenue = completed * (typeof profile.preco === 'number' ? profile.preco : parseInt(profile.preco || "150"));
+        
+        const basePrice = typeof profile.preco === 'number' ? profile.preco : parseInt(profile.preco || "150");
+        const discountPercentage = profile.desconto || 0;
+        const payoutPerSession = basePrice * (1 - discountPercentage / 100);
+        
+        const revenue = completed * payoutPerSession;
         
         setStats({
           total: apps.length,
           pending,
           completed,
-          revenue
+          revenue: Math.round(revenue)
         });
       }, 'terapeuta');
 
@@ -103,7 +112,7 @@ export default function Terapeuta() {
         <div className="p-8">
           <h1 className="text-2xl font-bold text-emerald-400 flex items-center gap-2">
             <Activity className="w-8 h-8" />
-            PSE <span className="text-slate-100 font-light">Pro</span>
+            ReSet PCH <span className="text-slate-100 font-light">Pro</span>
           </h1>
         </div>
         
@@ -137,6 +146,16 @@ export default function Terapeuta() {
           >
             <Users className="w-5 h-5" />
             Meus Pacientes
+          </button>
+          <button 
+            onClick={() => setActiveTab("financeiro")}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all",
+              activeTab === 'financeiro' ? "bg-emerald-900/20 text-emerald-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            )}
+          >
+            <DollarSign className="w-5 h-5" />
+            Financeiro
           </button>
           <button 
             onClick={() => setActiveTab("perfil")}
@@ -173,6 +192,31 @@ export default function Terapeuta() {
       <main className="flex-1 p-6 lg:p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-10">
           
+          {/* Notification Prompt Banner */}
+          {notificationPermission === 'default' && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-emerald-600 rounded-2xl p-4 flex items-center justify-between gap-4 text-white shadow-lg shadow-emerald-900/20"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-bold text-sm">Ative as notificações</p>
+                  <p className="text-xs text-emerald-100">Receba alertas de novos agendamentos em tempo real.</p>
+                </div>
+              </div>
+              <button 
+                onClick={requestNotificationPermission}
+                className="px-4 py-2 bg-white text-emerald-600 rounded-xl font-bold text-xs hover:bg-emerald-50 transition-colors"
+              >
+                Ativar
+              </button>
+            </motion.div>
+          )}
+
           {/* Header */}
           <header className="flex justify-between items-start">
             <div>
@@ -180,12 +224,14 @@ export default function Terapeuta() {
                 {activeTab === 'dashboard' && `Olá, Dr(a). ${profile?.nome?.split(' ')[0]}`}
                 {activeTab === 'agenda' && 'Minha Agenda'}
                 {activeTab === 'pacientes' && 'Meus Pacientes'}
+                {activeTab === 'financeiro' && 'Gestão Financeira'}
                 {activeTab === 'perfil' && 'Meu Perfil'}
               </h2>
               <p className="text-slate-500 mt-2 text-lg">
                 {activeTab === 'dashboard' && `Você tem ${stats.pending} agendamentos pendentes para hoje.`}
                 {activeTab === 'agenda' && 'Gerencie seus horários e sessões.'}
                 {activeTab === 'pacientes' && 'Acompanhe o progresso de quem você cuida.'}
+                {activeTab === 'financeiro' && 'Acompanhe seus ganhos e taxas da plataforma.'}
                 {activeTab === 'perfil' && 'Mantenha suas informações atualizadas.'}
               </p>
             </div>
@@ -349,6 +395,88 @@ export default function Terapeuta() {
               <Users className="w-16 h-16 text-slate-700 mx-auto mb-4" />
               <h3 className="text-xl font-medium text-slate-200 mb-2">Gestão de Pacientes</h3>
               <p className="text-slate-400">Aqui você poderá ver o histórico e evolução de cada paciente.</p>
+            </div>
+          )}
+
+          {activeTab === 'financeiro' && (
+            <div className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Preço Base</p>
+                  <p className="text-2xl font-bold text-slate-300">R$ {profile?.preco || 0}</p>
+                  <p className="text-[10px] text-slate-500">Valor padrão da sessão</p>
+                </div>
+                {profile?.desconto && profile.desconto > 0 && (
+                  <div className="bg-emerald-900/10 border border-emerald-500/20 p-6 rounded-3xl space-y-2">
+                    <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Desconto Ativo</p>
+                    <p className="text-2xl font-bold text-emerald-400">{profile.desconto}%</p>
+                    <p className="text-[10px] text-emerald-500/60">Redução para o cliente</p>
+                  </div>
+                )}
+                <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Seu Payout</p>
+                  <p className="text-2xl font-bold text-emerald-400">R$ {((profile?.preco || 0) * (1 - (profile?.desconto || 0) / 100)).toFixed(2)}</p>
+                  <p className="text-[10px] text-slate-500">O que você recebe de fato</p>
+                </div>
+                <div className="bg-emerald-900/20 border border-emerald-500/20 p-6 rounded-3xl space-y-2">
+                  <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Total Cliente</p>
+                  <p className="text-2xl font-bold text-slate-100">R$ {(((profile?.preco || 0) * (1 - (profile?.desconto || 0) / 100)) * 1.10).toFixed(2)}</p>
+                  <p className="text-[10px] text-emerald-500/60">Valor final no checkout</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 className="text-xl font-bold text-slate-200">Histórico de Ganhos</h3>
+                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                    <PieChart className="w-4 h-4" />
+                    Balanço Mensal
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {appointments.filter(a => a.status === 'completed').length > 0 ? (
+                    appointments.filter(a => a.status === 'completed').map((app) => {
+                      const payout = app.price * (1 - (profile?.desconto || 0) / 100);
+                      const fee = payout * 0.10;
+                      return (
+                        <div key={app.id} className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-emerald-900/20 rounded-full flex items-center justify-center">
+                              <DollarSign className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-200">Sessão: {app.patientNome}</p>
+                              <p className="text-xs text-slate-500">{new Date(app.date).toLocaleDateString('pt-BR')}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-emerald-400">+ R$ {payout.toFixed(2)}</p>
+                            <p className="text-[10px] text-slate-500">Taxa Plataforma: R$ {fee.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="py-12 text-center text-slate-500">
+                      Nenhum ganho registrado ainda.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-blue-900/10 border border-blue-500/20 p-6 rounded-3xl flex items-start gap-4">
+                <div className="p-3 bg-blue-500/20 rounded-2xl">
+                  <TrendingUp className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-blue-200">Descontos para Empresas</h4>
+                  <p className="text-sm text-blue-400/80 mt-1 leading-relaxed">
+                    Sua conta está habilitada para o programa SENTI Business. Empresas parceiras podem oferecer subsídios aos colaboradores, 
+                    garantindo que você receba seu valor integral enquanto o custo para o colaborador é reduzido.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

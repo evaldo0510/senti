@@ -1,10 +1,12 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, AlertTriangle, Heart, ArrowLeft, ShieldAlert, Activity } from "lucide-react";
+import { Phone, AlertTriangle, Heart, ArrowLeft, ShieldAlert, Activity, Smartphone } from "lucide-react";
 import { motion } from "motion/react";
+import { usePWA } from "../contexts/PWAContext";
 
 export default function Emergencia() {
   const navigate = useNavigate();
+  const { handleInstall, isInstallable } = usePWA();
 
   return (
     <div className="min-h-screen bg-[#0a0502] flex flex-col items-center justify-center p-6 text-slate-100 relative overflow-hidden">
@@ -54,16 +56,38 @@ export default function Emergencia() {
             <Heart className="w-6 h-6 text-emerald-400" />
             Falar com Especialista
           </button>
+
+          <button 
+            onClick={() => navigate("/chat")}
+            className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[32px] font-black text-xl transition-all flex items-center justify-center gap-4 shadow-[0_0_30px_rgba(16,185,129,0.2)] active:scale-[0.98]"
+          >
+            <Activity className="w-6 h-6 animate-pulse" />
+            Falar com a Iara (IA)
+          </button>
         </div>
 
-        <div className="pt-6 border-t border-white/5">
-          <button 
-            onClick={() => navigate("/")}
-            className="text-slate-500 hover:text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors mx-auto"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Cancelar Protocolo
-          </button>
+        <div className="pt-8 space-y-4">
+          <div className="p-6 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-[32px] space-y-4">
+            <p className="text-indigo-300 text-sm font-bold uppercase tracking-widest">Acesso Rápido</p>
+            <h3 className="text-white font-black text-lg">Tenha o SENTI sempre com você</h3>
+            <button 
+              onClick={handleInstall}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-lg active:scale-[0.95]"
+            >
+              <Smartphone className="w-5 h-5" />
+              {isInstallable ? "INSTALAR APLICATIVO" : "BAIXAR O APLICATIVO"}
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-white/5">
+            <button 
+              onClick={() => navigate("/")}
+              className="text-slate-500 hover:text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors mx-auto"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Cancelar Protocolo
+            </button>
+          </div>
         </div>
       </motion.div>
 

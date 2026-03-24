@@ -11,6 +11,7 @@ export default function Profissionais() {
   const navigate = useNavigate();
   const location = useLocation();
   const [busca, setBusca] = useState("");
+  const [ordenacao, setOrdenacao] = useState<"recomendado" | "preco_menor" | "preco_maior" | "avaliacao">("recomendado");
   const [listaProfissionais, setListaProfissionais] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -66,11 +67,19 @@ export default function Profissionais() {
   });
 
   const profissionaisOrdenados = [...profissionaisFiltrados].sort((a, b) => {
-    // Prioridade: online
+    if (ordenacao === "preco_menor") {
+      return (a.preco || 0) - (b.preco || 0);
+    }
+    if (ordenacao === "preco_maior") {
+      return (b.preco || 0) - (a.preco || 0);
+    }
+    if (ordenacao === "avaliacao") {
+      return (b.rating || 0) - (a.rating || 0);
+    }
+    
+    // Default: recomendado (online first, then rating)
     if (a.online && !b.online) return -1;
     if (!a.online && b.online) return 1;
-
-    // Depois avaliação
     return (b.rating || 0) - (a.rating || 0);
   });
 
@@ -102,9 +111,24 @@ export default function Profissionais() {
           />
         </div>
 
-        <div className="space-y-2">
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Como você está se sentindo?</p>
-          <Especialidades selecionada={busca} onSelecionar={setBusca} />
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="space-y-2 flex-1 w-full">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Como você está se sentindo?</p>
+            <Especialidades selecionada={busca} onSelecionar={setBusca} />
+          </div>
+          <div className="space-y-2 w-full sm:w-auto">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Ordenar por</p>
+            <select 
+              value={ordenacao}
+              onChange={(e) => setOrdenacao(e.target.value as any)}
+              className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none"
+            >
+              <option value="recomendado">Recomendados</option>
+              <option value="avaliacao">Melhor Avaliação</option>
+              <option value="preco_menor">Menor Preço</option>
+              <option value="preco_maior">Maior Preço</option>
+            </select>
+          </div>
         </div>
 
         <div className="space-y-4">
