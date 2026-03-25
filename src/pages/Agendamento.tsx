@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2, AlertCircle, Zap } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2, AlertCircle, Zap, ChevronRight } from "lucide-react";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { auth } from "../services/firebase";
+import CalendarAvailability from "../components/CalendarAvailability";
 
 export default function Agendamento() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [horario, setHorario] = useState("");
   const [confirmado, setConfirmado] = useState(false);
   const [profissional, setProfissional] = useState<UserProfile | null>(null);
@@ -22,9 +24,11 @@ export default function Agendamento() {
     const success = params.get("success");
     const canceled = params.get("canceled");
     const timeParam = params.get("time");
+    const dateParam = params.get("date");
 
     if (success && timeParam) {
       setHorario(timeParam);
+      if (dateParam) setSelectedDate(new Date(dateParam));
       setConfirmado(true);
     }
     if (canceled) {
@@ -38,19 +42,17 @@ export default function Agendamento() {
         
         // If instant mode, auto-select first available time
         const params = new URLSearchParams(location.search);
-        if (params.get("instant") === "true") {
-          setHorario(horariosDisponiveis[0]);
+        if (params.get("instant") === "true" && p?.disponibilidade?.[0]?.slots?.[0]) {
+          setHorario(p.disponibilidade[0].slots[0]);
         }
       });
     }
   }, [id, location]);
 
-  const horariosDisponiveis = [
-    "10:00",
-    "11:00",
-    "14:00",
-    "16:00",
-  ];
+  const handleSelect = (date: Date, time: string) => {
+    setSelectedDate(date);
+    setHorario(time);
+  };
 
   const handleConfirmar = async () => {
     if (!profissional || !horario || !auth.currentUser) return;
@@ -61,7 +63,7 @@ export default function Agendamento() {
       const patientProfile = await userService.getUser(auth.currentUser.uid);
       if (!patientProfile) throw new Error("Perfil do paciente não encontrado");
 
-      const date = new Date();
+      const date = new Date(selectedDate);
       const [hours, minutes] = horario.split(':');
       date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
@@ -224,24 +226,15 @@ export default function Agendamento() {
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-slate-200 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-emerald-400" />
-            Horários Disponíveis Hoje
+            Selecione Data e Horário
           </h3>
           
-          <div className="grid grid-cols-2 gap-4">
-            {horariosDisponiveis.map((h, i) => (
-              <button
-                key={i}
-                onClick={() => setHorario(h)}
-                className={`py-4 rounded-xl font-medium transition-all border ${
-                  horario === h 
-                    ? "bg-emerald-600 border-emerald-500 text-white" 
-                    : "bg-slate-900 border-white/10 text-slate-300 hover:bg-slate-800"
-                }`}
-              >
-                {h}
-              </button>
-            ))}
-          </div>
+          <CalendarAvailability 
+            therapist={profissional} 
+            onSelect={handleSelect}
+            selectedDate={selectedDate}
+            selectedTime={horario}
+          />
         </div>
 
         {horario && (

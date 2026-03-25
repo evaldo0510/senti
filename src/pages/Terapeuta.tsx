@@ -24,6 +24,7 @@ import { useAuth } from "../components/AuthProvider";
 import { userService } from "../services/userService";
 import { Appointment } from "../types";
 import { cn } from "../lib/utils";
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 export default function Terapeuta() {
   const navigate = useNavigate();
@@ -34,7 +35,9 @@ export default function Terapeuta() {
     total: 0,
     pending: 0,
     completed: 0,
-    revenue: 0
+    revenue: 0,
+    completionRate: 0,
+    averageRating: 0
   });
 
   useEffect(() => {
@@ -50,6 +53,8 @@ export default function Terapeuta() {
         // Calculate stats
         const pending = apps.filter(a => a.status === 'pending').length;
         const completed = apps.filter(a => a.status === 'completed').length;
+        const total = apps.length;
+        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
         
         const basePrice = typeof profile.preco === 'number' ? profile.preco : parseInt(profile.preco || "150");
         const discountPercentage = profile.desconto || 0;
@@ -58,10 +63,12 @@ export default function Terapeuta() {
         const revenue = completed * payoutPerSession;
         
         setStats({
-          total: apps.length,
+          total,
           pending,
           completed,
-          revenue: Math.round(revenue)
+          revenue: Math.round(revenue),
+          completionRate,
+          averageRating: profile.rating || 0
         });
       }, 'terapeuta');
 
@@ -153,6 +160,16 @@ export default function Terapeuta() {
           >
             <Users className="w-5 h-5" />
             Meus Pacientes
+          </button>
+          <button 
+            onClick={() => setActiveTab("historico")}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all",
+              activeTab === 'historico' ? "bg-emerald-900/20 text-emerald-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            )}
+          >
+            <Clock className="w-5 h-5" />
+            Histórico
           </button>
           <button 
             onClick={() => setActiveTab("financeiro")}
@@ -288,10 +305,10 @@ export default function Terapeuta() {
               {/* Stats Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: "Sessões Hoje", value: stats.total, icon: Calendar, color: "text-blue-400", bg: "bg-blue-400/10" },
-                  { label: "Pendentes", value: stats.pending, icon: Clock, color: "text-yellow-400", bg: "bg-yellow-400/10" },
-                  { label: "Concluídas", value: stats.completed, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-400/10" },
-                  { label: "Receita Est.", value: `R$ ${stats.revenue}`, icon: TrendingUp, color: "text-purple-400", bg: "bg-purple-400/10" }
+                  { label: "Total de Sessões", value: stats.total, icon: Calendar, color: "text-blue-400", bg: "bg-blue-400/10" },
+                  { label: "Taxa de Conclusão", value: `${stats.completionRate}%`, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-400/10" },
+                  { label: "Receita Total", value: `R$ ${stats.revenue}`, icon: TrendingUp, color: "text-purple-400", bg: "bg-purple-400/10" },
+                  { label: "Avaliação Média", value: stats.averageRating.toFixed(1), icon: Activity, color: "text-amber-400", bg: "bg-amber-400/10" }
                 ].map((stat, i) => (
                   <motion.div 
                     key={i}
@@ -398,14 +415,42 @@ export default function Terapeuta() {
                   </div>
 
                   <div className="bg-slate-900 border border-white/5 rounded-3xl p-6 space-y-4">
-                    <h4 className="font-bold text-slate-200">Dicas IARA</h4>
-                    <div className="space-y-4">
-                      {tips.map((tip, i) => (
-                        <div key={i} className="flex gap-3">
-                          <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-2 shrink-0" />
-                          <p className="text-sm text-slate-400 leading-relaxed">{tip}</p>
-                        </div>
-                      ))}
+                    <h4 className="font-bold text-slate-200">Distribuição de Sessões</h4>
+                    <div className="h-64 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPieChart>
+                          <Pie
+                            data={[
+                              { name: 'Concluídas', value: stats.completed, color: '#34d399' },
+                              { name: 'Pendentes', value: stats.pending, color: '#fbbf24' },
+                              { name: 'Canceladas', value: stats.total - stats.completed - stats.pending, color: '#f87171' }
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {[
+                              { name: 'Concluídas', value: stats.completed, color: '#34d399' },
+                              { name: 'Pendentes', value: stats.pending, color: '#fbbf24' },
+                              { name: 'Canceladas', value: stats.total - stats.completed - stats.pending, color: '#f87171' }
+                            ].map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.5rem' }}
+                            itemStyle={{ color: '#f1f5f9' }}
+                          />
+                        </RechartsPieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex justify-center gap-4 text-xs font-medium text-slate-400">
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400" /> Concluídas</div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-400" /> Pendentes</div>
+                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400" /> Canceladas</div>
                     </div>
                   </div>
                 </div>
@@ -426,6 +471,80 @@ export default function Terapeuta() {
               <Users className="w-16 h-16 text-slate-700 mx-auto mb-4" />
               <h3 className="text-xl font-medium text-slate-200 mb-2">Gestão de Pacientes</h3>
               <p className="text-slate-400">Aqui você poderá ver o histórico e evolução de cada paciente.</p>
+            </div>
+          )}
+
+          {activeTab === 'historico' && (
+            <div className="space-y-6">
+              <h3 className="text-xl font-bold text-slate-200">Histórico de Sessões</h3>
+              <div className="bg-slate-900 border border-white/5 rounded-3xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-400">
+                    <thead className="bg-slate-800/50 text-xs uppercase font-bold text-slate-500">
+                      <tr>
+                        <th className="px-6 py-4">Paciente</th>
+                        <th className="px-6 py-4">Data e Hora</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {appointments.map((app) => (
+                        <tr key={app.id} className="hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-emerald-400 font-bold border border-white/5">
+                                {app.patientNome?.charAt(0) || "P"}
+                              </div>
+                              <span className="font-medium text-slate-200">{app.patientNome}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {new Date(app.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })} às {new Date(app.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={cn(
+                              "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                              app.status === 'completed' ? "bg-emerald-500/10 text-emerald-400" : 
+                              app.status === 'pending' ? "bg-amber-500/10 text-amber-400" : 
+                              app.status === 'confirmed' ? "bg-blue-500/10 text-blue-400" :
+                              "bg-red-500/10 text-red-400"
+                            )}>
+                              {app.status === 'completed' ? 'Concluída' : 
+                               app.status === 'pending' ? 'Pendente' : 
+                               app.status === 'confirmed' ? 'Confirmada' : 'Cancelada'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {app.status === 'confirmed' && (
+                              <button 
+                                onClick={() => navigate(`/atendimento/${app.id}`)}
+                                className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                              >
+                                Acessar Sala
+                              </button>
+                            )}
+                            {app.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <button onClick={() => handleStatusUpdate(app.id, 'confirmed')} className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">Confirmar</button>
+                                <span className="text-slate-600">|</span>
+                                <button onClick={() => handleStatusUpdate(app.id, 'cancelled')} className="text-red-400 hover:text-red-300 font-medium transition-colors">Recusar</button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {appointments.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                            Nenhum histórico de sessões encontrado.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
@@ -568,56 +687,66 @@ export default function Terapeuta() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-white/5 px-2 pb-safe pt-2 flex justify-around items-center z-30 lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-white/5 px-1 pb-safe pt-2 flex justify-around items-center z-30 lg:hidden">
         <button 
           onClick={() => setActiveTab("dashboard")}
           className={cn(
-            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            "flex flex-col items-center gap-1 py-2 px-2 transition-colors min-w-[56px]",
             activeTab === 'dashboard' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <Activity className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Dash</span>
+          <Activity className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Dash</span>
         </button>
         <button 
           onClick={() => setActiveTab("agenda")}
           className={cn(
-            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            "flex flex-col items-center gap-1 py-2 px-2 transition-colors min-w-[56px]",
             activeTab === 'agenda' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <Calendar className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Agenda</span>
+          <Calendar className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Agenda</span>
         </button>
         <button 
           onClick={() => setActiveTab("pacientes")}
           className={cn(
-            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            "flex flex-col items-center gap-1 py-2 px-2 transition-colors min-w-[56px]",
             activeTab === 'pacientes' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <Users className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Pacientes</span>
+          <Users className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Pacientes</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab("historico")}
+          className={cn(
+            "flex flex-col items-center gap-1 py-2 px-2 transition-colors min-w-[56px]",
+            activeTab === 'historico' ? "text-emerald-400" : "text-slate-500"
+          )}
+        >
+          <Clock className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Histórico</span>
         </button>
         <button 
           onClick={() => setActiveTab("financeiro")}
           className={cn(
-            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            "flex flex-col items-center gap-1 py-2 px-2 transition-colors min-w-[56px]",
             activeTab === 'financeiro' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <DollarSign className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Ganhos</span>
+          <DollarSign className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Ganhos</span>
         </button>
         <button 
           onClick={() => setActiveTab("perfil")}
           className={cn(
-            "flex flex-col items-center gap-1 py-2 px-4 transition-colors min-w-[64px]",
+            "flex flex-col items-center gap-1 py-2 px-2 transition-colors min-w-[56px]",
             activeTab === 'perfil' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <Settings className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Perfil</span>
+          <Settings className="w-5 h-5" />
+          <span className="text-[9px] font-bold uppercase tracking-widest">Perfil</span>
         </button>
       </nav>
     </div>

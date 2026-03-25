@@ -11,17 +11,79 @@ import {
   Shield, 
   Award,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Share2,
+  PlayCircle
 } from "lucide-react";
 import { userService } from "../services/userService";
-import { UserProfile } from "../types";
+import { auth } from "../services/firebase";
+import { UserProfile, Avaliacao } from "../types";
 import { cn } from "../lib/utils";
+import CalendarAvailability from "../components/CalendarAvailability";
 
 export default function TerapeutaPerfil() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [terapeuta, setTerapeuta] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  const handleSelect = (date: Date, time: string) => {
+    navigate(`/agendamento/${id}?date=${date.toISOString()}&time=${time}`);
+  };
+
+  const handleMensagemRapida = async () => {
+    if (!terapeuta || !auth.currentUser) return;
+    
+    try {
+      const patientProfile = await userService.getUser(auth.currentUser.uid);
+      if (!patientProfile) return;
+
+      const appointment = await userService.createAppointment({
+        patientId: auth.currentUser.uid,
+        patientNome: patientProfile.nome,
+        therapistId: terapeuta.uid,
+        therapistNome: terapeuta.nome,
+        date: new Date().toISOString(),
+        status: 'confirmed',
+        type: 'chat',
+        price: 0,
+      });
+
+      if (appointment?.id) {
+        navigate(`/atendimento/${appointment.id}`);
+      }
+    } catch (error) {
+      console.error("Erro ao iniciar chat", error);
+    }
+  };
+
+  const handleShare = async () => {
+    if (!terapeuta) return;
+    const url = window.location.href;
+    const title = `Perfil de ${terapeuta.nome} no SENTI`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: `Confira o perfil do terapeuta ${terapeuta.nome} no SENTI.`,
+          url,
+        });
+      } catch (error) {
+        console.error("Erro ao compartilhar", error);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link copiado para a área de transferência!");
+    }
+  };
+
+  const sortedReviews = terapeuta?.avaliacoes?.slice().sort((a, b) => {
+    const dateA = new Date(a.data).getTime();
+    const dateB = new Date(b.data).getTime();
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  }) || [];
 
   useEffect(() => {
     const loadTerapeuta = async () => {
@@ -68,12 +130,19 @@ export default function TerapeutaPerfil() {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Hero Section */}
       <div className="relative h-64 bg-gradient-to-b from-emerald-900/20 to-slate-950 border-b border-white/5">
-        <div className="max-w-4xl mx-auto px-6 pt-8">
+        <div className="max-w-4xl mx-auto px-6 pt-8 flex justify-between items-center">
           <button 
             onClick={() => navigate(-1)} 
             className="p-2 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md"
           >
             <ArrowLeft className="w-5 h-5" />
+          </button>
+          <button 
+            onClick={handleShare}
+            className="p-2 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md"
+            title="Compartilhar perfil"
+          >
+            <Share2 className="w-5 h-5" />
           </button>
         </div>
       </div>
@@ -132,6 +201,13 @@ export default function TerapeutaPerfil() {
                   <MessageCircle className="w-5 h-5 text-emerald-500" />
                   Falar agora
                 </button>
+                <button 
+                  onClick={handleMensagemRapida}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5 text-blue-500" />
+                  Mensagem Rápida
+                </button>
               </div>
             </motion.div>
 
@@ -170,6 +246,24 @@ export default function TerapeutaPerfil() {
                 </p>
               </section>
 
+              {terapeuta.videoUrl && (
+                <section className="space-y-4 pt-4">
+                  <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                    <PlayCircle className="w-5 h-5 text-emerald-500" />
+                    Apresentação
+                  </h3>
+                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-slate-900">
+                    <iframe 
+                      src={terapeuta.videoUrl} 
+                      title={`Apresentação de ${terapeuta.nome}`}
+                      className="absolute inset-0 w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </section>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 bg-slate-900/30 border border-white/5 rounded-2xl flex items-start gap-4">
                   <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
@@ -207,6 +301,17 @@ export default function TerapeutaPerfil() {
               </section>
 
               <section className="space-y-4 pt-4">
+                <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-emerald-500" />
+                  Disponibilidade
+                </h3>
+                <CalendarAvailability 
+                  therapist={terapeuta} 
+                  onSelect={handleSelect}
+                />
+              </section>
+
+              <section className="space-y-4 pt-4">
                 <h3 className="text-xl font-bold text-slate-100">O que esperar das sessões</h3>
                 <ul className="space-y-3">
                   {[
@@ -232,6 +337,57 @@ export default function TerapeutaPerfil() {
                   <p className="text-slate-400">{terapeuta.cidade}</p>
                 </section>
               )}
+
+              {/* Avaliações Section */}
+              <section className="space-y-4 pt-8 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-500" />
+                    Avaliações dos Pacientes
+                  </h3>
+                  {sortedReviews.length > 0 && (
+                    <select 
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
+                      className="bg-slate-900 border border-white/10 text-slate-300 text-sm rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="desc">Mais recentes</option>
+                      <option value="asc">Mais antigas</option>
+                    </select>
+                  )}
+                </div>
+
+                {sortedReviews.length > 0 ? (
+                  <div className="space-y-4">
+                    {sortedReviews.map((review, i) => (
+                      <div key={i} className="bg-slate-900/50 border border-white/5 rounded-2xl p-5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-bold">
+                              {review.userName?.charAt(0).toUpperCase() || "P"}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-200 text-sm">{review.userName || "Paciente Anônimo"}</p>
+                              <p className="text-xs text-slate-500">{new Date(review.data).toLocaleDateString('pt-BR')}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                            <span className="font-bold text-slate-300 text-sm">{review.nota.toFixed(1)}</span>
+                          </div>
+                        </div>
+                        {review.comentario && (
+                          <p className="text-slate-400 text-sm italic">"{review.comentario}"</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-8 text-center">
+                    <p className="text-slate-500">Ainda não há avaliações para este profissional.</p>
+                  </div>
+                )}
+              </section>
             </motion.div>
           </div>
         </div>

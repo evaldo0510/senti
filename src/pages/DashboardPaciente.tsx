@@ -31,6 +31,7 @@ import { UserProfile, Appointment, MoodEntry } from "../types";
 import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
 import { FeedbackModal } from "../components/FeedbackModal";
+import { ReviewModal } from "../components/ReviewModal";
 
 export default function DashboardPaciente() {
   const navigate = useNavigate();
@@ -38,6 +39,8 @@ export default function DashboardPaciente() {
   const { theme, toggleTheme } = useTheme();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
+  const [appointmentToReview, setAppointmentToReview] = useState<Appointment | null>(null);
+  const [appointmentToRemind, setAppointmentToRemind] = useState<Appointment | null>(null);
   const [recentMood, setRecentMood] = useState<MoodEntry | null>(null);
   const [featuredTherapists, setFeaturedTherapists] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +69,21 @@ export default function DashboardPaciente() {
         unsubAppointments = userService.getMyAppointments((apps) => {
           const upcoming = apps.find(a => a.status === 'pending' || a.status === 'confirmed');
           setNextAppointment(upcoming || null);
+
+          // Check for reminders (within 24h)
+          const now = new Date();
+          const soon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+          const toRemind = apps.find(a => 
+            (a.status === 'pending' || a.status === 'confirmed') && 
+            !a.reminded && 
+            new Date(a.date) > now && 
+            new Date(a.date) <= soon
+          );
+          if (toRemind) setAppointmentToRemind(toRemind);
+
+          // Check for reviews (completed and not reviewed)
+          const toReview = apps.find(a => a.status === 'completed' && !a.reviewed);
+          if (toReview) setAppointmentToReview(toReview);
         }, 'usuario');
 
         // Get recent mood
@@ -116,6 +134,16 @@ export default function DashboardPaciente() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-32 transition-colors">
       <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+      
+      {appointmentToReview && (
+        <ReviewModal 
+          isOpen={!!appointmentToReview} 
+          onClose={() => setAppointmentToReview(null)} 
+          appointmentId={appointmentToReview.id}
+          therapistId={appointmentToReview.therapistId}
+          therapistName={appointmentToReview.therapistNome}
+        />
+      )}
 
       {/* Header */}
       <header className="px-4 py-4 sm:px-6 sm:py-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
@@ -177,6 +205,38 @@ export default function DashboardPaciente() {
                 className="px-6 py-3 bg-white text-emerald-600 rounded-2xl font-bold text-sm hover:bg-emerald-50 transition-colors shadow-lg shadow-black/5"
               >
                 Ativar
+              </button>
+            </div>
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+          </motion.div>
+        )}
+
+        {/* Session Reminder */}
+        {appointmentToRemind && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-500 dark:bg-amber-600 rounded-[2rem] p-6 text-white shadow-xl shadow-amber-500/20 relative overflow-hidden"
+          >
+            <div className="relative z-10 flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-5 h-5 text-amber-100" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-amber-100">Lembrete de Sessão</span>
+                </div>
+                <h3 className="text-xl font-bold mb-1">Sessão em menos de 24h</h3>
+                <p className="text-sm text-amber-50/90 leading-relaxed">
+                  Sua sessão com {appointmentToRemind.therapistNome} é amanhã às {new Date(appointmentToRemind.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  userService.markAppointmentReminded(appointmentToRemind.id);
+                  setAppointmentToRemind(null);
+                }}
+                className="px-6 py-3 bg-white text-amber-600 rounded-2xl font-bold text-sm hover:bg-amber-50 transition-colors shadow-lg shadow-black/5"
+              >
+                Ciente
               </button>
             </div>
             <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />

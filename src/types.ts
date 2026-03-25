@@ -42,6 +42,8 @@ export interface Appointment {
   notes?: string;
   riskLevel?: 'baixo' | 'moderado' | 'alto';
   createdAt: string;
+  reviewed?: boolean;
+  reminded?: boolean;
 }
 
 export interface DirectMessage {
@@ -49,8 +51,10 @@ export interface DirectMessage {
   senderId: string;
   receiverId: string;
   text: string;
-  timestamp: string; // ISO string
+  timestamp: any; // Firestore Timestamp or ISO string
   appointmentId?: string;
+  read?: boolean;
+  encrypted?: boolean;
 }
 
 export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow' | 'sensorial' | 'login' | 'dashboard' | 'terapeuta-panel' | 'empresa-panel' | 'prefeitura-panel';
@@ -82,6 +86,7 @@ export interface UserProfile {
   disponibilidade?: Availability[];
   biografia?: string;
   fotoUrl?: string;
+  videoUrl?: string;
   cidade?: string;
   rating?: number;
   avaliacoes?: Avaliacao[];

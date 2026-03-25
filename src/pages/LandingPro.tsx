@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
@@ -21,8 +21,40 @@ import {
   Stethoscope,
   UserPlus,
   Smartphone,
-  RefreshCw
+  RefreshCw,
+  Brain,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
+
+const FAQItem = ({ question, answer }: { question: string, answer: string }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div className="border border-black/5 rounded-3xl overflow-hidden bg-[#f5f5f0]/50 transition-all hover:bg-[#f5f5f0]">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-8 py-6 flex items-center justify-between text-left focus:outline-none"
+      >
+        <span className="text-lg font-bold text-[#1a1a1a]">{question}</span>
+        {isOpen ? <ChevronUp className="w-5 h-5 text-emerald-600 shrink-0" /> : <ChevronDown className="w-5 h-5 text-emerald-600 shrink-0" />}
+      </button>
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-8 pb-6 text-[#4a4a4a] font-light leading-relaxed">
+              {answer}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export default function LandingPro() {
   const navigate = useNavigate();
@@ -229,6 +261,31 @@ export default function LandingPro() {
         </div>
       </section>
 
+      {/* IMPACT STATS */}
+      <section className="py-20 px-6 bg-emerald-900 text-white relative z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(5,150,105,0.4)_0%,_transparent_100%)]"></div>
+        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 text-center relative z-10">
+          {[
+            { number: "10k+", label: "Vidas Impactadas" },
+            { number: "24/7", label: "Acolhimento Imediato" },
+            { number: "500+", label: "Terapeutas Verificados" },
+            { number: "98%", label: "Taxa de Satisfação" }
+          ].map((stat, i) => (
+            <motion.div 
+              key={i} 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.1 }}
+              className="space-y-2"
+            >
+              <div className="text-4xl md:text-6xl font-serif italic font-bold text-emerald-300">{stat.number}</div>
+              <div className="text-sm md:text-base text-emerald-100 uppercase tracking-widest font-bold">{stat.label}</div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
       {/* SEGMENTAÇÃO SECTION */}
       <section id="segmentos" className="py-40 px-6 bg-white/40 backdrop-blur-3xl relative z-10">
         <div className="max-w-7xl mx-auto space-y-24">
@@ -305,6 +362,71 @@ export default function LandingPro() {
         </div>
       </section>
 
+      {/* FEATURES DETALHADAS */}
+      <section className="py-32 px-6 bg-[#f5f5f0] relative z-10">
+        <div className="max-w-7xl mx-auto space-y-24">
+          <div className="text-center space-y-8">
+            <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
+              Tudo o que você precisa <br /> <span className="text-emerald-700 font-bold not-italic">em um só lugar.</span>
+            </h2>
+            <p className="text-xl text-[#4a4a4a] max-w-2xl mx-auto font-light">
+              Ferramentas baseadas em ciência para ajudar você a entender, regular e melhorar suas emoções diariamente.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Brain,
+                title: "Diário Emocional",
+                desc: "Registre seu humor diário e descubra padrões. Acompanhe sua evolução com gráficos simples e intuitivos."
+              },
+              {
+                icon: Zap,
+                title: "ReSet Rápido",
+                desc: "Exercícios de respiração e grounding para momentos de ansiedade aguda ou pânico. Volte ao eixo em minutos."
+              },
+              {
+                icon: MessageCircle,
+                title: "IARA AI",
+                desc: "Nossa inteligência artificial treinada em protocolos clínicos para acolher você a qualquer hora do dia ou da noite."
+              },
+              {
+                icon: Users,
+                title: "Terapeutas Verificados",
+                desc: "Conecte-se com profissionais qualificados. Agende sessões online com segurança e praticidade."
+              },
+              {
+                icon: Shield,
+                title: "Privacidade Total",
+                desc: "Seus dados e conversas são criptografados de ponta a ponta. Sua jornada emocional é apenas sua."
+              },
+              {
+                icon: Activity,
+                title: "Jornada 21 Dias",
+                desc: "Um programa estruturado para criar hábitos saudáveis e desenvolver inteligência emocional na prática."
+              }
+            ].map((feature, i) => (
+              <motion.div 
+                key={i}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                whileHover={{ y: -5 }}
+                className="p-8 bg-white rounded-[32px] border border-black/5 shadow-sm hover:shadow-xl transition-all"
+              >
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mb-6">
+                  <feature.icon className="w-7 h-7 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-bold text-[#1a1a1a] mb-4">{feature.title}</h3>
+                <p className="text-[#4a4a4a] leading-relaxed font-light">{feature.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* TESTIMONIALS */}
       <section className="py-40 px-6 relative z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto">
@@ -332,6 +454,43 @@ export default function LandingPro() {
         </div>
       </section>
 
+      {/* FAQ SECTION */}
+      <section className="py-32 px-6 bg-white relative z-10">
+        <div className="max-w-4xl mx-auto space-y-16">
+          <div className="text-center space-y-6">
+            <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
+              Perguntas <span className="text-emerald-700 font-bold not-italic">Frequentes</span>
+            </h2>
+            <p className="text-xl text-[#4a4a4a] font-light">
+              Tire suas dúvidas sobre como a SENTI pode ajudar você.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {[
+              {
+                q: "A IARA substitui um terapeuta humano?",
+                a: "Não. A IARA é uma ferramenta de acolhimento imediato e triagem. Ela ajuda a regular emoções no momento da crise e prepara você para o atendimento com um profissional humano, que é insubstituível para um tratamento profundo."
+              },
+              {
+                q: "Meus dados estão seguros?",
+                a: "Sim. Utilizamos criptografia de ponta a ponta (E2EE) em todas as conversas e dados sensíveis. Apenas você e seu terapeuta têm acesso às informações das sessões."
+              },
+              {
+                q: "Como funciona a Jornada de 21 Dias?",
+                a: "É um programa interativo focado na construção de hábitos saudáveis. A cada dia, você recebe um pequeno desafio ou reflexão baseada em terapia cognitivo-comportamental (TCC) para melhorar sua resiliência emocional."
+              },
+              {
+                q: "Posso usar a SENTI apenas para emergências?",
+                a: "Sim! O botão SOS e o ReSet Rápido estão sempre disponíveis para momentos de crise. No entanto, recomendamos o uso contínuo do diário e das sessões para resultados a longo prazo."
+              }
+            ].map((faq, i) => (
+              <FAQItem key={i} question={faq.q} answer={faq.a} />
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* DOWNLOAD APP SECTION */}
       <section className="py-24 px-6 relative z-10">
         <div className="max-w-5xl mx-auto bg-gradient-to-br from-emerald-600 to-emerald-900 rounded-[64px] p-12 md:p-20 text-white text-center space-y-12 shadow-2xl relative overflow-hidden">
@@ -354,6 +513,34 @@ export default function LandingPro() {
               {isInstallable ? "Instalar Aplicativo" : "Baixar Aplicativo"}
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* NEWSLETTER / DICAS */}
+      <section className="py-24 px-6 bg-[#f5f5f0] relative z-10">
+        <div className="max-w-4xl mx-auto bg-white rounded-[48px] p-12 md:p-16 text-center space-y-8 border border-black/5 shadow-sm">
+          <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto">
+            <Sparkles className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h2 className="text-3xl md:text-5xl font-serif italic text-[#1a1a1a] tracking-tight">
+            Receba dicas de <span className="text-emerald-700 font-bold not-italic">bem-estar</span>
+          </h2>
+          <p className="text-lg text-[#4a4a4a] font-light max-w-2xl mx-auto">
+            Junte-se a milhares de pessoas que recebem nossos conteúdos semanais sobre inteligência emocional e saúde mental.
+          </p>
+          <form className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto" onSubmit={(e) => e.preventDefault()}>
+            <input 
+              type="email" 
+              placeholder="Seu melhor e-mail" 
+              className="flex-1 px-6 py-4 bg-[#f5f5f0] border border-black/5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            />
+            <button 
+              type="submit"
+              className="px-8 py-4 bg-[#1a1a1a] text-white rounded-2xl font-bold hover:bg-black transition-colors"
+            >
+              Inscrever
+            </button>
+          </form>
         </div>
       </section>
 

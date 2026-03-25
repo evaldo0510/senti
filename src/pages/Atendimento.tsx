@@ -1,20 +1,22 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText } from "lucide-react";
+import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
 import { chatService } from "../services/chatService";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
-import { Appointment } from "../types";
+import { Appointment, DirectMessage } from "../types";
 import { salvarDadosAnalytics } from "../services/analyticsService";
 
 export default function Atendimento() {
   const navigate = useNavigate();
   const { appointmentId } = useParams<{ appointmentId: string }>();
   const [mensagem, setMensagem] = useState("");
-  const [chat, setChat] = useState<any[]>([]);
+  const [chat, setChat] = useState<DirectMessage[]>([]);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [typingStatus, setTypingStatus] = useState<{ [key: string]: boolean }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,9 +41,21 @@ export default function Atendimento() {
     // Listen for messages
     const unsubscribe = chatService.listenMessagesByAppointment(appointmentId, (messages) => {
       setChat(messages);
+      // Mark messages as read when they arrive
+      if (auth.currentUser) {
+        chatService.markMessagesAsRead(appointmentId, auth.currentUser.uid);
+      }
     });
 
-    return () => unsubscribe();
+    // Listen for typing status
+    const unsubscribeTyping = chatService.listenTypingStatus(appointmentId, (status) => {
+      setTypingStatus(status);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeTyping();
+    };
   }, [appointmentId]);
 
   useEffect(() => {
@@ -49,10 +63,17 @@ export default function Atendimento() {
   }, [chat]);
 
   const enviar = async () => {
-    if (!mensagem.trim() || !appointmentId || !auth.currentUser) return;
+    if (!mensagem.trim() || !appointmentId || !auth.currentUser || !appointment) return;
     
+    const receiverId = auth.currentUser.uid === appointment.patientId 
+      ? appointment.therapistId 
+      : appointment.patientId;
+
     try {
-      await chatService.sendMessage(appointmentId, auth.currentUser.uid, mensagem);
+      await chatService.sendMessage(appointmentId, auth.currentUser.uid, receiverId, mensagem);
+      // Stop typing immediately on send
+      handleTyping(false);
+      
       salvarDadosAnalytics({
         usuario: auth.currentUser?.displayName || "Usuário",
         humor: 5,
@@ -64,6 +85,23 @@ export default function Atendimento() {
     } catch (error) {
       console.error("Error sending message:", error);
     }
+  };
+
+  const handleTyping = (isTyping: boolean) => {
+    if (!appointmentId || !auth.currentUser) return;
+    chatService.setTypingStatus(appointmentId, auth.currentUser.uid, isTyping);
+  };
+
+  const onInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMensagem(e.target.value);
+    
+    // Handle typing indicator
+    handleTyping(true);
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      handleTyping(false);
+    }, 3000);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -132,9 +170,18 @@ export default function Atendimento() {
               }`}
             >
               <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
-              <p className="text-[10px] opacity-50 mt-1 text-right">
-                {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ""}
-              </p>
+              <div className="flex items-center justify-end gap-1 mt-1">
+                <p className="text-[10px] opacity-50">
+                  {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ""}
+                </p>
+                {m.senderId === auth.currentUser?.uid && (
+                  m.read ? (
+                    <CheckCheck className="w-3 h-3 text-blue-400" />
+                  ) : (
+                    <Check className="w-3 h-3 opacity-50" />
+                  )
+                )}
+              </div>
             </div>
           </motion.div>
         ))}
@@ -142,10 +189,16 @@ export default function Atendimento() {
       </div>
 
       <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-white/10">
+        {/* Typing Indicator */}
+        {Object.entries(typingStatus).some(([uid, isTyping]) => uid !== auth.currentUser?.uid && isTyping) && (
+          <div className="text-[10px] text-emerald-400 mb-2 ml-2 animate-pulse font-medium">
+            {appointment?.patientId === auth.currentUser?.uid ? "Terapeuta" : "Paciente"} está digitando...
+          </div>
+        )}
         <div className="max-w-4xl mx-auto relative flex items-end gap-2">
           <textarea
             value={mensagem}
-            onChange={(e) => setMensagem(e.target.value)}
+            onChange={onInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Digite sua mensagem..."
             className="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none min-h-[52px] max-h-32"

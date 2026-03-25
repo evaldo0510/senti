@@ -167,6 +167,53 @@ export const userService = {
     }
   },
 
+  markAppointmentReminded: async (id: string) => {
+    const path = `appointments/${id}`;
+    try {
+      await updateDoc(doc(db, 'appointments', id), { reminded: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  submitReview: async (appointmentId: string, therapistId: string, nota: number, comentario?: string) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not authenticated");
+
+    const path = `appointments/${appointmentId}`;
+    try {
+      // Mark appointment as reviewed
+      await updateDoc(doc(db, 'appointments', appointmentId), { reviewed: true });
+
+      // Add review to therapist profile
+      const therapistRef = doc(db, 'users', therapistId);
+      const therapistDoc = await getDoc(therapistRef);
+      
+      if (therapistDoc.exists()) {
+        const therapistData = therapistDoc.data() as UserProfile;
+        const avaliacoes = therapistData.avaliacoes || [];
+        
+        const newReview = {
+          userId: user.uid,
+          userName: user.displayName || "Paciente",
+          nota,
+          comentario,
+          data: new Date().toISOString()
+        };
+
+        const newAvaliacoes = [...avaliacoes, newReview];
+        const newRating = newAvaliacoes.reduce((acc, curr) => acc + curr.nota, 0) / newAvaliacoes.length;
+
+        await updateDoc(therapistRef, {
+          avaliacoes: newAvaliacoes,
+          rating: newRating
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
   updateAppointmentNotes: async (id: string, notes: string, riskLevel: Appointment['riskLevel']) => {
     const path = `appointments/${id}`;
     try {

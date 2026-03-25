@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Search, MapPin, Star, Video, MessageCircle, User, List, Map as MapIcon, Zap } from "lucide-react";
+import { ArrowLeft, Search, MapPin, Star, Video, MessageCircle, User, List, Map as MapIcon, Zap, Calendar as CalendarIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
 import Especialidades from "../components/Especialidades";
+import CalendarAvailability from "../components/CalendarAvailability";
 
 export default function Profissionais() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Profissionais() {
   const [ordenacao, setOrdenacao] = useState<"recomendado" | "preco_menor" | "preco_maior" | "avaliacao">("recomendado");
   const [listaProfissionais, setListaProfissionais] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedAvailability, setExpandedAvailability] = useState<string | null>(null);
 
   const falarWhatsApp = (nome: string) => {
     const numero = "5511999999999"; // Número de exemplo
@@ -171,9 +173,9 @@ export default function Profissionais() {
                     <p className="text-slate-400">Carregando profissionais...</p>
                   </div>
                 ) : profissionaisOrdenados.length > 0 ? profissionaisOrdenados.map(prof => (
-                  <motion.div 
-                    key={prof.uid}
-                    initial={{ opacity: 0, y: 10 }}
+                  <React.Fragment key={prof.uid}>
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="bg-slate-900 border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 hover:border-emerald-500/30 transition-all group"
                   >
@@ -186,7 +188,7 @@ export default function Profissionais() {
                       />
                       <div className={cn(
                         "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900",
-                        prof.online ? "bg-emerald-500" : "bg-slate-600"
+                        prof.online ? "bg-emerald-500 animate-pulse" : "bg-slate-600"
                       )} />
                     </div>
                     <div className="flex-1 space-y-2">
@@ -225,22 +227,43 @@ export default function Profissionais() {
                       </div>
                       <div className="flex flex-col gap-2 w-full">
                         <button 
+                          onClick={() => setExpandedAvailability(expandedAvailability === prof.uid ? null : prof.uid)}
+                          className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                        >
+                          <CalendarIcon className="w-4 h-4" />
+                          {expandedAvailability === prof.uid ? "Ocultar Horários" : "Ver Horários"}
+                          {expandedAvailability === prof.uid ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+                        <button 
                           onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
                           className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
                         >
                           <User className="w-4 h-4" />
                           Ver Perfil
                         </button>
-                        <button 
-                          onClick={() => navigate(`/agendamento/${prof.uid}`)}
-                          className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-all border border-white/5"
-                        >
-                          Agendar
-                        </button>
                       </div>
                     </div>
                   </motion.div>
-                )) : (
+                  
+                  <AnimatePresence>
+                    {expandedAvailability === prof.uid && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden mb-4"
+                      >
+                        <div className="p-4 bg-slate-900/50 border-x border-b border-white/5 rounded-b-2xl -mt-4 pt-8">
+                          <CalendarAvailability 
+                            therapist={prof} 
+                            onSelect={(date, time) => navigate(`/agendamento/${prof.uid}?date=${date.toISOString()}&time=${time}`)}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </React.Fragment>
+              )) : (
                   <div className="text-center py-12 text-slate-400">
                     Nenhum profissional encontrado para "{busca}".
                   </div>

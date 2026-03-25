@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Share2, Check, ExternalLink } from 'lucide-react';
+import { format, isValid, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export interface NewsCardProps {
   title?: string;
@@ -24,6 +26,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
   const [copied, setCopied] = useState(false);
 
   const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     if (!url) return;
 
@@ -52,6 +55,15 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       setTimeout(() => setCopied(false), 2000);
     }
   };
+
+  let formattedDate = date;
+  if (date) {
+    const parsedDate = new Date(date);
+    if (isValid(parsedDate)) {
+      formattedDate = format(parsedDate, "EEE, dd MMM", { locale: ptBR });
+      formattedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+    }
+  }
 
   if (loading) {
     return (
@@ -86,23 +98,27 @@ export const NewsCard: React.FC<NewsCardProps> = ({
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -12, scale: 1.03 }}
+      whileHover={{ y: -5, scale: 1.02 }}
       transition={{ 
         type: "spring", 
-        stiffness: 260, 
-        damping: 20,
-        opacity: { duration: 0.4 }
+        stiffness: 300, 
+        damping: 25,
+        opacity: { duration: 0.3 }
       }}
-      className="glass-card group overflow-hidden rounded-2xl flex flex-col h-full transition-all hover:shadow-2xl hover:shadow-brand-green/20 border border-white/10 relative"
+      className="glass-card group overflow-hidden rounded-2xl flex flex-col h-full transition-shadow duration-300 hover:shadow-xl hover:shadow-emerald-500/10 border border-white/10 relative"
     >
       {/* Share Button */}
       {url && (
         <button 
           onClick={handleShare}
-          className="absolute top-4 right-4 z-20 p-2 bg-white/20 backdrop-blur-md rounded-full text-brand-text hover:bg-brand-green hover:text-white transition-all duration-300 shadow-lg"
+          className={`absolute top-4 right-4 z-20 p-2 backdrop-blur-md rounded-full transition-all duration-300 shadow-lg flex items-center justify-center ${
+            copied 
+              ? 'bg-emerald-500 text-white scale-110' 
+              : 'bg-white/20 text-brand-text hover:bg-emerald-500 hover:text-white'
+          }`}
           title="Compartilhar"
         >
-          {copied ? <Check size={16} /> : <Share2 size={16} />}
+          {copied ? <Check size={16} className="animate-in zoom-in duration-300" /> : <Share2 size={16} />}
         </button>
       )}
 
@@ -115,21 +131,21 @@ export const NewsCard: React.FC<NewsCardProps> = ({
             src={imageUrl} 
             alt={title} 
             onLoad={() => setImageLoaded(true)}
-            className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-110 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
+            className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
             referrerPolicy="no-referrer"
           />
         </div>
       )}
 
       <div className={`p-6 flex-1 flex flex-col ${!imageUrl ? 'justify-center min-h-[250px]' : ''}`}>
-        {date && (
-          <span className={`font-bold uppercase tracking-widest text-brand-green mb-3 block ${!imageUrl ? 'text-sm' : 'text-[10px]'}`}>
-            {date}
+        {formattedDate && (
+          <span className={`font-bold uppercase tracking-widest text-emerald-500 mb-3 block ${!imageUrl ? 'text-sm' : 'text-[10px]'}`}>
+            {formattedDate}
           </span>
         )}
         
         {title && (
-          <h3 className={`font-bold text-brand-text mb-4 leading-tight group-hover:text-brand-green transition-colors duration-300 ${!imageUrl ? 'text-2xl' : 'text-lg line-clamp-2'}`}>
+          <h3 className={`font-bold text-brand-text mb-4 leading-tight group-hover:text-emerald-400 transition-colors duration-300 ${!imageUrl ? 'text-2xl' : 'text-lg line-clamp-2'}`}>
             {title}
           </h3>
         )}
@@ -145,7 +161,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
             <div className="mt-4 flex items-center gap-4">
               <button 
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs font-bold text-brand-green hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-emerald-500 hover:underline flex items-center gap-1"
               >
                 {isExpanded ? 'Ver menos' : 'Leia mais'}
               </button>
@@ -155,7 +171,7 @@ export const NewsCard: React.FC<NewsCardProps> = ({
                   href={url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="text-[10px] text-brand-text/40 hover:text-brand-green flex items-center gap-1 transition-colors"
+                  className="text-[10px] text-brand-text/40 hover:text-emerald-500 flex items-center gap-1 transition-colors"
                 >
                   <ExternalLink size={10} /> Notícia completa
                 </a>
