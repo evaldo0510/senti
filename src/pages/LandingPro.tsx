@@ -256,6 +256,93 @@ export default function LandingPro() {
         </div>
       </section>
 
+      {/* PÍLULAS TERAPÊUTICAS SECTION */}
+      <section className="py-32 px-6 bg-white relative z-10">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-20 items-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="relative order-2 md:order-1"
+          >
+            <div className="aspect-[4/5] bg-emerald-50 rounded-[64px] overflow-hidden relative shadow-2xl">
+              <img 
+                src="https://images.unsplash.com/photo-1516062423079-7ca13cdc7f5a?w=800&auto=format&fit=crop&q=60" 
+                alt="Pílulas Terapêuticas" 
+                className="w-full h-full object-cover mix-blend-multiply opacity-80"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/60 to-transparent"></div>
+              
+              {/* Floating Pill Cards */}
+              <motion.div 
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                className="absolute top-10 left-10 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/20 max-w-[200px]"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="w-4 h-4 text-amber-500 fill-current" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Alívio Imediato</span>
+                </div>
+                <p className="text-xs font-bold text-slate-800">"Respire fundo por 4 segundos..."</p>
+              </motion.div>
+
+              <motion.div 
+                animate={{ y: [0, 10, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                className="absolute bottom-10 right-10 bg-emerald-600/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/10 max-w-[200px]"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Heart className="w-4 h-4 text-white fill-current" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-100">Autoacolhimento</span>
+                </div>
+                <p className="text-xs font-bold text-white">"Você é maior que a sua ansiedade."</p>
+              </motion.div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="space-y-8 order-1 md:order-2"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold uppercase tracking-widest">
+              Novidade Exclusiva
+            </div>
+            <h2 className="text-5xl md:text-7xl font-serif italic text-[#1a1a1a] leading-tight">
+              Pílulas <span className="text-emerald-700 font-bold not-italic">Terapêuticas</span>
+            </h2>
+            <p className="text-xl text-[#4a4a4a] font-light leading-relaxed">
+              Micro-conteúdos em áudio e texto desenhados para intervenções rápidas. Quando a mente acelera, nossas pílulas trazem você de volta ao presente em menos de 2 minutos.
+            </p>
+            
+            <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-3xl space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-[#1a1a1a]">Grátis no Plano Premium</h4>
+                  <p className="text-sm text-emerald-700">Incluso na assinatura do ReSet 21 Dias</p>
+                </div>
+              </div>
+              <p className="text-sm text-[#4a4a4a] font-light italic">
+                "Acesso ilimitado a toda a biblioteca de pílulas para assinantes da jornada de reprogramação emocional."
+              </p>
+            </div>
+
+            <button 
+              onClick={() => navigate("/reset-21/sales")}
+              className="px-10 py-5 bg-emerald-600 text-white rounded-[32px] text-lg font-bold transition-all hover:scale-105 flex items-center justify-center gap-3 shadow-lg shadow-emerald-600/20 active:scale-95"
+            >
+              Conhecer o Plano Premium
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </motion.div>
+        </div>
+      </section>
+
       {/* JORNADA DO PACIENTE */}
       <section id="metodo" className="py-40 px-6 relative z-10">
         <div className="max-w-7xl mx-auto space-y-32">
@@ -352,7 +439,7 @@ export default function LandingPro() {
       </section>
 
       {/* COMO PODEMOS AJUDAR - CAROUSEL */}
-      <section className="py-32 px-6 bg-white relative z-10 overflow-hidden">
+      <section id="solucao" className="py-32 px-6 bg-white relative z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto space-y-16">
           <div className="text-center space-y-6">
             <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
@@ -412,7 +499,10 @@ export default function LandingPro() {
                   </div>
                   <h3 className="text-2xl font-bold text-[#1a1a1a]">{item.title}</h3>
                   <p className="text-[#4a4a4a] leading-relaxed font-light">{item.desc}</p>
-                  <button className="text-emerald-700 font-bold flex items-center gap-2 group">
+                  <button 
+                    onClick={() => navigate("/reset-21/sales")}
+                    className="text-emerald-700 font-bold flex items-center gap-2 group"
+                  >
                     Saiba mais <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
                   </button>
                 </motion.div>
@@ -701,15 +791,15 @@ export default function LandingPro() {
           <div className="flex gap-12 text-sm text-[#4a4a4a] font-medium">
             <div className="flex flex-col gap-4">
               <span className="text-[#1a1a1a] font-bold uppercase tracking-widest text-xs">Plataforma</span>
-              <a href="#" className="hover:text-emerald-600 transition-colors">A Jornada</a>
-              <a href="#" className="hover:text-emerald-600 transition-colors">IARA AI</a>
-              <a href="#" className="hover:text-emerald-600 transition-colors">Especialistas</a>
+              <button onClick={() => navigate("/reset21")} className="text-left hover:text-emerald-600 transition-colors">A Jornada</button>
+              <button onClick={() => navigate("/chat")} className="text-left hover:text-emerald-600 transition-colors">IARA AI</button>
+              <button onClick={() => navigate("/profissionais")} className="text-left hover:text-emerald-600 transition-colors">Especialistas</button>
             </div>
             <div className="flex flex-col gap-4">
               <span className="text-[#1a1a1a] font-bold uppercase tracking-widest text-xs">Legal</span>
-              <a href="#" className="hover:text-emerald-600 transition-colors">Termos</a>
-              <a href="#" className="hover:text-emerald-600 transition-colors">Privacidade</a>
-              <a href="#" className="hover:text-emerald-600 transition-colors">Segurança</a>
+              <button onClick={() => navigate("/lead")} className="text-left hover:text-emerald-600 transition-colors">Termos</button>
+              <button onClick={() => navigate("/lead")} className="text-left hover:text-emerald-600 transition-colors">Privacidade</button>
+              <button onClick={() => navigate("/lead")} className="text-left hover:text-emerald-600 transition-colors">Segurança</button>
             </div>
           </div>
         </div>

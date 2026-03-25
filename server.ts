@@ -269,9 +269,11 @@ async function configureApp() {
   }
 }
 
-async function startServer() {
-  await configureApp();
-  
+// For Vercel, we export the app and ensure it's configured
+// We don't call listen() on Vercel as it's handled by the platform
+configureApp();
+
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
@@ -313,11 +315,4 @@ async function startServer() {
   });
 }
 
-// For Vercel, we need to ensure the app is configured
-if (process.env.VERCEL) {
-  configureApp();
-}
-
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-  startServer();
-}
+export default app;

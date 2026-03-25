@@ -11,18 +11,21 @@
       "use": "@vercel/node"
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server.ts"
+      "src": "/api/(.*)",
+      "dest": "/server.ts"
     },
     {
-      "source": "/auth/(.*)",
-      "destination": "/server.ts"
+      "src": "/auth/(.*)",
+      "dest": "/server.ts"
     },
     {
-      "source": "/((?!assets/|favicon.ico|sw.js|manifest.webmanifest|icon.svg|logo192.png|logo512.png).*)",
-      "destination": "/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "cleanUrls": true,
