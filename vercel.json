@@ -4,30 +4,27 @@
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+      "config": { "distDir": "dist" }
     },
     {
       "src": "server.ts",
       "use": "@vercel/node"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/server.ts"
+      "source": "/api/(.*)",
+      "destination": "/server.ts"
     },
     {
-      "src": "/auth/(.*)",
-      "dest": "/server.ts"
+      "source": "/auth/(.*)",
+      "destination": "/server.ts"
     },
     {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/((?!assets/|favicon.ico|sw.js|manifest.webmanifest|icon.svg|logo192.png|logo512.png).*)",
+      "destination": "/index.html"
     }
-  ]
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }
