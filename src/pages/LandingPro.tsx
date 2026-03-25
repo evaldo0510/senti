@@ -118,7 +118,7 @@ export default function LandingPro() {
               onClick={() => navigate("/login")} 
               className="hidden sm:block text-sm font-semibold text-[#4a4a4a] hover:text-[#1a1a1a] transition-colors px-4"
             >
-              Entrar
+              Entrar / Cadastrar
             </button>
             <button 
               onClick={() => navigate("/reset")} 
@@ -586,7 +586,7 @@ export default function LandingPro() {
                   onClick={() => navigate(item.path)}
                   className="w-full py-5 bg-emerald-600 text-white rounded-[24px] font-bold transition-all flex items-center justify-center gap-3 group/btn text-lg hover:bg-emerald-700 shadow-lg shadow-emerald-600/20"
                 >
-                  {item.title === "SENTI App" ? "Entrar como Paciente" : item.title === "SENTI Pro" ? "Entrar como Terapeuta" : "Saiba Mais"}
+                  {item.title === "SENTI App" ? "Acessar como Paciente" : item.title === "SENTI Pro" ? "Acessar como Terapeuta" : "Saiba Mais"}
                   <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
                 </button>
               </motion.div>
