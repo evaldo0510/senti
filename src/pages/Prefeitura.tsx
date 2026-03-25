@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Users, Activity, Clock, LogOut, Settings, Home, BarChart2 } from "lucide-react";
+import { Users, Activity, Clock, LogOut, Settings, Home, BarChart2, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { logout } from "../services/firebase";
@@ -81,9 +81,18 @@ export default function Prefeitura() {
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto space-y-8">
           <header className="flex justify-between items-end">
-            <div>
-              <h2 className="text-3xl font-light tracking-tight text-slate-200">Dashboard</h2>
-              <p className="text-slate-400 mt-1">Visão geral dos atendimentos e regulação emocional.</p>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"
+                title="Voltar"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-light tracking-tight text-slate-200">Dashboard</h2>
+                <p className="text-slate-400 mt-1">Visão geral dos atendimentos e regulação emocional.</p>
+              </div>
             </div>
           </header>
 

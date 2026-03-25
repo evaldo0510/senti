@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Share2, Check, ExternalLink, UserPlus } from 'lucide-react';
+import { Share2, Check, ExternalLink, UserPlus, Copy } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -98,6 +98,12 @@ export const NewsCard: React.FC<NewsCardProps> = ({
     }
   };
 
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    copyToClipboard();
+  };
+
   let formattedDate = date;
   if (date) {
     const parsedDate = new Date(date);
@@ -149,19 +155,28 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       }}
       className="glass-card group overflow-hidden rounded-2xl flex flex-col h-full transition-shadow duration-300 hover:shadow-xl hover:shadow-emerald-500/10 border border-white/10 relative"
     >
-      {/* Share Button */}
+      {/* Action Buttons */}
       {url && (
-        <button 
-          onClick={handleShare}
-          className={`absolute top-4 right-4 z-20 p-2 backdrop-blur-md rounded-full transition-all duration-300 shadow-lg flex items-center justify-center ${
-            copied 
-              ? 'bg-emerald-500 text-white scale-110' 
-              : 'bg-white/20 text-brand-text hover:bg-emerald-500 hover:text-white'
-          }`}
-          title="Compartilhar"
-        >
-          {copied ? <Check size={16} className="animate-in zoom-in duration-300" /> : <Share2 size={16} />}
-        </button>
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <button 
+            onClick={handleCopy}
+            className={`p-2 backdrop-blur-md rounded-full transition-all duration-300 shadow-lg flex items-center justify-center ${
+              copied 
+                ? 'bg-emerald-500 text-white scale-110' 
+                : 'bg-white/20 text-brand-text hover:bg-emerald-500 hover:text-white'
+            }`}
+            title="Copiar Link"
+          >
+            {copied ? <Check size={16} className="animate-in zoom-in duration-300" /> : <Copy size={16} />}
+          </button>
+          <button 
+            onClick={handleShare}
+            className="p-2 backdrop-blur-md rounded-full transition-all duration-300 shadow-lg flex items-center justify-center bg-white/20 text-brand-text hover:bg-emerald-500 hover:text-white"
+            title="Compartilhar"
+          >
+            <Share2 size={16} />
+          </button>
+        </div>
       )}
 
       {finalImageUrl && (

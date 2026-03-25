@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Building2, Users, Activity, LogOut, PlusCircle, FileText, HeartPulse } from "lucide-react";
+import { Building2, Users, Activity, LogOut, PlusCircle, FileText, HeartPulse, ArrowLeft } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
 
@@ -67,9 +67,18 @@ export default function Clinica() {
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-5xl mx-auto space-y-8">
           <header className="flex justify-between items-end">
-            <div>
-              <h2 className="text-3xl font-light tracking-tight text-slate-200">Painel Clínico</h2>
-              <p className="text-slate-400 mt-1">Gestão de atendimentos e profissionais.</p>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"
+                title="Voltar"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-light tracking-tight text-slate-200">Painel Clínico</h2>
+                <p className="text-slate-400 mt-1">Gestão de atendimentos e profissionais.</p>
+              </div>
             </div>
             <button onClick={handleLogout} className="md:hidden p-2 text-slate-400 hover:text-red-400 rounded-lg">
               <LogOut className="w-5 h-5" />

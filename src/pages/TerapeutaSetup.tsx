@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { User, Briefcase, DollarSign, ArrowRight, Activity } from "lucide-react";
+import { User, Briefcase, DollarSign, ArrowRight, Activity, ArrowLeft } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 
@@ -67,7 +67,14 @@ export default function TerapeutaSetup() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-2xl w-full bg-slate-900 border border-white/10 p-8 rounded-3xl space-y-8 my-10"
       >
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-2 relative">
+          <button 
+            onClick={() => navigate(-1)}
+            className="absolute left-0 top-0 p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"
+            title="Voltar"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
           <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Activity className="w-8 h-8 text-emerald-500" />
           </div>

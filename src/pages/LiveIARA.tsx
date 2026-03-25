@@ -22,7 +22,7 @@ export default function LiveIARA() {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(true);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [aiTranscription, setAiTranscription] = useState("");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -34,79 +34,78 @@ export default function LiveIARA() {
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
 
-  useEffect(() => {
-    const startCall = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true, 
-          audio: true 
-        });
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        // Initialize Gemini Live
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const session = await ai.live.connect({
-          model: "gemini-2.5-flash-native-audio-preview-12-2025",
-          config: {
-            responseModalities: [Modality.AUDIO],
-            systemInstruction: "Você é a IARA, uma assistente de acolhimento emocional humanizada. Seu tom é calmo, empático e validador. Você está em uma sessão de vídeo ao vivo com um paciente que busca suporte. Ouça com atenção e ofereça palavras de conforto e técnicas de regulação emocional se necessário.",
-            speechConfig: {
-              voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
-            },
-            inputAudioTranscription: {},
-            outputAudioTranscription: {}
-          },
-          callbacks: {
-            onopen: () => {
-              setIsConnected(true);
-              setIsConnecting(false);
-              startAudioStreaming();
-              startVideoStreaming();
-            },
-            onmessage: async (message: any) => {
-              if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data) {
-                playAudioChunk(message.serverContent.modelTurn.parts[0].inlineData.data);
-              }
-              if (message.serverContent?.interrupted) {
-                stopAudioPlayback();
-              }
-              if (message.serverContent?.inputAudioTranscription?.text) {
-                setTranscription(message.serverContent.inputAudioTranscription.text);
-              }
-              if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
-                setAiTranscription(message.serverContent.modelTurn.parts[0].text);
-              }
-            },
-            onclose: () => {
-              setIsConnected(false);
-              salvarDadosAnalytics({
-                usuario: auth.currentUser?.displayName || "Anônimo",
-                humor: 5,
-                risco: "moderado",
-                atendimento: "sim",
-                tipo: "IARA Live"
-              });
-              navigate("/home");
-            },
-            onerror: (error: any) => {
-              console.error("Gemini Live Error:", error);
-              setIsConnecting(false);
-            }
-          }
-        });
-        sessionRef.current = session;
-
-      } catch (error) {
-        console.error("Error starting live session:", error);
-        setIsConnecting(false);
+  const startCall = async () => {
+    setIsConnecting(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: true 
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
       }
-    };
 
-    startCall();
+      // Initialize Gemini Live
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const session = await ai.live.connect({
+        model: "gemini-2.5-flash-native-audio-preview-12-2025",
+        config: {
+          responseModalities: [Modality.AUDIO],
+          systemInstruction: "Você é a IARA, uma assistente de acolhimento emocional humanizada. Seu tom é calmo, empático e validador. Você está em uma sessão de vídeo ao vivo com um paciente que busca suporte. Ouça com atenção e ofereça palavras de conforto e técnicas de regulação emocional se necessário.",
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
+          },
+          inputAudioTranscription: {},
+          outputAudioTranscription: {}
+        },
+        callbacks: {
+          onopen: () => {
+            setIsConnected(true);
+            setIsConnecting(false);
+            startAudioStreaming();
+            startVideoStreaming();
+          },
+          onmessage: async (message: any) => {
+            if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data) {
+              playAudioChunk(message.serverContent.modelTurn.parts[0].inlineData.data);
+            }
+            if (message.serverContent?.interrupted) {
+              stopAudioPlayback();
+            }
+            if (message.serverContent?.inputAudioTranscription?.text) {
+              setTranscription(message.serverContent.inputAudioTranscription.text);
+            }
+            if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
+              setAiTranscription(message.serverContent.modelTurn.parts[0].text);
+            }
+          },
+          onclose: () => {
+            setIsConnected(false);
+            salvarDadosAnalytics({
+              usuario: auth.currentUser?.displayName || "Anônimo",
+              humor: 5,
+              risco: "moderado",
+              atendimento: "sim",
+              tipo: "IARA Live"
+            });
+            navigate("/home");
+          },
+          onerror: (error: any) => {
+            console.error("Gemini Live Error:", error);
+            setIsConnecting(false);
+          }
+        }
+      });
+      sessionRef.current = session;
 
+    } catch (error) {
+      console.error("Error starting live session:", error);
+      setIsConnecting(false);
+    }
+  };
+
+  useEffect(() => {
     return () => {
       cleanup();
     };
@@ -295,6 +294,15 @@ export default function LiveIARA() {
               <h2 className="text-xl sm:text-2xl font-serif italic text-emerald-400">IARA</h2>
               <p className="text-slate-500 text-[10px] sm:text-sm font-light uppercase tracking-widest">Acolhimento em tempo real</p>
             </div>
+            {!isConnected && !isConnecting && (
+              <button 
+                onClick={startCall}
+                className="mt-8 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full font-bold transition-all flex items-center gap-3 shadow-xl shadow-emerald-500/20 active:scale-95"
+              >
+                <Video className="w-6 h-6" />
+                Iniciar Chamada
+              </button>
+            )}
           </div>
 
           {/* AI Transcription Overlay */}
