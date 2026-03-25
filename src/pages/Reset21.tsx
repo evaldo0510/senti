@@ -11,43 +11,54 @@ import {
   ChevronRight,
   RefreshCw,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Volume2
 } from "lucide-react";
 import { auth } from "../services/firebase";
+import { userService } from "../services/userService";
 import { cn } from "../lib/utils";
-
-const dias = [
-  { dia: 1, tema: "Perceber o que sente", descricao: "Aprenda a identificar suas emoções básicas sem julgamento.", liberado: true },
-  { dia: 2, tema: "Nomear a emoção", descricao: "Dê nome ao que sente para começar a ter controle.", liberado: true },
-  { dia: 3, tema: "Aceitar sem lutar", descricao: "Acolha sua dor como um visitante passageiro.", liberado: false },
-  { dia: 4, tema: "Onde dói no corpo?", descricao: "Localize a sensação física da sua emoção.", liberado: false },
-  { dia: 5, tema: "A respiração 4-2-6", descricao: "Técnica fundamental de regulação afetiva.", liberado: false },
-  { dia: 6, tema: "Ressignificar o gatilho", descricao: "Mude a história que você conta para si mesmo.", liberado: false },
-  { dia: 7, tema: "A escolha da resposta", descricao: "Entre o estímulo e a resposta, existe sua liberdade.", liberado: false },
-  { dia: 8, tema: "Consciência Plena", descricao: "Estar presente no agora, sem fugir.", liberado: false },
-  { dia: 9, tema: "Diálogo Interno", descricao: "Como você fala consigo mesmo em momentos de crise?", liberado: false },
-  { dia: 10, tema: "Auto-compaixão", descricao: "Trate-se com a mesma bondade que trataria um amigo.", liberado: false },
-  { dia: 11, tema: "Limites Saudáveis", descricao: "Aprenda a dizer não para proteger sua paz.", liberado: false },
-  { dia: 12, tema: "O Poder do Silêncio", descricao: "Encontre a calma no meio do barulho mental.", liberado: false },
-  { dia: 13, tema: "Desapego Emocional", descricao: "Deixe ir o que não serve mais para sua evolução.", liberado: false },
-  { dia: 14, tema: "Gratidão Ativa", descricao: "Treine seu cérebro para ver o que está funcionando.", liberado: false },
-  { dia: 15, tema: "Valores Pessoais", descricao: "O que realmente importa para você?", liberado: false },
-  { dia: 16, tema: "Comunicação Não-Violenta", descricao: "Expresse suas necessidades sem atacar.", liberado: false },
-  { dia: 17, tema: "Resiliência na Prática", descricao: "Como voltar ao centro após um grande impacto.", liberado: false },
-  { dia: 18, tema: "Foco e Intencionalidade", descricao: "Direcione sua energia para o que você pode mudar.", liberado: false },
-  { dia: 19, tema: "Perdão e Libertação", descricao: "Solte o peso do passado para caminhar leve.", liberado: false },
-  { dia: 20, tema: "Visão de Futuro", descricao: "Quem é a pessoa que responde com consciência?", liberado: false },
-  { dia: 21, tema: "Consolidação do Novo Eu", descricao: "O ReSet agora é parte de quem você é.", liberado: false },
-];
+import { journey21 } from "../data/journey21";
 
 export default function Reset21() {
   const navigate = useNavigate();
-  const [progresso, setProgresso] = useState(2); // Simulação de progresso
+  const [progresso, setProgresso] = useState(0);
+  const [isPremium, setIsPremium] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("success") === "true") {
+      setShowSuccess(true);
+      // Clean up URL
+      window.history.replaceState({}, document.title, "/reset21");
+    }
+
+    const loadUser = async () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const profile = await userService.getUser(currentUser.uid);
+        if (profile) {
+          setProgresso(profile.journeyProgress || 0);
+          setIsPremium(profile.isPremium || false);
+        }
+      }
+      setLoading(false);
+    };
+    loadUser();
+  }, []);
 
   const handleStartDay = (dia: number) => {
     if (dia > progresso + 1) return;
-    navigate("/reset", { state: { dia } });
+    
+    // Premium check
+    if (dia > 3 && !isPremium) {
+      navigate("/reset-21/sales");
+      return;
+    }
+
+    navigate(`/reset-21/day/${dia}`);
   };
 
   return (
@@ -76,6 +87,29 @@ export default function Reset21() {
       </header>
 
       <main className="flex-1 p-6 z-10 relative max-w-2xl mx-auto w-full space-y-8">
+        <AnimatePresence>
+          {showSuccess && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-emerald-500/20 border border-emerald-500/30 rounded-[32px] p-6 text-center space-y-3"
+            >
+              <div className="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle2 className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-black text-white">Bem-vindo ao Premium!</h3>
+              <p className="text-emerald-100 text-sm">Sua jornada de 21 dias foi desbloqueada com sucesso.</p>
+              <button 
+                onClick={() => setShowSuccess(false)}
+                className="text-xs font-bold uppercase tracking-widest text-emerald-400"
+              >
+                Fechar
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Progress Card */}
         <section className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-[32px] p-8 text-white shadow-2xl shadow-emerald-900/40 relative overflow-hidden">
           <div className="absolute -right-4 -top-4 opacity-20">
@@ -119,16 +153,17 @@ export default function Reset21() {
           </h3>
           
           <div className="space-y-3">
-            {dias.map((dia, index) => {
-              const isCompleted = index < progresso;
-              const isCurrent = index === progresso;
-              const isLocked = index > progresso;
+            {journey21.map((dia, index) => {
+              const isCompleted = dia.day <= progresso;
+              const isCurrent = dia.day === progresso + 1;
+              const isLocked = dia.day > progresso + 1;
+              const isPremiumLocked = dia.day > 3 && !isPremium;
 
               return (
                 <motion.div
-                  key={dia.dia}
+                  key={dia.day}
                   whileHover={!isLocked ? { x: 4 } : {}}
-                  onClick={() => !isLocked && setSelectedDay(selectedDay === dia.dia ? null : dia.dia)}
+                  onClick={() => !isLocked && setSelectedDay(selectedDay === dia.day ? null : dia.day)}
                   className={cn(
                     "p-5 rounded-[24px] border transition-all cursor-pointer relative overflow-hidden",
                     isCompleted ? "bg-emerald-500/5 border-emerald-500/20" : 
@@ -144,17 +179,24 @@ export default function Reset21() {
                       "bg-slate-800 border-white/5 text-slate-500"
                     )}>
                       {isCompleted ? <CheckCircle2 className="w-6 h-6" /> : 
-                       isLocked ? <Lock className="w-5 h-5" /> : 
-                       <span className="font-black text-xl">{dia.dia}</span>}
+                       (isLocked || (isPremiumLocked && !isCurrent)) ? <Lock className="w-5 h-5" /> : 
+                       <span className="font-black text-xl">{dia.day}</span>}
                     </div>
                     
                     <div className="flex-1">
-                      <h4 className={cn(
-                        "font-bold text-lg leading-tight",
-                        isLocked ? "text-slate-500" : "text-slate-100"
-                      )}>
-                        {dia.tema}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className={cn(
+                          "font-bold text-lg leading-tight",
+                          isLocked ? "text-slate-500" : "text-slate-100"
+                        )}>
+                          {dia.title}
+                        </h4>
+                        {isPremiumLocked && dia.day > 3 && (
+                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[8px] font-black uppercase tracking-widest rounded-full border border-amber-500/20">
+                            Premium
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 font-medium uppercase tracking-widest mt-1">
                         {isCompleted ? "Concluído" : isCurrent ? "Disponível Agora" : "Bloqueado"}
                       </p>
@@ -163,14 +205,14 @@ export default function Reset21() {
                     {!isLocked && (
                       <ChevronRight className={cn(
                         "w-5 h-5 transition-transform",
-                        selectedDay === dia.dia ? "rotate-90" : "",
+                        selectedDay === dia.day ? "rotate-90" : "",
                         isCurrent ? "text-emerald-400" : "text-slate-600"
                       )} />
                     )}
                   </div>
 
                   <AnimatePresence>
-                    {selectedDay === dia.dia && (
+                    {selectedDay === dia.day && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: "auto", opacity: 1 }}
@@ -179,16 +221,34 @@ export default function Reset21() {
                       >
                         <div className="pt-4 mt-4 border-t border-white/5 space-y-4">
                           <p className="text-slate-400 text-sm leading-relaxed">
-                            {dia.descricao}
+                            {dia.pill}
                           </p>
+                          <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            <span className="flex items-center gap-1">
+                              <Volume2 className="w-3 h-3" /> Áudio IARA
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Zap className="w-3 h-3" /> Exercício
+                            </span>
+                          </div>
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleStartDay(dia.dia);
+                              handleStartDay(dia.day);
                             }}
-                            className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-bold transition-all border border-emerald-500/20"
+                            className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-bold transition-all border border-emerald-500/20 flex items-center justify-center gap-2"
                           >
-                            Iniciar Prática
+                            {isPremiumLocked && dia.day > 3 ? (
+                              <>
+                                <Lock className="w-4 h-4" />
+                                Desbloquear Premium
+                              </>
+                            ) : (
+                              <>
+                                <PlayCircle className="w-4 h-4" />
+                                Iniciar Prática
+                              </>
+                            )}
                           </button>
                         </div>
                       </motion.div>

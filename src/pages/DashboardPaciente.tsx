@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
@@ -23,15 +23,21 @@ import {
   Moon,
   MessageSquarePlus,
   Lightbulb,
-  Smartphone
+  Smartphone,
+  Check
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
-import { UserProfile, Appointment, MoodEntry } from "../types";
+import { UserProfile, Appointment, MoodEntry, NewsCardProps } from "../types";
 import { cn } from "../lib/utils";
 import { useTheme } from "../contexts/ThemeContext";
 import { FeedbackModal } from "../components/FeedbackModal";
 import { ReviewModal } from "../components/ReviewModal";
+import { NewsCard } from "../components/NewsCard";
+import StarRating from "../components/StarRating";
+import Especialidades from "../components/Especialidades";
+import { getPillOfDay, Pill } from "../services/pillService";
+import { addXp, updateStreak, XP_ACTIONS, getLevelByXp, getNextLevel, LEVELS } from "../services/gamificationService";
 
 export default function DashboardPaciente() {
   const navigate = useNavigate();
@@ -43,8 +49,34 @@ export default function DashboardPaciente() {
   const [appointmentToRemind, setAppointmentToRemind] = useState<Appointment | null>(null);
   const [recentMood, setRecentMood] = useState<MoodEntry | null>(null);
   const [featuredTherapists, setFeaturedTherapists] = useState<UserProfile[]>([]);
+  const [news, setNews] = useState<NewsCardProps[]>([]);
+  const [visibleNewsCount, setVisibleNewsCount] = useState(3);
   const [loading, setLoading] = useState(true);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [dailyPill, setDailyPill] = useState<Pill | null>(null);
+  const [pillRead, setPillRead] = useState(false);
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  const loadMoreNews = () => {
+    setVisibleNewsCount(prev => prev + 3);
+  };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleNewsCount < news.length) {
+          loadMoreNews();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [news.length, visibleNewsCount]);
 
   useEffect(() => {
     let unsubAppointments: (() => void) | undefined;
@@ -64,6 +96,78 @@ export default function DashboardPaciente() {
         // Get featured therapists
         const therapists = await userService.getFeaturedTherapists(3);
         setFeaturedTherapists(therapists);
+
+        // Mock news data
+        const mockNews: NewsCardProps[] = [
+          {
+            id: "1",
+            title: "Como a meditação ajuda na ansiedade",
+            description: "Estudos mostram que 10 minutos de meditação diária podem reduzir significativamente os níveis de cortisol.",
+            image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&auto=format&fit=crop&q=60",
+            category: "Bem-estar",
+            readTime: "5 min",
+            url: "https://exemplo.com/meditacao",
+            therapistName: "Dr. Ricardo Santos",
+            therapistId: "therapist_1",
+            isOnline: true
+          },
+          {
+            id: "2",
+            title: "A importância do sono para a saúde mental",
+            description: "Dormir bem é fundamental para a regulação emocional e a consolidação da memória.",
+            image: "https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=800&auto=format&fit=crop&q=60",
+            category: "Saúde",
+            readTime: "4 min",
+            url: "https://exemplo.com/sono",
+            therapistName: "Dra. Ana Oliveira",
+            therapistId: "therapist_2",
+            isOnline: false
+          },
+          {
+            id: "3",
+            title: "Exercícios físicos e depressão",
+            description: "A prática regular de atividades físicas libera endorfinas que combatem sintomas depressivos.",
+            image: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800&auto=format&fit=crop&q=60",
+            category: "Fitness",
+            readTime: "6 min",
+            url: "https://exemplo.com/exercicios"
+          },
+          {
+            id: "4",
+            title: "Alimentação e humor",
+            description: "O que você come pode influenciar diretamente como você se sente. Conheça os alimentos amigos do cérebro.",
+            image: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&auto=format&fit=crop&q=60",
+            category: "Nutrição",
+            readTime: "7 min",
+            url: "https://exemplo.com/alimentacao"
+          },
+          {
+            id: "5",
+            title: "Mindfulness no trabalho",
+            description: "Dicas práticas para manter o foco e a calma durante a jornada de trabalho.",
+            image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800&auto=format&fit=crop&q=60",
+            category: "Produtividade",
+            readTime: "5 min",
+            url: "https://exemplo.com/mindfulness-trabalho"
+          },
+          {
+            id: "6",
+            title: "A arte da resiliência",
+            description: "Como desenvolver a capacidade de se recuperar de desafios e traumas.",
+            image: "https://images.unsplash.com/photo-1528716321680-815a8cdb8cbe?w=800&auto=format&fit=crop&q=60",
+            category: "Psicologia",
+            readTime: "8 min",
+            url: "https://exemplo.com/resiliencia"
+          }
+        ];
+        setNews(mockNews);
+
+        // Get daily pill
+        setDailyPill(getPillOfDay());
+
+        // Gamification: Update streak and add XP for opening app
+        await updateStreak(user.uid);
+        await addXp(user.uid, XP_ACTIONS.OPEN_APP);
 
         // Get next appointment
         unsubAppointments = userService.getMyAppointments((apps) => {
@@ -114,6 +218,19 @@ export default function DashboardPaciente() {
     if (hour < 18) return "Boa tarde";
     return "Boa noite";
   };
+
+  const handleReadPill = async () => {
+    if (!pillRead && auth.currentUser) {
+      await addXp(auth.currentUser.uid, XP_ACTIONS.READ_PILL);
+      setPillRead(true);
+    }
+  };
+
+  const currentLevel = userProfile?.xp ? getLevelByXp(userProfile.xp) : LEVELS[0];
+  const nextLevel = userProfile?.xp ? getNextLevel(userProfile.xp) : LEVELS[1];
+  const progress = (userProfile?.xp && nextLevel) 
+    ? ((userProfile.xp - currentLevel.minXp) / (nextLevel.minXp - currentLevel.minXp)) * 100 
+    : 100;
 
   if (loading) {
     return (
@@ -184,6 +301,122 @@ export default function DashboardPaciente() {
       </header>
 
       <main className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 sm:space-y-8">
+        {/* Gamification Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          <motion.div 
+            whileHover={{ y: -2 }}
+            className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 flex items-center gap-3 shadow-sm"
+          >
+            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-500/20 rounded-2xl flex items-center justify-center text-orange-600 dark:text-orange-400">
+              <Zap className="w-6 h-6 fill-current" />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Streak</p>
+              <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{userProfile?.streak || 0} dias</p>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            whileHover={{ y: -2 }}
+            className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 flex items-center gap-3 shadow-sm"
+          >
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-500/20 rounded-2xl flex items-center justify-center text-purple-600 dark:text-purple-400">
+              <Sparkles className="w-6 h-6 fill-current" />
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Nível</p>
+              <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{userProfile?.level || 'Iniciante'}</p>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Progress Bar */}
+        {nextLevel && (
+          <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 shadow-sm space-y-2">
+            <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              <span>Progresso para {nextLevel.name}</span>
+              <span>{userProfile?.xp || 0} / {nextLevel.minXp} XP</span>
+            </div>
+            <div className="h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                className="h-full bg-emerald-500 rounded-full"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Daily Pill */}
+        {dailyPill && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden group"
+          >
+            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
+              <Sparkles size={120} className="text-emerald-500" />
+            </div>
+            
+            <div className="relative z-10 space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="px-4 py-1.5 bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                  Pílula do Dia • {dailyPill.fase}
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium">Dia {dailyPill.dia} de 365</div>
+              </div>
+
+              <div className="space-y-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                  "{dailyPill.frase}"
+                </h2>
+                
+                <div className="space-y-4 pt-2">
+                  <div className="flex gap-4">
+                    <div className="w-1 bg-emerald-500/30 rounded-full" />
+                    <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed italic">
+                      {dailyPill.reflexao}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Zap size={14} className="text-amber-500 fill-current" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Ação Sugerida</span>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 text-sm font-medium">
+                      {dailyPill.acao}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                <button 
+                  onClick={handleReadPill}
+                  disabled={pillRead}
+                  className={cn(
+                    "flex-1 py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2",
+                    pillRead 
+                      ? "bg-slate-100 dark:bg-white/5 text-slate-400 cursor-default"
+                      : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20"
+                  )}
+                >
+                  {pillRead ? <Check className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                  {pillRead ? "Pílula Absorvida" : "Absorver Pílula (+3 XP)"}
+                </button>
+                <button 
+                  onClick={() => navigate("/reset")}
+                  className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Fazer ReSet Agora
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* Notification Prompt */}
         {notificationPermission === 'default' && (
           <motion.div 
@@ -218,7 +451,7 @@ export default function DashboardPaciente() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-amber-500 dark:bg-amber-600 rounded-[2rem] p-6 text-white shadow-xl shadow-amber-500/20 relative overflow-hidden"
           >
-            <div className="relative z-10 flex items-center justify-between gap-4">
+            <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <Calendar className="w-5 h-5 text-amber-100" />
@@ -229,15 +462,24 @@ export default function DashboardPaciente() {
                   Sua sessão com {appointmentToRemind.therapistNome} é amanhã às {new Date(appointmentToRemind.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}.
                 </p>
               </div>
-              <button 
-                onClick={() => {
-                  userService.markAppointmentReminded(appointmentToRemind.id);
-                  setAppointmentToRemind(null);
-                }}
-                className="px-6 py-3 bg-white text-amber-600 rounded-2xl font-bold text-sm hover:bg-amber-50 transition-colors shadow-lg shadow-black/5"
-              >
-                Ciente
-              </button>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <button 
+                  onClick={() => {
+                    userService.updateAppointmentStatus(appointmentToRemind.id, 'confirmed');
+                    userService.markAppointmentReminded(appointmentToRemind.id);
+                    setAppointmentToRemind(null);
+                  }}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-white text-amber-600 rounded-xl font-bold text-xs hover:bg-amber-50 transition-colors shadow-lg shadow-black/5"
+                >
+                  Confirmar
+                </button>
+                <button 
+                  onClick={() => navigate(`/agendamento/${appointmentToRemind.therapistId}`)}
+                  className="flex-1 sm:flex-none px-4 py-2 bg-amber-400/30 text-white rounded-xl font-bold text-xs hover:bg-amber-400/40 transition-colors border border-white/20"
+                >
+                  Reagendar
+                </button>
+              </div>
             </div>
             <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
           </motion.div>
@@ -453,11 +695,23 @@ export default function DashboardPaciente() {
           </motion.section>
         )}
 
+        {/* Guided Direction - Especialidades */}
+        <section className="space-y-4">
+          <div className="px-2">
+            <h3 className="text-xl font-medium text-slate-800 dark:text-slate-200">Como você está se sentindo?</h3>
+            <p className="text-sm text-slate-500">Escolha um tema para direcionamento guiado</p>
+          </div>
+          <Especialidades 
+            selecionada="" 
+            onSelecionar={(e) => navigate(`/profissionais?tipo=${e}`)} 
+          />
+        </section>
+
         {/* Marketplace / Terapeutas Online Section */}
         <section className="space-y-4">
           <div className="flex justify-between items-end px-2">
             <div>
-              <h3 className="text-xl font-medium text-slate-800 dark:text-slate-200">Terapeutas Online</h3>
+              <h3 className="text-xl font-medium text-slate-800 dark:text-slate-200">Match Inteligente</h3>
               <p className="text-sm text-slate-500">Profissionais online agora</p>
             </div>
             <button 
@@ -474,7 +728,7 @@ export default function DashboardPaciente() {
                 key={prof.uid}
                 whileHover={{ x: 4 }}
                 onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm"
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm group"
               >
                 <div className="relative">
                   <img 
@@ -483,46 +737,97 @@ export default function DashboardPaciente() {
                     className="w-16 h-16 rounded-xl object-cover"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
+                  {prof.online && (
+                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-medium text-slate-800 dark:text-slate-200">{prof.nome}</h4>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400/80">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex items-center gap-0.5">
-                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">{prof.rating?.toFixed(1) || "5.0"}</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-600">•</span>
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">R$ {prof.preco || "150"}</span>
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-slate-800 dark:text-slate-200">{prof.nome}</h4>
+                    <StarRating rating={prof.rating || 4.8} count={prof.reviewCount || 124} />
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
+                  
+                  {/* DNA Tags */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {prof.estilo && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md border border-blue-500/10">
+                        {prof.estilo}
+                      </span>
+                    )}
+                    {prof.abordagem && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-md border border-purple-500/10">
+                        {prof.abordagem}
+                      </span>
+                    )}
+                    {prof.intensidade !== undefined && (
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-md border border-orange-500/10">
+                        {prof.intensidade}% Intensidade
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="mt-3 flex gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/agendamento/${prof.uid}`);
+                      }}
+                      className="flex-1 py-1.5 bg-emerald-600 dark:bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase tracking-wider hover:bg-emerald-500 transition-colors"
+                    >
+                      Agendar
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const numero = "5511999999999";
+                        const mensagem = encodeURIComponent(`Olá, vi seu perfil no ReSet PCH e gostaria de tirar uma dúvida.`);
+                        window.open(`https://wa.me/${numero}?text=${mensagem}`, "_blank");
+                      }}
+                      className="flex-1 py-1.5 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 text-[10px] font-bold rounded-lg uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-white/5"
+                    >
+                      Falar Direto
+                    </button>
                   </div>
                 </div>
-                <ArrowRight className="w-5 h-5 text-slate-400 dark:text-slate-700" />
+                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
               </motion.div>
             ))}
           </div>
         </section>
 
-        {/* Quick Links */}
+        {/* Quick Actions */}
         <section className="grid grid-cols-2 gap-4">
-          <button 
-            onClick={() => navigate("/triagem")}
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              const onlineTherapist = featuredTherapists.find(t => t.online);
+              if (onlineTherapist) {
+                navigate(`/agendamento/${onlineTherapist.uid}`);
+              } else {
+                navigate("/profissionais");
+              }
+            }}
+            className="bg-emerald-600 dark:bg-emerald-500 p-6 rounded-3xl text-white flex flex-col items-center gap-3 shadow-lg shadow-emerald-600/20 dark:shadow-emerald-900/40"
+          >
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+              <Zap className="w-6 h-6 fill-white" />
+            </div>
+            <span className="text-sm font-bold">SENTI Go</span>
+          </motion.button>
+          
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate("/profissionais")}
             className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 p-6 rounded-3xl flex flex-col items-center gap-3 hover:border-emerald-500/30 transition-all shadow-sm"
           >
-            <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center">
-              <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center">
+              <Search className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Nova Triagem</span>
-          </button>
-          <button 
-            onClick={() => navigate("/diario")}
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 p-6 rounded-3xl flex flex-col items-center gap-3 hover:border-emerald-500/30 transition-all shadow-sm"
-          >
-            <div className="w-12 h-12 bg-blue-50 dark:bg-blue-500/10 rounded-2xl flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Meu Diário</span>
-          </button>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Explorar</span>
+          </motion.button>
         </section>
 
         {/* Emergency Call */}
@@ -533,6 +838,47 @@ export default function DashboardPaciente() {
           <Zap className="w-4 h-4" />
           Protocolo de Crise
         </button>
+
+        {/* News Section */}
+        <section className="space-y-6 pt-4">
+          <div className="flex justify-between items-end px-2">
+            <div>
+              <h3 className="text-xl font-medium text-slate-800 dark:text-slate-200">Conteúdo para você</h3>
+              <p className="text-sm text-slate-500">Artigos e dicas para seu bem-estar</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            {news.slice(0, visibleNewsCount).map((item, index) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <NewsCard 
+                  {...item} 
+                  onConnect={(id) => navigate(`/agendamento/${id}`)}
+                  onViewProfile={(id) => navigate(`/terapeuta-perfil/${id}`)}
+                />
+              </motion.div>
+            ))}
+          </div>
+
+          <div ref={observerTarget} className="h-4 w-full" />
+
+          {visibleNewsCount < news.length && (
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={loadMoreNews}
+                className="px-8 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl text-emerald-600 dark:text-emerald-400 font-bold text-sm shadow-sm hover:border-emerald-500/30 transition-all flex items-center gap-2"
+              >
+                Carregar mais artigos
+                <ArrowRight className="w-4 h-4 rotate-90" />
+              </button>
+            </div>
+          )}
+        </section>
       </main>
 
       {/* Bottom Navigation */}

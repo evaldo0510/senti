@@ -60,6 +60,28 @@ export const userService = {
     });
   },
 
+  getDiaryEntries: (callback: (entries: any[]) => void) => {
+    const user = auth.currentUser;
+    if (!user) return () => {};
+
+    const path = 'diary_entries';
+    const q = query(
+      collection(db, path),
+      where("userId", "==", user.uid),
+      orderBy("timestamp", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const entries = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      callback(entries);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path);
+    });
+  },
+
   getUser: async (uid: string): Promise<UserProfile | null> => {
     const path = `users/${uid}`;
     try {
@@ -227,6 +249,32 @@ export const userService = {
     }
   },
 
+  createManualEvolution: async (patientId: string, patientNome: string, notes: string, riskLevel: Appointment['riskLevel']) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Not authenticated");
+
+    const path = 'appointments';
+    try {
+      const newEvolution = {
+        patientId,
+        patientNome,
+        therapistId: user.uid,
+        therapistNome: user.displayName || "Terapeuta",
+        date: new Date().toISOString(),
+        status: 'completed' as const,
+        notes,
+        riskLevel,
+        createdAt: new Date().toISOString(),
+        price: 0, // Manual entries might not have a price
+        reviewed: false
+      };
+      const docRef = await addDoc(collection(db, path), newEvolution);
+      return { id: docRef.id, ...newEvolution };
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  },
+
   toggleFavorite: async (userId: string, therapistId: string, isFavorited: boolean) => {
     const path = `users/${userId}`;
     try {
@@ -286,6 +334,47 @@ export const userService = {
     const path = `users/${uid}`;
     try {
       await updateDoc(doc(db, 'users', uid), { online });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  getPatientMoodHistory: async (patientId: string): Promise<MoodEntry[]> => {
+    const path = 'emotion_logs';
+    try {
+      const q = query(
+        collection(db, path),
+        where("userId", "==", patientId),
+        orderBy("timestamp", "desc")
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as MoodEntry[];
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  connectGoogleCalendar: async (uid: string) => {
+    const path = `users/${uid}`;
+    try {
+      await updateDoc(doc(db, 'users', uid), { googleCalendarConnected: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  connectEarnings: async (uid: string) => {
+    const path = `users/${uid}`;
+    try {
+      // Mocking earnings connection
+      await updateDoc(doc(db, 'users', uid), { 
+        totalEarnings: 1250.50,
+        pendingEarnings: 450.00
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

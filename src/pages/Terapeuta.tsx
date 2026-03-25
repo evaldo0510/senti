@@ -119,6 +119,18 @@ export default function Terapeuta() {
     }
   };
 
+  const handleConnectCalendar = async () => {
+    if (profile) {
+      await userService.connectGoogleCalendar(profile.uid);
+    }
+  };
+
+  const handleConnectEarnings = async () => {
+    if (profile) {
+      await userService.connectEarnings(profile.uid);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex text-slate-100 pb-24 lg:pb-0">
       {/* Sidebar - Desktop only */}
@@ -159,7 +171,7 @@ export default function Terapeuta() {
             )}
           >
             <Users className="w-5 h-5" />
-            Meus Pacientes
+            Gestão de Pacientes
           </button>
           <button 
             onClick={() => setActiveTab("historico")}
@@ -459,18 +471,99 @@ export default function Terapeuta() {
           )}
 
           {activeTab === 'agenda' && (
-            <div className="bg-slate-900 border border-white/5 p-12 rounded-3xl text-center">
-              <Calendar className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-slate-200 mb-2">Sua Agenda em Breve</h3>
-              <p className="text-slate-400">Estamos finalizando a integração com o Google Calendar e iCal.</p>
+            <div className="space-y-8">
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-blue-500/10 rounded-2xl">
+                    <Calendar className="w-8 h-8 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-200">Google Calendar</h3>
+                    <p className="text-slate-400 text-sm">Sincronize sua agenda profissional automaticamente.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleConnectCalendar}
+                  className={cn(
+                    "px-8 py-4 rounded-2xl font-bold transition-all flex items-center gap-2",
+                    profile?.googleCalendarConnected 
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                      : "bg-white text-slate-900 hover:bg-slate-100"
+                  )}
+                >
+                  {profile?.googleCalendarConnected ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      Conectado
+                    </>
+                  ) : (
+                    "Conectar Agenda"
+                  )}
+                </button>
+              </div>
+
+              <div className="bg-slate-900 border border-white/5 p-12 rounded-3xl text-center">
+                <Clock className="w-16 h-16 text-slate-700 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-slate-200 mb-2">Visualização da Agenda</h3>
+                <p className="text-slate-400">Sua agenda semanal aparecerá aqui após a conexão.</p>
+              </div>
             </div>
           )}
 
           {activeTab === 'pacientes' && (
-            <div className="bg-slate-900 border border-white/5 p-12 rounded-3xl text-center">
-              <Users className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-              <h3 className="text-xl font-medium text-slate-200 mb-2">Gestão de Pacientes</h3>
-              <p className="text-slate-400">Aqui você poderá ver o histórico e evolução de cada paciente.</p>
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-bold text-slate-200">Seus Pacientes Ativos</h3>
+                <div className="text-sm text-slate-500">Total: {Array.from(new Set(appointments.map(a => a.patientId))).length}</div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Array.from(new Set(appointments.map(a => a.patientId))).map(patientId => {
+                  const patientApps = appointments.filter(a => a.patientId === patientId);
+                  const lastApp = patientApps[0];
+                  const completedCount = patientApps.filter(a => a.status === 'completed').length;
+                  
+                  return (
+                    <motion.div 
+                      key={patientId}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-all"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-xl font-bold text-emerald-400 border border-white/5">
+                          {lastApp.patientNome?.charAt(0) || "P"}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-slate-100">{lastApp.patientNome}</h4>
+                          <p className="text-xs text-slate-500">{completedCount} sessões realizadas</p>
+                        </div>
+                        <button className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+                          <MessageCircle className="w-5 h-5 text-slate-400" />
+                        </button>
+                      </div>
+                      
+                      <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Status</div>
+                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full uppercase">Em Tratamento</span>
+                      </div>
+                      
+                      <button 
+                        onClick={() => navigate(`/terapeuta/paciente/${patientId}`)}
+                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                      >
+                        Ver Prontuário Completo
+                      </button>
+                    </motion.div>
+                  );
+                })}
+                {appointments.length === 0 && (
+                  <div className="col-span-full bg-slate-900/50 border border-dashed border-white/10 p-12 rounded-3xl text-center">
+                    <Users className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                    <p className="text-slate-500">Você ainda não tem pacientes vinculados.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -552,27 +645,42 @@ export default function Terapeuta() {
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Preço Base</p>
-                  <p className="text-2xl font-bold text-slate-300">R$ {profile?.preco || 0}</p>
-                  <p className="text-[10px] text-slate-500">Valor padrão da sessão</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Disponível</p>
+                  <p className="text-2xl font-bold text-emerald-400">R$ {profile?.totalEarnings?.toFixed(2) || "0.00"}</p>
+                  <p className="text-[10px] text-slate-500">Pronto para saque</p>
                 </div>
-                {profile?.desconto && profile.desconto > 0 && (
-                  <div className="bg-emerald-900/10 border border-emerald-500/20 p-6 rounded-3xl space-y-2">
-                    <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Desconto Ativo</p>
-                    <p className="text-2xl font-bold text-emerald-400">{profile.desconto}%</p>
-                    <p className="text-[10px] text-emerald-500/60">Redução para o cliente</p>
-                  </div>
-                )}
+                <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">A Receber</p>
+                  <p className="text-2xl font-bold text-amber-400">R$ {profile?.pendingEarnings?.toFixed(2) || "0.00"}</p>
+                  <p className="text-[10px] text-slate-500">Sessões em processamento</p>
+                </div>
                 <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Seu Payout</p>
                   <p className="text-2xl font-bold text-emerald-400">R$ {((profile?.preco || 0) * (1 - (profile?.desconto || 0) / 100)).toFixed(2)}</p>
-                  <p className="text-[10px] text-slate-500">O que você recebe de fato</p>
+                  <p className="text-[10px] text-slate-500">Por sessão realizada</p>
                 </div>
-                <div className="bg-emerald-900/20 border border-emerald-500/20 p-6 rounded-3xl space-y-2">
-                  <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Total Cliente</p>
-                  <p className="text-2xl font-bold text-slate-100">R$ {(((profile?.preco || 0) * (1 - (profile?.desconto || 0) / 100)) * 1.10).toFixed(2)}</p>
-                  <p className="text-[10px] text-emerald-500/60">Valor final no checkout</p>
+                <div className="bg-emerald-600 rounded-3xl p-6 flex flex-col justify-center items-center text-center shadow-lg shadow-emerald-900/20 cursor-pointer hover:bg-emerald-500 transition-all">
+                  <DollarSign className="w-6 h-6 text-white mb-1" />
+                  <p className="text-xs font-bold text-white uppercase tracking-widest">Solicitar Saque</p>
                 </div>
+              </div>
+
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-purple-500/10 rounded-2xl">
+                    <TrendingUp className="w-8 h-8 text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-200">Conexão Bancária</h3>
+                    <p className="text-slate-400 text-sm">Receba seus ganhos diretamente em sua conta via PIX ou TED.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleConnectEarnings}
+                  className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-bold hover:bg-slate-100 transition-all"
+                >
+                  Configurar Recebimento
+                </button>
               </div>
 
               <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl">
@@ -655,17 +763,43 @@ export default function Terapeuta() {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-white/5">
                 <div className="space-y-3">
-                  <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">E-mail Profissional</label>
-                  <div className="p-4 bg-slate-950 rounded-2xl border border-white/5 text-slate-300 font-medium">{profile?.email}</div>
+                  <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">DNA Terapêutico</label>
+                  <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-400">Intensidade</span>
+                      <span className="text-xs font-bold text-emerald-400">{profile?.intensidade || 50}%</span>
+                    </div>
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500" style={{ width: `${profile?.intensidade || 50}%` }} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Estilo</p>
+                        <p className="text-sm text-slate-200 capitalize">{profile?.estilo || "Acolhedor"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Abordagem</p>
+                        <p className="text-sm text-slate-200">{profile?.abordagem || "TCC"}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Valor da Sessão</label>
-                  <div className="p-4 bg-slate-950 rounded-2xl border border-white/5 text-slate-300 font-medium">R$ {profile?.preco}</div>
+                  <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-slate-200">R$ {profile?.preco}</p>
+                      <p className="text-xs text-slate-500">Taxa de desconto: {profile?.desconto || 0}%</p>
+                    </div>
+                    <div className="p-3 bg-emerald-500/10 rounded-2xl">
+                      <DollarSign className="w-6 h-6 text-emerald-400" />
+                    </div>
+                  </div>
                 </div>
                 <div className="md:col-span-2 space-y-3">
-                  <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Biografia</label>
-                  <div className="p-4 bg-slate-950 rounded-2xl border border-white/5 text-slate-300 leading-relaxed">
-                    {profile?.biografia || "Nenhuma biografia cadastrada. Adicione uma para que os pacientes conheçam melhor seu trabalho."}
+                  <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Biografia Profissional</label>
+                  <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 text-slate-300 leading-relaxed italic">
+                    "{profile?.biografia || "Nenhuma biografia cadastrada. Adicione uma para que os pacientes conheçam melhor seu trabalho."}"
                   </div>
                 </div>
               </div>

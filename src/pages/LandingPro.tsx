@@ -150,8 +150,8 @@ export default function LandingPro() {
               className="relative"
             >
               <h1 className="text-7xl md:text-[10vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[0.85] italic">
-                Onde sua dor <br />
-                <span className="text-emerald-700 font-bold not-italic">encontra pausa.</span>
+                Sua mente em <br />
+                <span className="text-emerald-700 font-bold not-italic">paz absoluta.</span>
               </h1>
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-200/40 rounded-full blur-3xl animate-pulse"></div>
             </motion.div>
@@ -162,8 +162,7 @@ export default function LandingPro() {
               transition={{ duration: 0.8, delay: 0.3 }}
               className="text-xl md:text-3xl text-[#4a4a4a] max-w-4xl mx-auto leading-relaxed font-light"
             >
-              A SENTI é o primeiro ecossistema de regulação emocional <br/>
-              que une IA clínica e conexão humana em tempo real.
+              A SENTI une a precisão da <span className="font-bold text-emerald-700">IA IARA</span> com o calor humano de <span className="font-bold text-emerald-700">especialistas renomados</span> para um acolhimento 24/7.
             </motion.p>
           </div>
 
@@ -174,19 +173,85 @@ export default function LandingPro() {
             className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8"
           >
             <button 
-              onClick={() => navigate("/reset")}
+              onClick={() => navigate("/login")}
               className="group w-full sm:w-auto px-12 py-6 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[32px] text-2xl font-bold transition-all hover:scale-105 flex items-center justify-center gap-4 shadow-[0_20px_40px_-10px_rgba(5,150,105,0.3)] active:scale-95"
             >
-              <RefreshCw className="w-6 h-6" />
-              ReSet Emocional
+              <UserPlus className="w-6 h-6" />
+              Criar Conta Grátis
             </button>
             <button 
               onClick={() => navigate("/profissionais")}
               className="w-full sm:w-auto px-10 py-5 bg-white hover:bg-slate-50 text-slate-700 rounded-[32px] text-lg font-bold transition-all flex items-center justify-center gap-3 border border-slate-200 shadow-sm group"
             >
               <Users className="w-5 h-5" />
-              Terapeutas Online
+              Ver Especialistas
             </button>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* DIFERENCIAL IARA */}
+      <section className="py-32 px-6 bg-white relative z-10">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-20 items-center">
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="space-y-8"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-widest">
+              Tecnologia Exclusiva
+            </div>
+            <h2 className="text-5xl md:text-7xl font-serif italic text-[#1a1a1a] leading-tight">
+              Conheça a <span className="text-emerald-700 font-bold not-italic">IARA</span>
+            </h2>
+            <p className="text-xl text-[#4a4a4a] font-light leading-relaxed">
+              Não é apenas um chatbot. A IARA é uma Interface de Acolhimento com Resposta Ativa, treinada em protocolos clínicos para oferecer suporte empático e triagem inteligente no momento exato da sua necessidade.
+            </p>
+            <ul className="space-y-4">
+              {[
+                "Disponível 24 horas por dia, 7 dias por semana",
+                "Escuta ativa e validação emocional sem julgamentos",
+                "Triagem clínica baseada no protocolo de Manchester",
+                "Conexão imediata com terapeutas em casos críticos"
+              ].map((item, i) => (
+                <li key={i} className="flex items-center gap-3 text-[#4a4a4a]">
+                  <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                  </div>
+                  <span className="font-medium">{item}</span>
+                </li>
+              ))}
+            </ul>
+            <button 
+              onClick={() => navigate("/chat")}
+              className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all flex items-center gap-2 group"
+            >
+              Conversar com IARA <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
+            </button>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="relative"
+          >
+            <div className="aspect-square bg-emerald-50 rounded-[64px] overflow-hidden relative">
+              <img 
+                src="https://images.unsplash.com/photo-1531746790731-6c087fecd05a?w=800&auto=format&fit=crop&q=60" 
+                alt="IARA AI Interface" 
+                className="w-full h-full object-cover mix-blend-multiply opacity-80"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/40 to-transparent"></div>
+              <div className="absolute bottom-10 left-10 right-10 bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-white/20 shadow-2xl">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-bold text-emerald-700 uppercase tracking-widest">IARA Online</span>
+                </div>
+                <p className="text-sm font-medium text-slate-800 italic">"Estou aqui para ouvir você. Como seu coração se sente hoje?"</p>
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -283,6 +348,84 @@ export default function LandingPro() {
               <div className="text-sm md:text-base text-emerald-100 uppercase tracking-widest font-bold">{stat.label}</div>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* COMO PODEMOS AJUDAR - CAROUSEL */}
+      <section className="py-32 px-6 bg-white relative z-10 overflow-hidden">
+        <div className="max-w-7xl mx-auto space-y-16">
+          <div className="text-center space-y-6">
+            <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
+              Como podemos <span className="text-emerald-700 font-bold not-italic">ajudar você?</span>
+            </h2>
+            <p className="text-xl text-[#4a4a4a] font-light max-w-2xl mx-auto">
+              Soluções personalizadas para cada momento da sua jornada emocional.
+            </p>
+          </div>
+
+          <div className="relative">
+            <motion.div 
+              className="flex gap-8 overflow-x-auto pb-12 scrollbar-hide snap-x snap-mandatory"
+              initial={{ x: 100, opacity: 0 }}
+              whileInView={{ x: 0, opacity: 1 }}
+              viewport={{ once: true }}
+            >
+              {[
+                {
+                  title: "Ansiedade e Pânico",
+                  desc: "Ferramentas de ReSet imediato e acompanhamento com especialistas em transtornos de ansiedade.",
+                  icon: Zap,
+                  color: "bg-amber-50 text-amber-600"
+                },
+                {
+                  title: "Burnout e Estresse",
+                  desc: "Programas para empresas e indivíduos focados em saúde mental no trabalho e equilíbrio emocional.",
+                  icon: Activity,
+                  color: "bg-emerald-50 text-emerald-600"
+                },
+                {
+                  title: "Luto e Perdas",
+                  desc: "Acolhimento humanizado e grupos de apoio para atravessar momentos de perda com suporte especializado.",
+                  icon: Heart,
+                  color: "bg-rose-50 text-rose-600"
+                },
+                {
+                  title: "Foco e Performance",
+                  desc: "Treinamento em mindfulness e regulação emocional para melhorar sua produtividade e clareza mental.",
+                  icon: Brain,
+                  color: "bg-blue-50 text-blue-600"
+                },
+                {
+                  title: "Relacionamentos",
+                  desc: "Terapia individual ou de casal para desenvolver comunicação não-violenta e inteligência interpessoal.",
+                  icon: Users,
+                  color: "bg-purple-50 text-purple-600"
+                }
+              ].map((item, i) => (
+                <motion.div 
+                  key={i}
+                  className="min-w-[300px] md:min-w-[400px] p-10 bg-[#f5f5f0]/50 rounded-[40px] border border-black/5 snap-center space-y-6 hover:bg-white hover:shadow-xl transition-all"
+                  whileHover={{ y: -10 }}
+                >
+                  <div className={`w-16 h-16 rounded-2xl ${item.color} flex items-center justify-center`}>
+                    <item.icon className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-[#1a1a1a]">{item.title}</h3>
+                  <p className="text-[#4a4a4a] leading-relaxed font-light">{item.desc}</p>
+                  <button className="text-emerald-700 font-bold flex items-center gap-2 group">
+                    Saiba mais <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" />
+                  </button>
+                </motion.div>
+              ))}
+            </motion.div>
+            
+            {/* Carousel Indicators */}
+            <div className="flex justify-center gap-2 mt-4">
+              {[0, 1, 2, 3, 4].map((_, i) => (
+                <div key={i} className={`w-2 h-2 rounded-full ${i === 0 ? 'bg-emerald-600' : 'bg-slate-200'}`}></div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 

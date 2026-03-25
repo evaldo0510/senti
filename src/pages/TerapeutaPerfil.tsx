@@ -189,24 +189,24 @@ export default function TerapeutaPerfil() {
               <div className="space-y-3">
                 <button 
                   onClick={() => navigate(`/agendamento/${terapeuta.uid}`)}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
                 >
                   <Calendar className="w-5 h-5" />
-                  Agendar Sessão
+                  Agendar Horário
+                </button>
+                <button 
+                  onClick={() => navigate(`/agendamento/${terapeuta.uid}?instant=true`)}
+                  className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                >
+                  <Video className="w-5 h-5 text-emerald-500" />
+                  Atender Agora
                 </button>
                 <button 
                   onClick={falarWhatsApp}
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
                 >
-                  <MessageCircle className="w-5 h-5 text-emerald-500" />
-                  Falar agora
-                </button>
-                <button 
-                  onClick={handleMensagemRapida}
-                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-5 h-5 text-blue-500" />
-                  Mensagem Rápida
+                  <MessageCircle className="w-4 h-4 text-emerald-500/50" />
+                  Falar no WhatsApp
                 </button>
               </div>
             </motion.div>

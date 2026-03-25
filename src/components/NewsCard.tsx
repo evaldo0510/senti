@@ -1,29 +1,71 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Share2, Check, ExternalLink } from 'lucide-react';
+import { Share2, Check, ExternalLink, UserPlus } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export interface NewsCardProps {
+  id: string;
   title?: string;
   description?: string;
   imageUrl?: string;
+  image?: string; // Alias for imageUrl
   date?: string;
   url?: string;
   loading?: boolean;
+  therapistName?: string;
+  therapistId?: string;
+  isOnline?: boolean;
+  onConnect?: (therapistId: string) => void;
+  onViewProfile?: (therapistId: string) => void;
 }
 
 export const NewsCard: React.FC<NewsCardProps> = ({
+  id,
   title,
   description,
   imageUrl,
+  image,
   date,
   url,
   loading = false,
+  therapistName,
+  therapistId,
+  isOnline,
+  onConnect,
+  onViewProfile,
 }) => {
+  const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const finalImageUrl = imageUrl || image;
+
+  const handleConnect = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (therapistId) {
+      if (onConnect) {
+        onConnect(therapistId);
+      } else {
+        navigate(`/agendamento/${therapistId}`);
+      }
+    }
+  };
+
+  const handleViewProfile = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (therapistId) {
+      if (onViewProfile) {
+        onViewProfile(therapistId);
+      } else {
+        navigate(`/terapeuta-perfil/${therapistId}`);
+      }
+    }
+  };
 
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -122,13 +164,13 @@ export const NewsCard: React.FC<NewsCardProps> = ({
         </button>
       )}
 
-      {imageUrl && (
+      {finalImageUrl && (
         <div className="w-full h-48 overflow-hidden relative bg-brand-text/5">
           {!imageLoaded && (
             <div className="absolute inset-0 animate-shimmer" />
           )}
           <img 
-            src={imageUrl} 
+            src={finalImageUrl} 
             alt={title} 
             onLoad={() => setImageLoaded(true)}
             className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
@@ -137,22 +179,62 @@ export const NewsCard: React.FC<NewsCardProps> = ({
         </div>
       )}
 
-      <div className={`p-6 flex-1 flex flex-col ${!imageUrl ? 'justify-center min-h-[250px]' : ''}`}>
+      <div className={`p-6 flex-1 flex flex-col ${!finalImageUrl ? 'justify-center min-h-[250px]' : ''}`}>
         {formattedDate && (
-          <span className={`font-bold uppercase tracking-widest text-emerald-500 mb-3 block ${!imageUrl ? 'text-sm' : 'text-[10px]'}`}>
+          <span className={`font-bold uppercase tracking-widest text-emerald-500 mb-3 block ${!finalImageUrl ? 'text-sm' : 'text-[10px]'}`}>
             {formattedDate}
           </span>
         )}
         
         {title && (
-          <h3 className={`font-bold text-brand-text mb-4 leading-tight group-hover:text-emerald-400 transition-colors duration-300 ${!imageUrl ? 'text-2xl' : 'text-lg line-clamp-2'}`}>
+          <h3 className={`font-bold text-brand-text mb-4 leading-tight group-hover:text-emerald-400 transition-colors duration-300 ${!finalImageUrl ? 'text-2xl' : 'text-lg line-clamp-2'}`}>
             {title}
           </h3>
         )}
 
+        {/* Therapist Info */}
+        {therapistName && (
+          <div className="flex items-center justify-between mb-4 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-white/5">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <div className="w-8 h-8 bg-emerald-100 dark:bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                  {therapistName[0]}
+                </div>
+                {isOnline && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
+                )}
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  {therapistName}
+                  {isOnline && <span className="text-[8px] text-emerald-500 uppercase tracking-tighter">Online</span>}
+                </span>
+                <span className="text-[9px] text-slate-400 uppercase tracking-widest">Especialista</span>
+              </div>
+            </div>
+            {therapistId && (
+              <div className="flex gap-1">
+                <button 
+                  onClick={handleViewProfile}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold transition-all border border-slate-200 dark:border-white/5"
+                >
+                  Perfil
+                </button>
+                <button 
+                  onClick={handleConnect}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-bold transition-all shadow-sm flex items-center gap-1"
+                >
+                  <UserPlus size={10} />
+                  Conectar
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="relative flex-1 flex flex-col">
           {description && (
-            <p className={`text-brand-text/70 transition-all duration-300 ${!imageUrl ? 'text-base' : 'text-sm'} ${isExpanded ? '' : 'line-clamp-3'}`}>
+            <p className={`text-brand-text/70 transition-all duration-300 ${!finalImageUrl ? 'text-base' : 'text-sm'} ${isExpanded ? '' : 'line-clamp-3'}`}>
               {description}
             </p>
           )}
@@ -167,14 +249,19 @@ export const NewsCard: React.FC<NewsCardProps> = ({
               </button>
               
               {url && !isExpanded && (
-                <a 
-                  href={url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-[10px] text-brand-text/40 hover:text-emerald-500 flex items-center gap-1 transition-colors"
-                >
-                  <ExternalLink size={10} /> Notícia completa
-                </a>
+                <div className="relative group/tooltip">
+                  <a 
+                    href={url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-brand-text/40 hover:text-emerald-500 flex items-center gap-1 transition-colors"
+                  >
+                    <ExternalLink size={10} /> Notícia completa
+                  </a>
+                  <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-slate-900 text-white text-[8px] rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 border border-white/10 shadow-xl">
+                    {url}
+                  </div>
+                </div>
               )}
             </div>
           )}

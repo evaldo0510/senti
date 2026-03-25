@@ -18,15 +18,15 @@ import { DirectMessage } from "../types";
 import { cryptoService } from './cryptoService';
 
 export const chatService = {
-  sendMessage: async (appointmentId: string, senderId: string, receiverId: string, text: string) => {
+  sendMessage: async (appointmentId: string, senderId: string, receiverId: string, text: string, secret?: string) => {
     const path = 'messages';
     try {
-      const encryptedText = await cryptoService.encrypt(text, appointmentId);
+      const encryptedText = secret ? await cryptoService.encrypt(text, secret) : text;
       const messageData = {
         senderId,
         receiverId,
         text: encryptedText,
-        encrypted: true,
+        encrypted: !!secret,
         timestamp: serverTimestamp(),
         appointmentId: appointmentId || null,
         read: false
@@ -106,7 +106,7 @@ export const chatService = {
     });
   },
 
-  listenMessagesByAppointment: (appointmentId: string, callback: (messages: DirectMessage[]) => void) => {
+  listenMessagesByAppointment: (appointmentId: string, secret: string | undefined, callback: (messages: DirectMessage[]) => void) => {
     const path = 'messages';
     const q = query(
       collection(db, path),
@@ -118,8 +118,8 @@ export const chatService = {
       const messages = await Promise.all(snapshot.docs.map(async doc => {
         const data = doc.data();
         let text = data.text;
-        if (data.encrypted) {
-          text = await cryptoService.decrypt(text, appointmentId);
+        if (data.encrypted && secret) {
+          text = await cryptoService.decrypt(text, secret);
         }
         return {
           id: doc.id,

@@ -53,6 +53,8 @@ async function startServer() {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const appointmentId = session.metadata?.appointmentId;
+      const userId = session.metadata?.userId;
+      const productType = session.metadata?.productType;
 
       if (appointmentId) {
         console.log(`Confirming appointment: ${appointmentId}`);
@@ -64,6 +66,18 @@ async function startServer() {
           });
         } catch (error) {
           console.error("Error updating appointment:", error);
+        }
+      }
+
+      if (productType === "journey_21_days" && userId) {
+        console.log(`Activating premium for user: ${userId}`);
+        try {
+          await db.collection("users").doc(userId).update({
+            isPremium: true,
+            premiumSince: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("Error updating user premium status:", error);
         }
       }
     }
@@ -150,7 +164,7 @@ async function startServer() {
 
     try {
       const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
+        payment_method_types: ["card", "pix"],
         line_items: [
           {
             price_data: {
@@ -180,6 +194,61 @@ async function startServer() {
       res.json({ url: session.url });
     } catch (error: any) {
       console.error("Stripe error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/create-journey-checkout-session", async (req, res) => {
+    const { userId, userEmail } = req.body;
+
+    if (!stripe) {
+      console.log("Stripe not configured, using mock success for journey");
+      if (userId) {
+        try {
+          await db.collection("users").doc(userId).update({
+            isPremium: true,
+            premiumSince: new Date().toISOString()
+          });
+        } catch (error) {
+          console.error("Error updating mock user premium:", error);
+        }
+      }
+      return res.json({ 
+        url: `${process.env.APP_URL || 'http://localhost:3000'}/reset21?success=true`,
+        mock: true 
+      });
+    }
+
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card", "pix"],
+        customer_email: userEmail,
+        line_items: [
+          {
+            price_data: {
+              currency: "brl",
+              product_data: {
+                name: "ReSet Emocional — 21 Dias",
+                description: "Protocolo guiado de reprogramação emocional com áudios da IARA e exercícios práticos.",
+                images: ["https://ais-dev-ut4rkwmwg2rhaa2m3b3zm7-16381127341.us-west2.run.app/logo192.png"],
+              },
+              unit_amount: 2990, // R$ 29,90
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        success_url: `${process.env.APP_URL || 'http://localhost:3000'}/reset21?success=true`,
+        cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/reset-21/sales`,
+        metadata: {
+          userId,
+          productType: "journey_21_days"
+        }
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error("Stripe journey error:", error);
       res.status(500).json({ error: error.message });
     }
   });

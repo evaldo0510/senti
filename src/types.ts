@@ -44,6 +44,9 @@ export interface Appointment {
   createdAt: string;
   reviewed?: boolean;
   reminded?: boolean;
+  therapistPhone?: string;
+  patientPhone?: string;
+  sharedSecret?: string; // For E2EE chat
 }
 
 export interface DirectMessage {
@@ -78,6 +81,7 @@ export interface UserProfile {
   uid: string;
   nome: string;
   email: string;
+  telefone?: string;
   tipo: UserType;
   createdAt: string;
   // Campos para terapeutas
@@ -89,11 +93,40 @@ export interface UserProfile {
   videoUrl?: string;
   cidade?: string;
   rating?: number;
+  reviewCount?: number;
   avaliacoes?: Avaliacao[];
   online?: boolean;
   desconto?: number; // Porcentagem de desconto (0-100)
   latitude?: number;
   longitude?: number;
+  // Campos para terapeutas (DNA Profissional)
+  intensidade?: number; // 0-100
+  estilo?: 'acolhedor' | 'provocador' | 'analitico' | 'pratico';
+  abordagem?: string;
+  googleCalendarConnected?: boolean;
+  totalEarnings?: number;
+  pendingEarnings?: number;
   // Campos para pacientes
   favoritos?: string[]; // Array of therapist UIDs
+  // Gamification
+  xp?: number;
+  streak?: number;
+  level?: string;
+  lastActive?: string; // ISO date
+  achievements?: string[];
+  isPremium?: boolean;
+  journeyProgress?: number; // Current day in the 21-day journey
+}
+
+export interface NewsCardProps {
+  id: string;
+  title: string;
+  description: string;
+  image: string;
+  category: string;
+  readTime: string;
+  url: string;
+  therapistName?: string;
+  therapistId?: string;
+  isOnline?: boolean;
 }

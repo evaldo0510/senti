@@ -13,6 +13,9 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     fotoUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300&h=300',
     rating: 4.9,
     online: true,
+    intensidade: 40,
+    estilo: 'acolhedor',
+    abordagem: 'TCC',
     latitude: -23.5505,
     longitude: -46.6333,
     avaliacoes: [
@@ -31,6 +34,9 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     fotoUrl: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=300&h=300',
     rating: 4.7,
     online: true,
+    intensidade: 80,
+    estilo: 'provocador',
+    abordagem: 'Psicanalise',
     latitude: -23.5555,
     longitude: -46.6383,
     avaliacoes: []
@@ -47,6 +53,9 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     fotoUrl: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=300&h=300',
     rating: 4.8,
     online: false,
+    intensidade: 60,
+    estilo: 'analitico',
+    abordagem: 'Humanista',
     latitude: -23.5605,
     longitude: -46.6433,
     avaliacoes: []

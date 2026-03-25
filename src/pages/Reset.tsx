@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, RefreshCw, Calendar } from "lucide-react";
 import { auth } from "../services/firebase";
 import { salvarDadosAnalytics } from "../services/analyticsService";
+import { addXp, XP_ACTIONS } from "../services/gamificationService";
 
 const etapas = [
   "O que você está sentindo agora?",
@@ -41,6 +42,9 @@ export default function Reset() {
     setMensagemIara(respostaReset(step));
     
     if (step + 1 >= etapas.length) {
+      if (auth.currentUser) {
+        addXp(auth.currentUser.uid, XP_ACTIONS.DO_RESET);
+      }
       salvarDadosAnalytics({
         usuario: auth.currentUser?.displayName || "Anônimo",
         humor: 5,

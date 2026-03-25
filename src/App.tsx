@@ -22,6 +22,7 @@ import Emergencia from "./pages/Emergencia";
 import TerapeutaSetup from "./pages/TerapeutaSetup";
 import Atendimento from "./pages/Atendimento";
 import Registro from "./pages/Registro";
+import ProntuarioPaciente from "./pages/ProntuarioPaciente";
 import TerapeutaPerfil from "./pages/TerapeutaPerfil";
 import LiveIARA from "./pages/LiveIARA";
 import Perfil from "./pages/Perfil";
@@ -29,6 +30,8 @@ import Clinica from "./pages/Clinica";
 import Hospital from "./pages/Hospital";
 import Reset from "./pages/Reset";
 import Reset21 from "./pages/Reset21";
+import Reset21Day from "./pages/Reset21Day";
+import Reset21Sales from "./pages/Reset21Sales";
 
 function App() {
   return (
@@ -40,6 +43,8 @@ function App() {
             <Route path="/home" element={<DashboardPaciente />} />
             <Route path="/reset" element={<Reset />} />
             <Route path="/reset21" element={<Reset21 />} />
+            <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />
+            <Route path="/reset-21/sales" element={<Reset21Sales />} />
             <Route path="/lead" element={<LeadForm />} />
             <Route path="/vendas-empresa" element={<VendasEmpresa />} />
             <Route path="/triagem" element={<Triagem />} />
@@ -63,6 +68,7 @@ function App() {
             <Route path="/hospital" element={<Hospital />} />
             <Route path="/atendimento/:appointmentId" element={<Atendimento />} />
             <Route path="/registro/:appointmentId" element={<Registro />} />
+            <Route path="/terapeuta/paciente/:id" element={<ProntuarioPaciente />} />
           </Routes>
         </Router>
       </PWAProvider>

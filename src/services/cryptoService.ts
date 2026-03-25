@@ -1,11 +1,11 @@
 export const cryptoService = {
-  async getKey(appointmentId: string): Promise<CryptoKey> {
+  async getKey(secret: string): Promise<CryptoKey> {
     if (!window.crypto?.subtle) throw new Error("Web Crypto API not available");
     const enc = new TextEncoder();
-    // Use appointmentId as base key material
+    // Use secret as base key material
     const keyMaterial = await window.crypto.subtle.importKey(
       "raw",
-      enc.encode(appointmentId.padEnd(32, '0').slice(0, 32)),
+      enc.encode(secret.padEnd(32, '0').slice(0, 32)),
       { name: "PBKDF2" },
       false,
       ["deriveBits", "deriveKey"]
@@ -25,10 +25,10 @@ export const cryptoService = {
     );
   },
 
-  async encrypt(text: string, appointmentId: string): Promise<string> {
+  async encrypt(text: string, secret: string): Promise<string> {
     try {
       if (!window.crypto?.subtle) return text;
-      const key = await this.getKey(appointmentId);
+      const key = await this.getKey(secret);
       const iv = window.crypto.getRandomValues(new Uint8Array(12));
       const enc = new TextEncoder();
       
@@ -51,10 +51,10 @@ export const cryptoService = {
     }
   },
 
-  async decrypt(encryptedBase64: string, appointmentId: string): Promise<string> {
+  async decrypt(encryptedBase64: string, secret: string): Promise<string> {
     try {
       if (!window.crypto?.subtle) return encryptedBase64;
-      const key = await this.getKey(appointmentId);
+      const key = await this.getKey(secret);
       const combined = new Uint8Array(
         atob(encryptedBase64).split('').map(c => c.charCodeAt(0))
       );

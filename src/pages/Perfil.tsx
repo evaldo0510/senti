@@ -16,13 +16,16 @@ import {
   Activity,
   HeartPulse,
   Bell,
-  Zap
+  Zap,
+  Sparkles
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
 import { usePWA } from "../contexts/PWAContext";
+import { analysisService, TreatmentAnalysis } from "../services/analysisService";
+import { getPillOfDay, Pill } from "../services/pillService";
 
 export default function Perfil() {
   const navigate = useNavigate();
@@ -31,6 +34,11 @@ export default function Perfil() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [analysis, setAnalysis] = useState<TreatmentAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [moodHistory, setMoodHistory] = useState<any[]>([]);
+  const [diaryEntries, setDiaryEntries] = useState<any[]>([]);
+  const [dailyPill, setDailyPill] = useState<Pill | null>(null);
 
   // Form state
   const [nome, setNome] = useState("");
@@ -59,7 +67,37 @@ export default function Perfil() {
     };
 
     loadProfile();
+
+    // Load mood history for analysis
+    const unsubMood = userService.getMoodHistory((history) => {
+      setMoodHistory(history);
+    });
+
+    // Load diary entries for analysis
+    const unsubDiary = userService.getDiaryEntries((entries) => {
+      setDiaryEntries(entries);
+    });
+
+    // Load daily pill
+    setDailyPill(getPillOfDay());
+
+    return () => {
+      unsubMood();
+      unsubDiary();
+    };
   }, [navigate]);
+
+  const handleGenerateAnalysis = async () => {
+    setAnalyzing(true);
+    try {
+      const result = await analysisService.generateAnalysis(moodHistory, diaryEntries);
+      setAnalysis(result);
+    } catch (error) {
+      console.error("Error generating analysis:", error);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!profile) return;
@@ -240,6 +278,125 @@ export default function Perfil() {
               <span className="text-slate-300">
                 {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A"}
               </span>
+            </div>
+          </div>
+
+          {/* Pílula do Dia */}
+          <div className="space-y-4 pt-4">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Pílula Terapêutica do Dia</label>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-3xl p-6 relative overflow-hidden">
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-emerald-400" />
+                  <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Dica do Dia</p>
+                </div>
+                {dailyPill ? (
+                  <>
+                    <p className="text-lg font-serif italic text-white leading-relaxed">
+                      "{dailyPill.frase}"
+                    </p>
+                    <button 
+                      onClick={() => navigate('/diario')}
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                    >
+                      Praticar no Diário
+                    </button>
+                  </>
+                ) : (
+                  <div className="h-20 flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
+            </div>
+          </div>
+
+          {/* Treatment Analysis Tool */}
+          <div className="space-y-4 pt-4">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Análise de Tratamento (IA)</label>
+            <div className="bg-slate-900/30 border border-white/5 rounded-3xl p-6 space-y-6">
+              {!analysis ? (
+                <div className="text-center space-y-4">
+                  <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto">
+                    <Activity className="w-8 h-8 text-emerald-400" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-200">Análise Completa</p>
+                    <p className="text-xs text-slate-500">Gere um relatório detalhado do seu progresso terapêutico baseado nos seus registros.</p>
+                  </div>
+                  <button 
+                    onClick={handleGenerateAnalysis}
+                    disabled={analyzing}
+                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                    {analyzing ? (
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    {analyzing ? "Analisando..." : "Gerar Análise Agora"}
+                  </button>
+                </div>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                      <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Relatório Gerado</p>
+                    </div>
+                    <button 
+                      onClick={() => setAnalysis(null)}
+                      className="text-[10px] text-slate-500 hover:text-slate-300 underline"
+                    >
+                      Nova Análise
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-slate-800/50 rounded-2xl p-4 border border-white/5">
+                      <p className="text-sm text-slate-200 leading-relaxed italic">"{analysis.summary}"</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-end">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Índice de Progresso</p>
+                        <p className="text-lg font-black text-emerald-400">{analysis.progressScore}%</p>
+                      </div>
+                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${analysis.progressScore}%` }}
+                          className="h-full bg-emerald-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Recomendações</p>
+                      <ul className="space-y-2">
+                        {analysis.recommendations.map((rec, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                            <div className="w-1.5 h-1.5 bg-emerald-500/50 rounded-full mt-1.5 shrink-0" />
+                            {rec}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/5">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Próximo Passo</p>
+                      <div className="bg-emerald-500/5 rounded-xl p-3 border border-emerald-500/10">
+                        <p className="text-xs text-emerald-100 font-medium">{analysis.nextSteps}</p>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </div>
           </div>
 

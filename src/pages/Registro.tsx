@@ -1,41 +1,56 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
 import { ArrowLeft, Save, FileText, Clock, AlertCircle } from "lucide-react";
 import { userService } from "../services/userService";
-import { Appointment } from "../types";
+import { Appointment, UserProfile } from "../types";
 
 export default function Registro() {
   const navigate = useNavigate();
   const { appointmentId } = useParams<{ appointmentId: string }>();
+  const [searchParams] = useSearchParams();
+  const patientId = searchParams.get("patientId");
+  
   const [nota, setNota] = useState("");
   const [risco, setRisco] = useState<Appointment['riskLevel']>("baixo");
   const [isSaved, setIsSaved] = useState(false);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [patient, setPatient] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!appointmentId) return;
-    const fetchAppointment = async () => {
-      const app = await userService.getAppointment(appointmentId);
-      if (app) {
-        setAppointment(app);
-        setNota(app.notes || "");
-        setRisco(app.riskLevel || "baixo");
+    const fetchData = async () => {
+      if (appointmentId && appointmentId !== 'new') {
+        const app = await userService.getAppointment(appointmentId);
+        if (app) {
+          setAppointment(app);
+          setNota(app.notes || "");
+          setRisco(app.riskLevel || "baixo");
+        }
+      } else if (patientId) {
+        const p = await userService.getUser(patientId);
+        if (p) {
+          setPatient(p);
+        }
       }
     };
-    fetchAppointment();
-  }, [appointmentId]);
+    fetchData();
+  }, [appointmentId, patientId]);
 
   const salvar = async () => {
-    if (!nota.trim() || !appointmentId) return;
+    if (!nota.trim()) return;
     
     setIsLoading(true);
     try {
-      await userService.updateAppointmentNotes(appointmentId, nota, risco);
+      if (appointmentId && appointmentId !== 'new') {
+        await userService.updateAppointmentNotes(appointmentId, nota, risco);
+      } else if (patientId && patient) {
+        await userService.createManualEvolution(patientId, patient.nome || "Paciente", nota, risco);
+      }
+      
       setIsSaved(true);
       setTimeout(() => {
-        navigate("/terapeuta");
+        navigate(-1);
       }, 1500);
     } catch (error) {
       console.error("Error saving record:", error);
@@ -53,7 +68,7 @@ export default function Registro() {
           </button>
           <div>
             <h1 className="text-2xl font-light text-slate-200">Registro Clínico</h1>
-            <p className="text-slate-400 text-sm">Paciente: {appointment?.patientNome || "Carregando..."}</p>
+            <p className="text-slate-400 text-sm">Paciente: {appointment?.patientNome || patient?.nome || "Carregando..."}</p>
           </div>
         </header>
 

@@ -7,6 +7,7 @@ import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
 import Especialidades from "../components/Especialidades";
 import CalendarAvailability from "../components/CalendarAvailability";
+import StarRating from "../components/StarRating";
 
 export default function Profissionais() {
   const navigate = useNavigate();
@@ -66,10 +67,20 @@ export default function Profissionais() {
     const nomeMatch = prof.nome?.toLowerCase().includes(busca.toLowerCase());
     const especialidadeMatch = prof.especialidades?.some(e => e.toLowerCase().includes(busca.toLowerCase()));
     const cidadeMatch = prof.cidade?.toLowerCase().includes(busca.toLowerCase());
-    return nomeMatch || especialidadeMatch || cidadeMatch;
+    const estiloMatch = prof.estilo?.toLowerCase().includes(busca.toLowerCase());
+    const abordagemMatch = prof.abordagem?.toLowerCase().includes(busca.toLowerCase());
+    return nomeMatch || especialidadeMatch || cidadeMatch || estiloMatch || abordagemMatch;
   });
 
   const profissionaisOrdenados = [...profissionaisFiltrados].sort((a, b) => {
+    // If a specialty is selected, prioritize those who have it as their main specialty
+    if (busca) {
+      const aMatch = a.especialidades?.some(e => e.toLowerCase() === busca.toLowerCase());
+      const bMatch = b.especialidades?.some(e => e.toLowerCase() === busca.toLowerCase());
+      if (aMatch && !bMatch) return -1;
+      if (!aMatch && bMatch) return 1;
+    }
+
     if (ordenacao === "preco_menor") {
       return (a.preco || 0) - (b.preco || 0);
     }
@@ -99,8 +110,8 @@ export default function Profissionais() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl font-medium text-slate-200">Encontrar Profissional</h1>
-              <p className="text-sm text-slate-400">Psicólogos e clínicas parceiras</p>
+              <h1 className="text-2xl font-medium text-slate-200">Direcionamento Guiado</h1>
+              <p className="text-sm text-slate-400">Encontre o apoio certo para você</p>
             </div>
           </div>
           
@@ -126,15 +137,22 @@ export default function Profissionais() {
           </div>
         </header>
 
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-          <input 
-            type="text"
-            placeholder="Buscar por nome, especialidade ou cidade..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-          />
+        <div className="space-y-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+            <input 
+              type="text"
+              placeholder="Como você está se sentindo hoje?"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Filtro Rápido</p>
+            <Especialidades selecionada={busca} onSelecionar={setBusca} />
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
@@ -146,17 +164,17 @@ export default function Profissionais() {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                <div className="space-y-2 flex-1 w-full">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Como você está se sentindo?</p>
-                  <Especialidades selecionada={busca} onSelecionar={setBusca} />
-                </div>
-                <div className="space-y-2 w-full sm:w-auto">
-                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">Ordenar por</p>
+              <div className="flex justify-between items-center px-1">
+                <p className="text-sm text-slate-400">
+                  {profissionaisOrdenados.length} profissionais encontrados
+                  {busca && <span> para <span className="text-emerald-400 font-bold">"{busca}"</span></span>}
+                </p>
+                <div className="flex items-center gap-2">
+                  <List className="w-4 h-4 text-slate-500" />
                   <select 
                     value={ordenacao}
                     onChange={(e) => setOrdenacao(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 px-4 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none"
+                    className="bg-transparent text-sm text-slate-300 focus:outline-none cursor-pointer hover:text-emerald-400 transition-colors"
                   >
                     <option value="recomendado">Recomendados</option>
                     <option value="avaliacao">Melhor Avaliação</option>
@@ -176,96 +194,129 @@ export default function Profissionais() {
                   <React.Fragment key={prof.uid}>
                     <motion.div 
                       initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="bg-slate-900 border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 hover:border-emerald-500/30 transition-all group"
-                  >
-                    <div className="relative">
-                      <img 
-                        src={prof.fotoUrl || `https://picsum.photos/seed/${prof.uid}/200/200`} 
-                        alt={prof.nome} 
-                        className="w-20 h-20 rounded-xl object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className={cn(
-                        "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900",
-                        prof.online ? "bg-emerald-500 animate-pulse" : "bg-slate-600"
-                      )} />
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-lg font-medium text-slate-200 group-hover:text-emerald-400 transition-colors">{prof.nome}</h3>
-                          <p className="text-emerald-400/80 text-sm font-medium">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-slate-900 border border-white/5 rounded-3xl p-5 flex flex-col sm:flex-row gap-5 hover:border-emerald-500/30 transition-all group relative overflow-hidden"
+                    >
+                      {/* Match Inteligente Badge */}
+                      {busca && prof.especialidades?.some(e => e.toLowerCase() === busca.toLowerCase()) && (
+                        <div className="absolute top-0 right-0 bg-emerald-500 text-slate-950 text-[10px] font-bold px-3 py-1 rounded-bl-xl uppercase tracking-tighter">
+                          Match Inteligente
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <div className="flex items-center gap-1.5 bg-slate-800/50 px-2 py-1 rounded-lg">
-                            {renderEstrelas(prof.rating)}
-                            <span className="text-xs font-bold text-slate-300 ml-1">{prof.rating?.toFixed(1) || "5.0"}</span>
+                      )}
+
+                      <div className="relative">
+                        <img 
+                          src={prof.fotoUrl || `https://picsum.photos/seed/${prof.uid}/200/200`} 
+                          alt={prof.nome} 
+                          className="w-24 h-24 rounded-2xl object-cover border-2 border-slate-800"
+                          referrerPolicy="no-referrer"
+                        />
+                        {prof.online && (
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-slate-900 animate-pulse" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 space-y-3">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="text-xl font-bold text-slate-100 group-hover:text-emerald-400 transition-colors">{prof.nome}</h3>
+                            <p className="text-emerald-400/80 text-sm font-medium">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
                           </div>
+                          <StarRating rating={prof.rating || 4.8} count={prof.reviewCount || 124} size={16} />
+                        </div>
+                        
+                        {/* DNA Tags */}
+                        <div className="flex flex-wrap gap-2">
+                          {prof.estilo && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-lg border border-blue-500/10">
+                              {prof.estilo}
+                            </span>
+                          )}
+                          {prof.abordagem && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-lg border border-purple-500/10">
+                              {prof.abordagem}
+                            </span>
+                          )}
+                          {prof.intensidade !== undefined && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 bg-orange-500/10 text-orange-400 rounded-lg border border-orange-500/10">
+                              {prof.intensidade}% Intensidade
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-4 text-xs text-slate-400 pt-1">
+                          <span className={cn(
+                            "flex items-center gap-1.5 font-medium",
+                            prof.online ? "text-emerald-400" : "text-slate-500"
+                          )}>
+                            <Video className="w-4 h-4" /> {prof.online ? "Online agora" : "Offline"}
+                          </span>
+                          {prof.cidade && (
+                            <span className="flex items-center gap-1.5">
+                              <MapPin className="w-4 h-4" /> {prof.cidade}
+                            </span>
+                          )}
                         </div>
                       </div>
                       
-                      <div className="flex flex-wrap gap-4 text-xs text-slate-400">
-                        <span className={cn(
-                          "flex items-center gap-1.5 font-medium",
-                          prof.online ? "text-emerald-400" : "text-slate-500"
-                        )}>
-                          <Video className="w-3.5 h-3.5" /> {prof.online ? "Online agora" : "Offline"}
-                        </span>
-                        {prof.cidade && (
-                          <span className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5" /> {prof.cidade}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col justify-between items-end gap-3 sm:border-l border-white/5 sm:pl-4 min-w-[140px]">
-                      <div className="text-right">
-                        <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Sessão</span>
-                        <span className="text-slate-200 font-bold text-lg">R$ {prof.preco || "150"}</span>
-                      </div>
-                      <div className="flex flex-col gap-2 w-full">
-                        <button 
-                          onClick={() => setExpandedAvailability(expandedAvailability === prof.uid ? null : prof.uid)}
-                          className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
-                        >
-                          <CalendarIcon className="w-4 h-4" />
-                          {expandedAvailability === prof.uid ? "Ocultar Horários" : "Ver Horários"}
-                          {expandedAvailability === prof.uid ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                        </button>
-                        <button 
-                          onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
-                          className="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
-                        >
-                          <User className="w-4 h-4" />
-                          Ver Perfil
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                  
-                  <AnimatePresence>
-                    {expandedAvailability === prof.uid && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden mb-4"
-                      >
-                        <div className="p-4 bg-slate-900/50 border-x border-b border-white/5 rounded-b-2xl -mt-4 pt-8">
-                          <CalendarAvailability 
-                            therapist={prof} 
-                            onSelect={(date, time) => navigate(`/agendamento/${prof.uid}?date=${date.toISOString()}&time=${time}`)}
-                          />
+                      <div className="flex flex-col justify-between items-end gap-4 sm:border-l border-white/5 sm:pl-5 min-w-[160px]">
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Sessão</span>
+                          <span className="text-slate-100 font-bold text-2xl">R$ {prof.preco || "150"}</span>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </React.Fragment>
-              )) : (
-                  <div className="text-center py-12 text-slate-400">
-                    Nenhum profissional encontrado para "{busca}".
+                        <div className="flex flex-col gap-2 w-full">
+                          <button 
+                            onClick={() => navigate(`/agendamento/${prof.uid}`)}
+                            className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                          >
+                            <Zap className="w-4 h-4 fill-slate-950" />
+                            Conectar
+                          </button>
+                          <button 
+                            onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
+                            className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
+                          >
+                            Ver Perfil
+                          </button>
+                          <button 
+                            onClick={() => falarWhatsApp(prof.nome || "Terapeuta")}
+                            className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-emerald-400 rounded-xl text-xs font-bold transition-all border border-emerald-500/20 flex items-center justify-center gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Falar Direto
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                    
+                    <AnimatePresence>
+                      {expandedAvailability === prof.uid && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden mb-4"
+                        >
+                          <div className="p-4 bg-slate-900/50 border-x border-b border-white/5 rounded-b-2xl -mt-4 pt-8">
+                            <CalendarAvailability 
+                              therapist={prof} 
+                              onSelect={(date, time) => navigate(`/agendamento/${prof.uid}?date=${date.toISOString()}&time=${time}`)}
+                            />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
+                )) : (
+                  <div className="text-center py-12 text-slate-400 bg-slate-900/50 rounded-3xl border border-white/5">
+                    <p className="text-lg font-medium mb-2">Nenhum profissional encontrado</p>
+                    <p className="text-sm">Tente buscar por outro sentimento ou especialidade.</p>
+                    <button 
+                      onClick={() => setBusca("")}
+                      className="mt-4 text-emerald-400 font-bold hover:underline"
+                    >
+                      Limpar Filtros
+                    </button>
                   </div>
                 )}
               </div>

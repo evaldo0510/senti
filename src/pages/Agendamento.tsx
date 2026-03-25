@@ -67,6 +67,9 @@ export default function Agendamento() {
       const [hours, minutes] = horario.split(':');
       date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
+      // Generate a shared secret for E2EE
+      const sharedSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+
       // First, create the appointment in pending state
       const result = await userService.createAppointment({
         patientId: auth.currentUser.uid,
@@ -78,7 +81,8 @@ export default function Agendamento() {
         time: horario,
         status: 'pending',
         type: 'video',
-        price: profissional.preco || 0
+        price: profissional.preco || 0,
+        sharedSecret // Store the secret
       });
 
       if (!result) throw new Error("Erro ao criar agendamento");

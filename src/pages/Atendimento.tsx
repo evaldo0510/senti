@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck } from "lucide-react";
+import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X } from "lucide-react";
 import { chatService } from "../services/chatService";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -15,8 +15,11 @@ export default function Atendimento() {
   const [chat, setChat] = useState<DirectMessage[]>([]);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [typingStatus, setTypingStatus] = useState<{ [key: string]: boolean }>({});
+  const [isCallActive, setIsCallActive] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const jitsiContainerRef = useRef<HTMLDivElement>(null);
+  const jitsiApiRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,9 +40,14 @@ export default function Atendimento() {
       }
     };
     fetchAppointment();
+  }, [appointmentId]);
 
-    // Listen for messages
-    const unsubscribe = chatService.listenMessagesByAppointment(appointmentId, (messages) => {
+  useEffect(() => {
+    if (!appointmentId) return;
+
+    // Listen for messages - only start when appointment (and its sharedSecret) is available
+    // or if we want to support unencrypted messages too.
+    const unsubscribe = chatService.listenMessagesByAppointment(appointmentId, appointment?.sharedSecret, (messages) => {
       setChat(messages);
       // Mark messages as read when they arrive
       if (auth.currentUser) {
@@ -56,7 +64,7 @@ export default function Atendimento() {
       unsubscribe();
       unsubscribeTyping();
     };
-  }, [appointmentId]);
+  }, [appointmentId, appointment?.sharedSecret]);
 
   useEffect(() => {
     scrollToBottom();
@@ -70,7 +78,7 @@ export default function Atendimento() {
       : appointment.patientId;
 
     try {
-      await chatService.sendMessage(appointmentId, auth.currentUser.uid, receiverId, mensagem);
+      await chatService.sendMessage(appointmentId, auth.currentUser.uid, receiverId, mensagem, appointment.sharedSecret);
       // Stop typing immediately on send
       handleTyping(false);
       
@@ -111,6 +119,81 @@ export default function Atendimento() {
     }
   };
 
+  const startCall = () => {
+    if (!appointmentId || !appointment || !auth.currentUser) return;
+    
+    setIsCallActive(true);
+    
+    // Small delay to ensure the container is rendered
+    setTimeout(() => {
+      if (!jitsiContainerRef.current) return;
+
+      const domain = "meet.jit.si";
+      const roomName = `SENTI-${appointmentId}-${appointment.sharedSecret?.substring(0, 8) || "secure"}`;
+      
+      const options = {
+        roomName: roomName,
+        width: "100%",
+        height: "100%",
+        parentNode: jitsiContainerRef.current,
+        userInfo: {
+          displayName: auth.currentUser.displayName || (auth.currentUser.uid === appointment.patientId ? "Paciente" : "Terapeuta"),
+          email: auth.currentUser.email || ""
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: false,
+          enableWelcomePage: false,
+          prejoinPageEnabled: false,
+          disableDeepLinking: true,
+        },
+        interfaceConfigOverwrite: {
+          TOOLBAR_BUTTONS: [
+            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
+            'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
+            'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
+            'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
+            'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
+            'security'
+          ],
+        }
+      };
+
+      try {
+        // @ts-ignore
+        jitsiApiRef.current = new window.JitsiMeetExternalAPI(domain, options);
+        
+        jitsiApiRef.current.addEventListeners({
+          readyToClose: () => {
+            endCall();
+          },
+          videoConferenceTerminated: () => {
+            endCall();
+          }
+        });
+      } catch (error) {
+        console.error("Error initializing Jitsi:", error);
+        setIsCallActive(false);
+      }
+    }, 100);
+  };
+
+  const endCall = () => {
+    if (jitsiApiRef.current) {
+      jitsiApiRef.current.dispose();
+      jitsiApiRef.current = null;
+    }
+    setIsCallActive(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (jitsiApiRef.current) {
+        jitsiApiRef.current.dispose();
+      }
+    };
+  }, []);
+
   return (
     <div className="flex flex-col h-screen bg-slate-950 text-slate-100">
       <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
@@ -132,10 +215,33 @@ export default function Atendimento() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300">
+          <button 
+            onClick={startCall}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
+            title="Chamada de Vídeo"
+          >
             <Video className="w-5 h-5" />
           </button>
-          <button className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300">
+          <button 
+            onClick={() => {
+              const number = auth.currentUser?.uid === appointment?.patientId 
+                ? appointment?.therapistPhone 
+                : appointment?.patientPhone;
+              
+              if (number) {
+                // Use phone.call if available, otherwise fallback to tel:
+                if (typeof (window as any).phone?.call === 'function') {
+                  (window as any).phone.call(number);
+                } else {
+                  window.location.href = `tel:${number}`;
+                }
+              } else {
+                alert("Número de telefone não disponível para este contato.");
+              }
+            }}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
+            title="Ligar"
+          >
             <Phone className="w-5 h-5" />
           </button>
           <button 
@@ -148,7 +254,25 @@ export default function Atendimento() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 relative">
+        {isCallActive && (
+          <div className="absolute inset-0 z-50 bg-slate-950 flex flex-col">
+            <div className="p-2 flex justify-between items-center bg-slate-900 border-b border-white/10">
+              <span className="text-sm font-medium text-emerald-400 ml-2 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                Chamada em curso
+              </span>
+              <button 
+                onClick={endCall}
+                className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div ref={jitsiContainerRef} className="flex-1 w-full h-full" />
+          </div>
+        )}
+
         {chat.length === 0 && (
           <div className="text-center text-slate-500 py-10 italic">
             Nenhuma mensagem ainda. Inicie a conversa.
