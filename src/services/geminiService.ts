@@ -65,7 +65,18 @@ export async function getIARAResponse(
       systemInstruction += `\n\nContexto anterior: Sentindo ${contexto.emocao} (${contexto.intensidade}/10).`;
     }
     if (memoria) {
-      systemInstruction += `\n\nMemória de longo prazo: ${memoria}`;
+      try {
+        const perfil = JSON.parse(memoria);
+        systemInstruction += `\n\nVocê já conhece este usuário:
+Nome: ${perfil.nome}
+Padrão emocional: ${perfil.padrao}
+Estado atual: ${perfil.emocaoAtual}
+
+Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansiedade, por exemplo, diga algo como "Percebo que essa ansiedade tem aparecido com frequência... vamos lidar com isso juntos novamente..."`;
+      } catch (e) {
+        // If it's not JSON, it's the fallback local storage memory
+        systemInstruction += `\n\nMemória de longo prazo: ${memoria}`;
+      }
     }
 
     const response = await ai.models.generateContent({

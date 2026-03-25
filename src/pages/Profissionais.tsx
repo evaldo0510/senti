@@ -13,6 +13,7 @@ export default function Profissionais() {
   const navigate = useNavigate();
   const location = useLocation();
   const [busca, setBusca] = useState("");
+  const [cidadeFiltro, setCidadeFiltro] = useState("");
   const [view, setView] = useState<"list" | "map">("list");
   const [ordenacao, setOrdenacao] = useState<"recomendado" | "preco_menor" | "preco_maior" | "avaliacao">("recomendado");
   const [listaProfissionais, setListaProfissionais] = useState<UserProfile[]>([]);
@@ -63,13 +64,19 @@ export default function Profissionais() {
     loadTherapists();
   }, [location]);
 
+  const cidadesDisponiveis = Array.from(new Set(listaProfissionais.map(p => p.cidade).filter(Boolean))) as string[];
+
   const profissionaisFiltrados = listaProfissionais.filter(prof => {
     const nomeMatch = prof.nome?.toLowerCase().includes(busca.toLowerCase());
     const especialidadeMatch = prof.especialidades?.some(e => e.toLowerCase().includes(busca.toLowerCase()));
-    const cidadeMatch = prof.cidade?.toLowerCase().includes(busca.toLowerCase());
+    const buscaCidadeMatch = prof.cidade?.toLowerCase().includes(busca.toLowerCase());
     const estiloMatch = prof.estilo?.toLowerCase().includes(busca.toLowerCase());
     const abordagemMatch = prof.abordagem?.toLowerCase().includes(busca.toLowerCase());
-    return nomeMatch || especialidadeMatch || cidadeMatch || estiloMatch || abordagemMatch;
+    
+    const matchesBusca = !busca || nomeMatch || especialidadeMatch || buscaCidadeMatch || estiloMatch || abordagemMatch;
+    const matchesCidade = !cidadeFiltro || prof.cidade === cidadeFiltro;
+
+    return matchesBusca && matchesCidade;
   });
 
   const profissionaisOrdenados = [...profissionaisFiltrados].sort((a, b) => {
@@ -138,15 +145,31 @@ export default function Profissionais() {
         </header>
 
         <div className="space-y-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-            <input 
-              type="text"
-              placeholder="Como você está se sentindo hoje?"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-            />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <input 
+                type="text"
+                placeholder="Como você está se sentindo hoje?"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+            <div className="relative sm:w-1/3">
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <select
+                value={cidadeFiltro}
+                onChange={(e) => setCidadeFiltro(e.target.value)}
+                className="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 pl-12 pr-10 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none"
+              >
+                <option value="">Todas as cidades</option>
+                {cidadesDisponiveis.map(cidade => (
+                  <option key={cidade} value={cidade}>{cidade}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none" />
+            </div>
           </div>
 
           <div className="space-y-2">

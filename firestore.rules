@@ -45,6 +45,12 @@ service cloud.firestore {
     //   - intensity: number (required, 1-10)
     //   - timestamp: string (required, date-time)
     //
+    // Collection: memoria_iara
+    // Document ID: {userId}
+    // Fields:
+    //   - perfil: map (required)
+    //   - historico: list (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -116,6 +122,12 @@ service cloud.firestore {
              isValidDateString(data.timestamp);
     }
 
+    function isValidMemoriaIara(data) {
+      return hasOnlyAllowedFields(['perfil', 'historico']) &&
+             data.perfil is map &&
+             data.historico is list;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -143,6 +155,13 @@ service cloud.firestore {
     match /emotion_logs/{logId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isOwner(request.resource.data.userId) && isValidEmotionLog(request.resource.data);
+    }
+
+    match /memoria_iara/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidMemoriaIara(request.resource.data);
+      allow update: if isOwner(userId) && isValidMemoriaIara(request.resource.data);
+      allow delete: if isOwner(userId) || isAdmin();
     }
 
     // Default deny

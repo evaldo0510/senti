@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Share2, Check, ExternalLink, UserPlus, Copy } from 'lucide-react';
+import { Share2, Check, ExternalLink, UserPlus, Copy, Image as ImageIcon } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -180,9 +180,11 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       )}
 
       {finalImageUrl && (
-        <div className="w-full h-48 overflow-hidden relative bg-brand-text/5">
+        <div className="w-full h-48 overflow-hidden relative bg-slate-200 dark:bg-slate-800">
           {!imageLoaded && (
-            <div className="absolute inset-0 animate-shimmer" />
+            <div className="absolute inset-0 flex items-center justify-center animate-pulse">
+              <ImageIcon className="w-10 h-10 text-slate-400 dark:text-slate-600" />
+            </div>
           )}
           <img 
             src={finalImageUrl} 

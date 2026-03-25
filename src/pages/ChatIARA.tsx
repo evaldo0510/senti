@@ -91,13 +91,22 @@ export default function ChatIARA() {
   const [showBreathing, setShowBreathing] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  const enviarMensagem = async () => {
-    if (!mensagem.trim() || isLoading) return;
+  const abrirWhatsApp = () => {
+    window.open("https://wa.me/5511999999999?text=Preciso%20de%20ajuda%20urgente", "_blank");
+  };
 
-    const novaConversa: Message[] = [...chat, { tipo: "user", texto: mensagem }];
+  const enviarMensagem = async (textoOverride?: string) => {
+    const msgAtual = textoOverride || mensagem;
+    if (!msgAtual.trim() || isLoading) return;
+
+    // AJUSTE CRÍTICO (CRISE)
+    if (msgAtual.toLowerCase().includes("não aguento") || msgAtual.toLowerCase().includes("nao aguento") || msgAtual.toLowerCase().includes("quero morrer") || msgAtual.toLowerCase().includes("me matar") || msgAtual.toLowerCase().includes("suicídio")) {
+      abrirWhatsApp();
+    }
+
+    const novaConversa: Message[] = [...chat, { tipo: "user", texto: msgAtual }];
     setChat(novaConversa);
-    const msgAtual = mensagem;
-    setMensagem("");
+    if (!textoOverride) setMensagem("");
     setIsLoading(true);
 
     const historico: ChatMessage[] = chat.map(msg => ({
@@ -194,7 +203,10 @@ export default function ChatIARA() {
     if (isListening) return;
     setIsListening(true);
     ouvirUsuario(
-      (texto) => setMensagem(texto),
+      (texto) => {
+        setMensagem(texto);
+        enviarMensagem(texto);
+      },
       () => setIsListening(false)
     );
   };
@@ -457,7 +469,7 @@ export default function ChatIARA() {
             rows={1}
           />
           <button 
-            onClick={enviarMensagem}
+            onClick={() => enviarMensagem()}
             disabled={!mensagem.trim() || isLoading}
             className="p-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl transition-colors flex-shrink-0"
           >

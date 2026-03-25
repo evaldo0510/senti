@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart } from "lucide-react";
+import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { userService } from "../services/userService";
 import { MoodEntry } from "../types";
 
@@ -12,6 +12,7 @@ export default function Diario() {
   const [nota, setNota] = useState("");
   const [historico, setHistorico] = useState<MoodEntry[]>([]);
   const [salvo, setSalvo] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
     const unsubscribe = userService.getMoodHistory((hist) => {
@@ -47,6 +48,35 @@ export default function Diario() {
     if (val <= 6) return "Razoável";
     return "Bem";
   };
+
+  const handlePrevDay = () => {
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    setSelectedDate(prev);
+  };
+
+  const handleNextDay = () => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    // Don't go past today
+    if (next <= new Date()) {
+      setSelectedDate(next);
+    }
+  };
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+           date.getMonth() === today.getMonth() &&
+           date.getFullYear() === today.getFullYear();
+  };
+
+  const filteredHistorico = historico.filter(entry => {
+    const entryDate = new Date(entry.timestamp);
+    return entryDate.getDate() === selectedDate.getDate() &&
+           entryDate.getMonth() === selectedDate.getMonth() &&
+           entryDate.getFullYear() === selectedDate.getFullYear();
+  });
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -155,19 +185,43 @@ export default function Diario() {
           transition={{ delay: 0.1 }}
           className="space-y-4"
         >
-          <div className="flex items-center gap-2 px-2">
-            <Calendar className="w-5 h-5 text-slate-400" />
-            <h3 className="text-lg font-medium text-slate-200">Seu Histórico</h3>
+          <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-slate-400" />
+              <h3 className="text-lg font-medium text-slate-200">Seu Histórico</h3>
+            </div>
+            <div className="flex items-center gap-3 bg-slate-900 border border-white/5 rounded-full px-2 py-1">
+              <button 
+                onClick={handlePrevDay}
+                className="p-1.5 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium text-slate-300 min-w-[100px] text-center">
+                {isToday(selectedDate) ? "Hoje" : selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+              </span>
+              <button 
+                onClick={handleNextDay}
+                disabled={isToday(selectedDate)}
+                className={`p-1.5 rounded-full transition-colors ${
+                  isToday(selectedDate) 
+                    ? "text-slate-600 cursor-not-allowed" 
+                    : "text-slate-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
-          {historico.length === 0 ? (
+          {filteredHistorico.length === 0 ? (
             <div className="bg-slate-900/50 border border-white/5 p-8 rounded-3xl text-center">
               <Activity className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-              <p className="text-slate-400">Nenhum registro ainda. Comece seu diário hoje!</p>
+              <p className="text-slate-400">Nenhum registro para este dia.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {historico.map((entry, idx) => (
+              {filteredHistorico.map((entry, idx) => (
                 <div key={entry.id || idx} className="bg-slate-900 border border-white/5 p-5 rounded-2xl flex gap-4 items-start">
                   <div className="flex flex-col items-center justify-center min-w-[60px]">
                     <div className={`w-3 h-3 rounded-full mb-2 ${getMoodColor(entry.value)}`} />

@@ -17,7 +17,9 @@ import {
   HeartPulse,
   Bell,
   Zap,
-  Sparkles
+  Sparkles,
+  Play,
+  Square
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -39,6 +41,7 @@ export default function Perfil() {
   const [moodHistory, setMoodHistory] = useState<any[]>([]);
   const [diaryEntries, setDiaryEntries] = useState<any[]>([]);
   const [dailyPill, setDailyPill] = useState<Pill | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // Form state
   const [nome, setNome] = useState("");
@@ -116,6 +119,38 @@ export default function Perfil() {
       setSaving(false);
     }
   };
+
+  const toggleAudio = () => {
+    if (!dailyPill) return;
+
+    if (isPlaying) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+    } else {
+      const textToRead = `${dailyPill.frase}. Reflexão: ${dailyPill.reflexao}. Ação: ${dailyPill.acao}.`;
+      const utterance = new SpeechSynthesisUtterance(textToRead);
+      utterance.lang = 'pt-BR';
+      utterance.rate = 0.9; // Slightly slower for a more relaxing tone
+      
+      utterance.onend = () => {
+        setIsPlaying(false);
+      };
+      
+      utterance.onerror = () => {
+        setIsPlaying(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+      setIsPlaying(true);
+    }
+  };
+
+  // Cleanup speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const testNotification = () => {
     if (Notification.permission === 'granted') {
@@ -286,18 +321,31 @@ export default function Perfil() {
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Pílula Terapêutica do Dia</label>
             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-3xl p-6 relative overflow-hidden">
               <div className="relative z-10 space-y-4">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-emerald-400" />
-                  <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Dica do Dia</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-emerald-400" />
+                    <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Dica do Dia</p>
+                  </div>
+                  <button 
+                    onClick={toggleAudio}
+                    className="p-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-full transition-colors flex items-center gap-2"
+                    aria-label={isPlaying ? "Parar áudio" : "Ouvir pílula"}
+                  >
+                    {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                  </button>
                 </div>
                 {dailyPill ? (
                   <>
                     <p className="text-lg font-serif italic text-white leading-relaxed">
                       "{dailyPill.frase}"
                     </p>
+                    <div className="space-y-2">
+                      <p className="text-sm text-slate-300"><span className="font-bold text-emerald-400">Reflexão:</span> {dailyPill.reflexao}</p>
+                      <p className="text-sm text-slate-300"><span className="font-bold text-emerald-400">Ação:</span> {dailyPill.acao}</p>
+                    </div>
                     <button 
                       onClick={() => navigate('/diario')}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 mt-4"
                     >
                       Praticar no Diário
                     </button>

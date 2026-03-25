@@ -5,7 +5,7 @@ import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckChec
 import { chatService } from "../services/chatService";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
-import { Appointment, DirectMessage } from "../types";
+import { Appointment, DirectMessage, UserProfile } from "../types";
 import { salvarDadosAnalytics } from "../services/analyticsService";
 
 export default function Atendimento() {
@@ -14,6 +14,7 @@ export default function Atendimento() {
   const [mensagem, setMensagem] = useState("");
   const [chat, setChat] = useState<DirectMessage[]>([]);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
+  const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [typingStatus, setTypingStatus] = useState<{ [key: string]: boolean }>({});
   const [isCallActive, setIsCallActive] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,14 @@ export default function Atendimento() {
         const app = await userService.getAppointment(appointmentId);
         if (app) {
           setAppointment(app);
+          
+          if (auth.currentUser) {
+            const otherUserId = auth.currentUser.uid === app.patientId ? app.therapistId : app.patientId;
+            const otherProfile = await userService.getUser(otherUserId);
+            if (otherProfile) {
+              setOtherUser(otherProfile);
+            }
+          }
         }
       } catch (error) {
         console.error("Error fetching appointment:", error);
@@ -202,14 +211,25 @@ export default function Atendimento() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-400 font-medium border border-emerald-500/20">
-              {appointment?.patientNome?.[0] || "P"}
+            <div className="relative">
+              {otherUser?.fotoUrl ? (
+                <img src={otherUser.fotoUrl} alt={otherUser.nome} className="w-10 h-10 rounded-full object-cover border border-emerald-500/20" />
+              ) : (
+                <div className="w-10 h-10 bg-emerald-900/50 rounded-full flex items-center justify-center text-emerald-400 font-medium border border-emerald-500/20">
+                  {appointment?.patientNome?.[0] || "P"}
+                </div>
+              )}
+              {otherUser?.online && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 animate-pulse" />
+              )}
             </div>
             <div>
-              <h2 className="text-lg font-medium text-slate-200">{appointment?.patientNome || "Paciente"}</h2>
+              <h2 className="text-lg font-medium text-slate-200">
+                {auth.currentUser?.uid === appointment?.patientId ? appointment?.therapistNome : appointment?.patientNome || "Paciente"}
+              </h2>
               <p className="text-xs text-emerald-400 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                Em atendimento
+                <span className={`w-2 h-2 rounded-full ${otherUser?.online ? "bg-emerald-500" : "bg-slate-500"}`}></span>
+                {otherUser?.online ? "Online agora" : "Offline"}
               </p>
             </div>
           </div>
@@ -315,8 +335,15 @@ export default function Atendimento() {
       <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-white/10">
         {/* Typing Indicator */}
         {Object.entries(typingStatus).some(([uid, isTyping]) => uid !== auth.currentUser?.uid && isTyping) && (
-          <div className="text-[10px] text-emerald-400 mb-2 ml-2 animate-pulse font-medium">
-            {appointment?.patientId === auth.currentUser?.uid ? "Terapeuta" : "Paciente"} está digitando...
+          <div className="flex items-center gap-2 mb-3 ml-2">
+            <div className="bg-slate-800 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-2.5 flex items-center gap-1.5 w-fit">
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">
+              {auth.currentUser?.uid === appointment?.patientId ? appointment?.therapistNome : appointment?.patientNome} está digitando...
+            </span>
           </div>
         )}
         <div className="max-w-4xl mx-auto relative flex items-end gap-2">

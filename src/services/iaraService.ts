@@ -1,4 +1,6 @@
 import { getIARAResponse } from "./geminiService";
+import { memoriaService, MemoriaIara } from "./memoriaService";
+import { auth } from "./firebase";
 
 export interface ChatMessage {
   role: "user" | "model";
@@ -20,11 +22,31 @@ export async function falarComIARA(
   contexto?: { emocao: string; intensidade: number }
 ): Promise<IaraResponse> {
   try {
-    const memoria = localStorage.getItem("ultimaMensagem") || "Nenhuma conversa anterior.";
+    const userId = auth.currentUser?.uid;
+    let memoriaIara: MemoriaIara | null = null;
+    
+    if (userId) {
+      memoriaIara = await memoriaService.buscarMemoria(userId);
+    }
+    
+    // Fallback to local storage if not logged in
+    const memoriaLocal = localStorage.getItem("ultimaMensagem") || "Nenhuma conversa anterior.";
     localStorage.setItem("ultimaMensagem", mensagemUsuario);
 
-    const result = await getIARAResponse(mensagemUsuario, historico, contexto, memoria);
+    const result = await getIARAResponse(mensagemUsuario, historico, contexto, memoriaIara ? JSON.stringify(memoriaIara.perfil) : memoriaLocal);
     
+    // Update memory if logged in
+    if (userId) {
+      await memoriaService.atualizarEmocao(userId, result.emocao, result.intensidade);
+      
+      // Detect pattern
+      if (mensagemUsuario.toLowerCase().includes("ansioso") || mensagemUsuario.toLowerCase().includes("ansiedade")) {
+        await memoriaService.atualizarPadrao(userId, "ansiedade recorrente");
+      } else if (mensagemUsuario.toLowerCase().includes("triste") || mensagemUsuario.toLowerCase().includes("depressão")) {
+        await memoriaService.atualizarPadrao(userId, "tristeza frequente");
+      }
+    }
+
     return {
       resposta: result.text,
       emocao: result.emocao,

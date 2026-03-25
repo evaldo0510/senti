@@ -10,7 +10,7 @@ export const MOCK_THERAPISTS: UserProfile[] = [
     especialidades: ['Ansiedade', 'Depressão', 'Terapia Cognitivo-Comportamental'],
     preco: 120,
     biografia: 'Especialista em transtornos de ansiedade com mais de 10 anos de experiência.',
-    fotoUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&q=80&w=300&h=300',
+    fotoUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=AnaSilva-Ansiedade&backgroundColor=10b981',
     rating: 4.9,
     online: true,
     intensidade: 40,

@@ -58,6 +58,35 @@
         "timestamp": { "type": "string", "format": "date-time", "description": "Log timestamp" }
       },
       "required": ["userId", "emotion", "intensity", "timestamp"]
+    },
+    "MemoriaIara": {
+      "title": "MemoriaIara",
+      "description": "IARA's memory of the user's emotional profile and history",
+      "type": "object",
+      "properties": {
+        "perfil": {
+          "type": "object",
+          "properties": {
+            "nome": { "type": "string" },
+            "emocaoAtual": { "type": "string" },
+            "padrao": { "type": "string" },
+            "intensidade": { "type": "string" },
+            "preferencia": { "type": "string" }
+          }
+        },
+        "historico": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dia": { "type": "number" },
+              "emocao": { "type": "string" },
+              "data": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "required": ["perfil", "historico"]
     }
   },
   "firestore": {
@@ -76,6 +105,10 @@
     "emotion_logs": {
       "schema": "EmotionLog",
       "description": "Collection of emotional state logs"
+    },
+    "memoria_iara": {
+      "schema": "MemoriaIara",
+      "description": "Collection of IARA's memory for each user"
     }
   }
 }
