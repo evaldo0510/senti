@@ -1,8 +1,10 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import firebaseAppletConfig from '../../firebase-applet-config.json';
 
-const firebaseConfig = {
+const firebaseConfig = firebaseAppletConfig || {
   apiKey: "AIzaSyDGTB2IkTWGH6vdDJwV-k4f-93fxf5etfg",
   authDomain: "senti-app-novo.firebaseapp.com",
   projectId: "senti-app-novo",
@@ -26,6 +28,7 @@ const firestore = getFirestore(app);
 
 export const db = firestore;
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();

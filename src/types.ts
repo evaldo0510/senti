@@ -58,6 +58,8 @@ export interface DirectMessage {
   appointmentId?: string;
   read?: boolean;
   encrypted?: boolean;
+  audioUrl?: string;
+  duration?: number;
 }
 
 export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow' | 'sensorial' | 'login' | 'dashboard' | 'terapeuta-panel' | 'empresa-panel' | 'prefeitura-panel';

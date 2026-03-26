@@ -32,6 +32,31 @@ export const userService = {
         timestamp: new Date().toISOString()
       };
       await addDoc(collection(db, path), newEntry);
+
+      // Webhook para Google Sheets (Looker Studio)
+      try {
+        const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
+        if (webhookUrl) {
+          fetch(webhookUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              data: new Date().toLocaleDateString('pt-BR'),
+              usuario: user.displayName || user.email || 'Anônimo',
+              humor: value,
+              risco: value <= 3 ? 'alto' : value <= 6 ? 'moderado' : 'leve',
+              atendimento: 'nao',
+              tipo: 'IARA'
+            })
+          }).catch(console.error);
+        }
+      } catch (e) {
+        console.error("Erro ao enviar para webhook", e);
+      }
+
       return newEntry;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -45,8 +70,7 @@ export const userService = {
     const path = 'emotion_logs';
     const q = query(
       collection(db, path),
-      where("userId", "==", user.uid),
-      orderBy("timestamp", "desc")
+      where("userId", "==", user.uid)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -54,6 +78,7 @@ export const userService = {
         id: doc.id,
         ...doc.data()
       }));
+      history.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       callback(history);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
@@ -67,8 +92,7 @@ export const userService = {
     const path = 'diary_entries';
     const q = query(
       collection(db, path),
-      where("userId", "==", user.uid),
-      orderBy("timestamp", "desc")
+      where("userId", "==", user.uid)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -76,6 +100,7 @@ export const userService = {
         id: doc.id,
         ...doc.data()
       }));
+      entries.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       callback(entries);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
@@ -114,17 +139,20 @@ export const userService = {
       const q = query(
         collection(db, path), 
         where("tipo", "==", "terapeuta"),
-        where("online", "==", true),
-        orderBy("rating", "desc")
+        where("online", "==", true)
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
+      const therapists = snapshot.docs.map(doc => doc.data() as UserProfile);
+      therapists.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      return therapists.slice(0, limitCount);
     } catch (error) {
       // Fallback if online/rating query fails due to missing index
       try {
         const qSimple = query(collection(db, path), where("tipo", "==", "terapeuta"));
         const snapshot = await getDocs(qSimple);
-        return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
+        const therapists = snapshot.docs.map(doc => doc.data() as UserProfile);
+        therapists.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        return therapists.slice(0, limitCount);
       } catch (fallbackError) {
         handleFirestoreError(fallbackError, OperationType.LIST, path);
         return [];
@@ -153,6 +181,30 @@ export const userService = {
           url: '/terapeuta'
         })
       }).catch(console.error);
+
+      // Webhook para Google Sheets (Looker Studio)
+      try {
+        const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
+        if (webhookUrl) {
+          fetch(webhookUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              data: new Date().toLocaleDateString('pt-BR'),
+              usuario: appointment.patientNome,
+              humor: 5, // Valor padrão para agendamento
+              risco: appointment.riskLevel || 'leve',
+              atendimento: 'sim',
+              tipo: 'terapeuta'
+            })
+          }).catch(console.error);
+        }
+      } catch (e) {
+        console.error("Erro ao enviar para webhook", e);
+      }
 
       return { id: docRef.id, ...newAppointment };
     } catch (error) {
@@ -183,8 +235,7 @@ export const userService = {
     
     const q = query(
       collection(db, path),
-      where(field, "==", user.uid),
-      orderBy("date", "desc")
+      where(field, "==", user.uid)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -192,6 +243,7 @@ export const userService = {
         id: doc.id,
         ...doc.data()
       })) as Appointment[];
+      appointments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       callback(appointments);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
@@ -287,6 +339,31 @@ export const userService = {
         reviewed: false
       };
       const docRef = await addDoc(collection(db, path), newEvolution);
+
+      // Webhook para Google Sheets (Looker Studio)
+      try {
+        const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
+        if (webhookUrl) {
+          fetch(webhookUrl, {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              data: new Date().toLocaleDateString('pt-BR'),
+              usuario: patientNome,
+              humor: 5, // Valor padrão para evolução manual
+              risco: riskLevel || 'leve',
+              atendimento: 'sim',
+              tipo: 'terapeuta'
+            })
+          }).catch(console.error);
+        }
+      } catch (e) {
+        console.error("Erro ao enviar para webhook", e);
+      }
+
       return { id: docRef.id, ...newEvolution };
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);
@@ -362,14 +439,15 @@ export const userService = {
     try {
       const q = query(
         collection(db, path),
-        where("userId", "==", patientId),
-        orderBy("timestamp", "desc")
+        where("userId", "==", patientId)
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({
+      const history = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as MoodEntry[];
+      history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      return history;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
       return [];

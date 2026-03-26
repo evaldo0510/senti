@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X } from "lucide-react";
+import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X, Mic, Square, Play, Pause, Paperclip } from "lucide-react";
 import { chatService } from "../services/chatService";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -17,10 +17,19 @@ export default function Atendimento() {
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [typingStatus, setTypingStatus] = useState<{ [key: string]: boolean }>({});
   const [isCallActive, setIsCallActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const jitsiContainerRef = useRef<HTMLDivElement>(null);
   const jitsiApiRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -72,12 +81,90 @@ export default function Atendimento() {
     return () => {
       unsubscribe();
       unsubscribeTyping();
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
     };
   }, [appointmentId, appointment?.sharedSecret]);
 
   useEffect(() => {
     scrollToBottom();
   }, [chat]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        if (appointmentId && auth.currentUser && appointment) {
+          const receiverId = auth.currentUser.uid === appointment.patientId 
+            ? appointment.therapistId 
+            : appointment.patientId;
+          
+          await chatService.sendAudioMessage(appointmentId, auth.currentUser.uid, receiverId, audioBlob, recordingDuration, appointment.sharedSecret);
+        }
+        setRecordingDuration(0);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Error starting recording:", error);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    }
+  };
+
+  const playAudio = (msgId: string, url: string) => {
+    if (playingAudioId === msgId) {
+      audioPlayerRef.current?.pause();
+      setPlayingAudioId(null);
+    } else {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.src = url;
+        audioPlayerRef.current.play();
+        setPlayingAudioId(msgId);
+      }
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !appointmentId || !auth.currentUser || !appointment) return;
+
+    if (file.type.startsWith('audio/')) {
+      const receiverId = auth.currentUser.uid === appointment.patientId 
+        ? appointment.therapistId 
+        : appointment.patientId;
+      
+      // We don't know the duration for uploaded files easily without loading them
+      // but we can estimate or just leave it 0
+      await chatService.sendAudioMessage(appointmentId, auth.currentUser.uid, receiverId, file, 0, appointment.sharedSecret);
+    } else {
+      alert("Por favor, selecione um arquivo de áudio.");
+    }
+  };
 
   const enviar = async () => {
     if (!mensagem.trim() || !appointmentId || !auth.currentUser || !appointment) return;
@@ -309,11 +396,31 @@ export default function Atendimento() {
             <div 
               className={`max-w-[80%] p-4 rounded-2xl ${
                 m.senderId === auth.currentUser?.uid 
-                  ? "bg-emerald-600 text-white rounded-tr-sm" 
+                  ? "bg-emerald-600 text-white rounded-tr-sm shadow-lg shadow-emerald-900/20" 
                   : "bg-slate-800 text-slate-200 rounded-tl-sm border border-white/5"
               }`}
             >
-              <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
+              {m.audioUrl ? (
+                <div className="flex items-center gap-3 min-w-[200px]">
+                  <button 
+                    onClick={() => playAudio(m.id, m.audioUrl!)}
+                    className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+                  >
+                    {playingAudioId === m.id ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                  </button>
+                  <div className="flex-1">
+                    <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                      <div className={`h-full bg-white transition-all duration-300 ${playingAudioId === m.id ? "w-full" : "w-0"}`} />
+                    </div>
+                    <div className="flex justify-between mt-1 text-[10px] opacity-70">
+                      <span>{playingAudioId === m.id ? "Reproduzindo..." : "Áudio"}</span>
+                      <span>{m.duration ? `${Math.floor(m.duration / 60)}:${(m.duration % 60).toString().padStart(2, '0')}` : "0:00"}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
+              )}
               <div className="flex items-center justify-end gap-1 mt-1">
                 <p className="text-[10px] opacity-50">
                   {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ""}
@@ -332,6 +439,12 @@ export default function Atendimento() {
         <div ref={messagesEndRef} />
       </div>
 
+      <audio 
+        ref={audioPlayerRef} 
+        onEnded={() => setPlayingAudioId(null)} 
+        className="hidden" 
+      />
+
       <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-white/10">
         {/* Typing Indicator */}
         {Object.entries(typingStatus).some(([uid, isTyping]) => uid !== auth.currentUser?.uid && isTyping) && (
@@ -347,21 +460,61 @@ export default function Atendimento() {
           </div>
         )}
         <div className="max-w-4xl mx-auto relative flex items-end gap-2">
-          <textarea
-            value={mensagem}
-            onChange={onInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Digite sua mensagem..."
-            className="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none min-h-[52px] max-h-32"
-            rows={1}
-          />
-          <button 
-            onClick={enviar}
-            disabled={!mensagem.trim()}
-            className="p-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl transition-colors flex-shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
+          {isRecording ? (
+            <div className="flex-1 flex items-center gap-4 bg-red-900/20 border border-red-500/30 rounded-2xl px-4 py-3">
+              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="flex-1 text-sm font-medium text-red-400">
+                Gravando... {Math.floor(recordingDuration / 60)}:{(recordingDuration % 60).toString().padStart(2, '0')}
+              </span>
+              <button 
+                onClick={stopRecording}
+                className="p-2 bg-red-600 hover:bg-red-700 rounded-full text-white transition-colors"
+              >
+                <Square className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              <textarea
+                value={mensagem}
+                onChange={onInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Digite sua mensagem..."
+                className="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none min-h-[52px] max-h-32"
+                rows={1}
+              />
+              <div className="flex items-center gap-2">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  accept="audio/*" 
+                  className="hidden" 
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-3 bg-slate-800/50 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors border border-white/10"
+                  title="Anexar Áudio (ex: do WhatsApp)"
+                >
+                  <Paperclip className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={startRecording}
+                  className="p-3 bg-slate-800/50 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors border border-white/10"
+                  title="Gravar Áudio"
+                >
+                  <Mic className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={enviar}
+                  disabled={!mensagem.trim()}
+                  className="p-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl transition-colors flex-shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

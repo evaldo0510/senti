@@ -1,4 +1,4 @@
-import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { db, auth, handleFirestoreError, OperationType, storage } from './firebase';
 import { 
   collection, 
   addDoc, 
@@ -14,8 +14,12 @@ import {
   writeBatch,
   serverTimestamp
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { GoogleGenAI } from "@google/genai";
 import { DirectMessage } from "../types";
 import { cryptoService } from './cryptoService';
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 export const chatService = {
   sendMessage: async (appointmentId: string, senderId: string, receiverId: string, text: string, secret?: string) => {
@@ -41,6 +45,75 @@ export const chatService = {
           userId: receiverId,
           title: 'Nova Mensagem',
           body: 'Você recebeu uma nova mensagem.',
+          url: appointmentId ? `/atendimento/${appointmentId}?type=chat` : '/terapeuta'
+        })
+      }).catch(console.error);
+
+      return docRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  },
+
+  sendAudioMessage: async (appointmentId: string, senderId: string, receiverId: string, audioBlob: Blob, duration: number, secret?: string) => {
+    const path = 'messages';
+    try {
+      const fileName = `audio_${Date.now()}.webm`;
+      const storageRef = ref(storage, `chats/${appointmentId}/${fileName}`);
+      await uploadBytes(storageRef, audioBlob);
+      const audioUrl = await getDownloadURL(storageRef);
+
+      // Optional: Transcribe audio
+      let transcription = "[Áudio]";
+      try {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            resolve(base64);
+          };
+        });
+        reader.readAsDataURL(audioBlob);
+        const base64Data = await base64Promise;
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: [
+            { text: "Transcreva este áudio de terapia. Retorne apenas o texto transcrito." },
+            { inlineData: { data: base64Data, mimeType: audioBlob.type } }
+          ],
+        });
+        if (response.text) {
+          transcription = response.text;
+        }
+      } catch (transcribeError) {
+        console.error("Transcription failed", transcribeError);
+      }
+
+      const encryptedText = secret ? await cryptoService.encrypt(transcription, secret) : transcription;
+
+      const messageData = {
+        senderId,
+        receiverId,
+        text: encryptedText,
+        audioUrl,
+        duration,
+        encrypted: !!secret,
+        timestamp: serverTimestamp(),
+        appointmentId: appointmentId || null,
+        read: false
+      };
+      
+      const docRef = await addDoc(collection(db, path), messageData);
+      
+      // Trigger push notification to receiver
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: receiverId,
+          title: 'Nova Mensagem de Áudio',
+          body: 'Você recebeu um novo áudio.',
           url: appointmentId ? `/atendimento/${appointmentId}?type=chat` : '/terapeuta'
         })
       }).catch(console.error);
@@ -104,8 +177,7 @@ export const chatService = {
       or(
         and(where("senderId", "==", userId), where("receiverId", "==", otherId)),
         and(where("senderId", "==", otherId), where("receiverId", "==", userId))
-      ),
-      orderBy("timestamp", "asc")
+      )
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -113,6 +185,11 @@ export const chatService = {
         id: doc.id,
         ...doc.data()
       })) as DirectMessage[];
+      messages.sort((a: any, b: any) => {
+        const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+        return timeA - timeB;
+      });
       callback(messages);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
@@ -123,8 +200,7 @@ export const chatService = {
     const path = 'messages';
     const q = query(
       collection(db, path),
-      where("appointmentId", "==", appointmentId),
-      orderBy("timestamp", "asc")
+      where("appointmentId", "==", appointmentId)
     );
 
     return onSnapshot(q, async (snapshot) => {
@@ -140,6 +216,11 @@ export const chatService = {
           text
         } as DirectMessage;
       }));
+      messages.sort((a: any, b: any) => {
+        const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;
+        return timeA - timeB;
+      });
       callback(messages);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
