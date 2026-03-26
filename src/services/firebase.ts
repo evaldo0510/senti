@@ -13,9 +13,22 @@ export enum OperationType {
 }
 
 const app = initializeApp(firebaseConfig);
-export const db = (firebaseConfig as any).firestoreDatabaseId 
-  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId) 
-  : getFirestore(app);
+
+// Try to use the named database if provided, otherwise fallback to default
+let firestore;
+try {
+  const databaseId = (firebaseConfig as any).firestoreDatabaseId;
+  if (databaseId && databaseId !== "TODO_FIRESTORE_DATABASE_ID") {
+    firestore = getFirestore(app, databaseId);
+  } else {
+    firestore = getFirestore(app);
+  }
+} catch (e) {
+  console.error("Error initializing Firestore with named database, falling back to default:", e);
+  firestore = getFirestore(app);
+}
+
+export const db = firestore;
 export const auth = getAuth(app);
 
 export const loginWithGoogle = async () => {
