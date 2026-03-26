@@ -19,6 +19,7 @@ import Terapeuta from "./pages/Terapeuta";
 import Empresa from "./pages/Empresa";
 import Prefeitura from "./pages/Prefeitura";
 import Emergencia from "./pages/Emergencia";
+import ProntoAtendimento from "./pages/ProntoAtendimento";
 import TerapeutaSetup from "./pages/TerapeutaSetup";
 import Atendimento from "./pages/Atendimento";
 import Registro from "./pages/Registro";
@@ -62,6 +63,7 @@ function App() {
             <Route path="/diario" element={<Diario />} />
             <Route path="/perfil" element={<Perfil />} />
             <Route path="/emergencia" element={<Emergencia />} />
+            <Route path="/pronto-atendimento" element={<ProntoAtendimento />} />
             <Route path="/terapeuta-setup" element={<TerapeutaSetup />} />
             <Route path="/live-iara" element={<LiveIARA />} />
             <Route path="/clinica" element={<Clinica />} />

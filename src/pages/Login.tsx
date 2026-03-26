@@ -26,7 +26,14 @@ export default function Login() {
         navigate("/dashboard");
       }
     } catch (err: any) {
-      setError(err.message || "Erro ao fazer login com Google.");
+      let message = "Erro ao fazer login com Google.";
+      try {
+        const parsed = JSON.parse(err.message);
+        if (parsed.error) message = parsed.error;
+      } catch (e) {
+        message = err.message || message;
+      }
+      setError(message);
     }
   };
 

@@ -22,8 +22,8 @@ export default function Emergencia() {
         className="max-w-md w-full bg-slate-900/40 backdrop-blur-2xl border border-red-500/20 p-10 rounded-[40px] text-center space-y-8 relative z-10 shadow-2xl"
       >
         <div className="space-y-4">
-          <div className="w-20 h-20 bg-red-500/10 rounded-3xl flex items-center justify-center mx-auto border border-red-500/20">
-            <ShieldAlert className="w-10 h-10 text-red-500" />
+          <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
+            <ShieldAlert className="w-8 h-8 text-red-500" />
           </div>
           
           <div className="space-y-2">
@@ -42,26 +42,26 @@ export default function Emergencia() {
         <div className="grid gap-4 pt-4">
           <a 
             href="tel:188"
-            className="group relative w-full py-6 bg-red-600 hover:bg-red-500 text-white rounded-[32px] font-black text-xl transition-all flex items-center justify-center gap-4 shadow-[0_0_30px_rgba(220,38,38,0.3)] active:scale-[0.98]"
+            className="group relative w-full py-5 bg-red-600 hover:bg-red-500 text-white rounded-[28px] font-black text-lg transition-all flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(220,38,38,0.3)] active:scale-[0.98]"
           >
-            <Phone className="w-6 h-6 animate-bounce" />
+            <Phone className="w-5 h-5 animate-bounce" />
             LIGAR 188 (CVV)
             <div className="absolute -top-2 -right-2 bg-white text-red-600 text-[10px] font-black px-2 py-1 rounded-full shadow-lg">24H</div>
           </a>
 
           <button 
-            onClick={() => navigate("/profissionais")}
-            className="w-full py-6 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-[32px] font-black text-xl transition-all flex items-center justify-center gap-4 active:scale-[0.98]"
+            onClick={() => navigate("/pronto-atendimento")}
+            className="w-full py-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-[28px] font-black text-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
           >
-            <Heart className="w-6 h-6 text-emerald-400" />
+            <Heart className="w-5 h-5 text-emerald-400" />
             Falar com Especialista
           </button>
 
           <button 
             onClick={() => navigate("/chat")}
-            className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[32px] font-black text-xl transition-all flex items-center justify-center gap-4 shadow-[0_0_30px_rgba(16,185,129,0.2)] active:scale-[0.98]"
+            className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[28px] font-black text-lg transition-all flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(16,185,129,0.2)] active:scale-[0.98]"
           >
-            <Activity className="w-6 h-6 animate-pulse" />
+            <Activity className="w-5 h-5 animate-pulse" />
             Falar com a Iara (IA)
           </button>
         </div>

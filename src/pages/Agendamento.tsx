@@ -5,6 +5,8 @@ import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2, AlertCircle, Zap, Che
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { paymentService } from "../services/paymentService";
+import { auth } from "../services/firebase";
+import CalendarAvailability from "../components/CalendarAvailability";
 
 export default function Agendamento() {
   const { id } = useParams();

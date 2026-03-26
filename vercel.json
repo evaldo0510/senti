@@ -1,23 +1,16 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    },
-    {
-      "src": "server.ts",
-      "use": "@vercel/node"
+  "functions": {
+    "server.ts": {
+      "runtime": "@vercel/node"
     }
-  ],
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/server.ts"
     },
     {
-      "source": "/((?!api|assets|sw.js|manifest.webmanifest|icon.svg|favicon.ico|apple-touch-icon.png|mask-icon.svg).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]

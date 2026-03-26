@@ -308,7 +308,7 @@ export default function DashboardPaciente() {
             className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 flex items-center gap-3 shadow-sm"
           >
             <div className="w-10 h-10 bg-orange-100 dark:bg-orange-500/20 rounded-2xl flex items-center justify-center text-orange-600 dark:text-orange-400">
-              <Zap className="w-6 h-6 fill-current" />
+              <Zap className="w-5 h-5 fill-current" />
             </div>
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Streak</p>
@@ -321,7 +321,7 @@ export default function DashboardPaciente() {
             className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 flex items-center gap-3 shadow-sm"
           >
             <div className="w-10 h-10 bg-purple-100 dark:bg-purple-500/20 rounded-2xl flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Sparkles className="w-6 h-6 fill-current" />
+              <Sparkles className="w-5 h-5 fill-current" />
             </div>
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Nível</p>
@@ -496,11 +496,11 @@ export default function DashboardPaciente() {
           </div>
           <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/30 backdrop-blur-md">
-                <Zap className="w-7 h-7 text-emerald-400" />
+              <div className="w-10 h-10 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/30 backdrop-blur-md">
+                <Zap className="w-6 h-6 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-xl font-black tracking-tight">SENTI Go</h3>
+                <h3 className="text-lg font-black tracking-tight">SENTI Go</h3>
                 <p className="text-emerald-400/80 text-xs font-bold uppercase tracking-widest">Ajuda Instantânea</p>
               </div>
             </div>
@@ -650,7 +650,7 @@ export default function DashboardPaciente() {
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-                <Video className="w-6 h-6" />
+                <Video className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">Sessão IARA Live</h3>

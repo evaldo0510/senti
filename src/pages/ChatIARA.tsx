@@ -33,6 +33,7 @@ export default function ChatIARA() {
   const [isLoading, setIsLoading] = useState(false);
   const [alerta, setAlerta] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isExercising, setIsExercising] = useState(false);
@@ -86,6 +87,8 @@ export default function ChatIARA() {
     const source = await playPCM(base64Audio);
     if (source) {
       currentAudioSource.current = source;
+      setIsSpeaking(true);
+      source.onended = () => setIsSpeaking(false);
     }
   };
 
@@ -326,12 +329,12 @@ export default function ChatIARA() {
       <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/20 backdrop-blur-xl sticky top-0 z-10 pt-10">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black tracking-tighter text-emerald-400">IARA</h2>
-              <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest border border-emerald-500/20">Clínico Geral</span>
+              <h2 className="text-base font-black tracking-tighter text-emerald-400">IARA</h2>
+              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-widest border border-emerald-500/20">Clínico Geral</span>
             </div>
             <div className="flex items-center gap-2">
               <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
@@ -343,34 +346,20 @@ export default function ChatIARA() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button 
-            onClick={() => navigate("/chat")}
-            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-full text-sm font-medium transition-colors border border-emerald-500/20"
+            onClick={toggleMute}
+            className={`p-2 rounded-xl transition-all ${isMuted ? 'bg-red-500/10 text-red-400' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}
+            title={isMuted ? "Ativar som" : "Desativar som"}
           >
-            <MessageCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Falar com IARA</span>
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className={`w-4 h-4 ${isSpeaking ? 'animate-pulse text-emerald-400' : ''}`} />}
           </button>
           <button 
             onClick={() => navigate("/diario")}
-            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-900/30 hover:bg-indigo-800/50 text-indigo-300 rounded-full text-sm font-medium transition-colors border border-indigo-500/20"
+            className="p-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl transition-all border border-white/5"
+            title="Diário"
           >
             <Book className="w-4 h-4" />
-            <span className="hidden sm:inline">Diário</span>
-          </button>
-          <button 
-            onClick={toggleMute}
-            className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
-            title={isMuted ? "Ativar som" : "Desativar som"}
-          >
-            {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-          </button>
-          <button 
-            onClick={() => navigate("/profissionais")}
-            className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/30 hover:bg-emerald-800/50 text-emerald-300 rounded-full text-sm font-medium transition-colors border border-emerald-500/20"
-          >
-            <HeartHandshake className="w-4 h-4" />
-            <span className="hidden sm:inline">Falar com Terapeuta</span>
           </button>
         </div>
       </header>
@@ -397,6 +386,28 @@ export default function ChatIARA() {
               <a href="tel:188" className="inline-block px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-sm font-medium transition-colors">
                 Ligar 188 (CVV)
               </a>
+            </div>
+          </motion.div>
+        )}
+
+        {isSpeaking && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex justify-center mb-4"
+          >
+            <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-1.5 rounded-full flex items-center gap-2">
+              <div className="flex gap-1">
+                {[1, 2, 3].map(i => (
+                  <motion.div 
+                    key={i}
+                    animate={{ height: [4, 12, 4] }}
+                    transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                    className="w-1 bg-emerald-400 rounded-full"
+                  />
+                ))}
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">IARA está falando...</span>
             </div>
           </motion.div>
         )}
@@ -471,37 +482,37 @@ export default function ChatIARA() {
           <button
             onClick={handleMicClick}
             disabled={isLoading || isListening}
-            className={`p-3 rounded-xl transition-colors flex items-center justify-center flex-shrink-0 ${
+            className={`p-2.5 rounded-xl transition-all flex items-center justify-center flex-shrink-0 ${
               isListening 
                 ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse" 
                 : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-white/10"
             }`}
             title="Falar"
           >
-            <Mic className="w-5 h-5" />
+            <Mic className="w-4 h-4" />
           </button>
           <button
             onClick={handleGerarImagem}
             disabled={isLoading || isGeneratingImage}
-            className="p-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 disabled:text-slate-600 text-slate-300 rounded-xl transition-colors flex-shrink-0 border border-white/10"
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 disabled:text-slate-600 text-slate-300 rounded-xl transition-all flex-shrink-0 border border-white/10"
             title="Gerar imagem calmante"
           >
-            <ImageIcon className="w-5 h-5" />
+            <ImageIcon className="w-4 h-4" />
           </button>
           <textarea
             value={mensagem}
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             placeholder="O que você está sentindo agora?"
-            className="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none min-h-[52px] max-h-32"
+            className="w-full bg-slate-800/30 border border-white/5 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 resize-none min-h-[48px] max-h-32 text-sm"
             rows={1}
           />
           <button 
             onClick={() => enviarMensagem()}
             disabled={!mensagem.trim() || isLoading}
-            className="p-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl transition-colors flex-shrink-0"
+            className="p-2.5 bg-emerald-600 hover:bg-emerald-50 text-emerald-900 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl transition-all flex-shrink-0 shadow-lg shadow-emerald-900/20"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </div>
