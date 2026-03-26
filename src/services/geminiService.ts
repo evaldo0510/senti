@@ -81,8 +81,9 @@ Você deve responder em formato JSON com os seguintes campos:
   "risco": "normal" | "alto"
 }
 `;
-
-export function detectRisk(text: string): 'alto' | 'normal' {
+export function resetMemoria() {
+  historico = [];
+}
   const riskPhrases = [
     "me machucar",
     "não aguento mais",
