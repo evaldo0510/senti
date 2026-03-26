@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
+import { usePushNotifications } from "../hooks/usePushNotifications";
 import { 
   Users, 
   Calendar, 
@@ -30,6 +31,7 @@ export default function Terapeuta() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable, notificationPermission, requestNotificationPermission } = usePWA();
   const { profile, loading, isAuthReady } = useAuth();
+  const { isSubscribed, permission: pushPermission, subscribe } = usePushNotifications(profile?.uid);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -45,6 +47,11 @@ export default function Terapeuta() {
       if (!profile || (profile.tipo !== 'terapeuta' && profile.tipo !== 'admin')) {
         navigate("/login");
         return;
+      }
+
+      // Auto-subscribe to push notifications if not already subscribed
+      if (pushPermission === 'default' && !isSubscribed) {
+        subscribe();
       }
 
       const unsubscribe = userService.getMyAppointments((apps) => {

@@ -32,6 +32,19 @@ export const chatService = {
         read: false
       };
       const docRef = await addDoc(collection(db, path), messageData);
+      
+      // Trigger push notification to receiver
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: receiverId,
+          title: 'Nova Mensagem',
+          body: 'Você recebeu uma nova mensagem.',
+          url: appointmentId ? `/atendimento/${appointmentId}?type=chat` : '/terapeuta'
+        })
+      }).catch(console.error);
+
       return docRef.id;
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);

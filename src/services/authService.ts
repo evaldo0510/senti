@@ -8,7 +8,11 @@ let currentUserProfile: UserProfile | null = null;
 // Listen for auth changes to keep profile in sync
 onAuthStateChanged(auth, async (user) => {
   if (user) {
-    currentUserProfile = await userService.getUser(user.uid);
+    try {
+      currentUserProfile = await userService.getUser(user.uid);
+    } catch (error) {
+      console.error("Failed to fetch user profile on auth state change", error);
+    }
   } else {
     currentUserProfile = null;
   }

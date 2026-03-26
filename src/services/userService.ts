@@ -121,9 +121,14 @@ export const userService = {
       return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
     } catch (error) {
       // Fallback if online/rating query fails due to missing index
-      const qSimple = query(collection(db, path), where("tipo", "==", "terapeuta"));
-      const snapshot = await getDocs(qSimple);
-      return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
+      try {
+        const qSimple = query(collection(db, path), where("tipo", "==", "terapeuta"));
+        const snapshot = await getDocs(qSimple);
+        return snapshot.docs.slice(0, limitCount).map(doc => doc.data() as UserProfile);
+      } catch (fallbackError) {
+        handleFirestoreError(fallbackError, OperationType.LIST, path);
+        return [];
+      }
     }
   },
 
@@ -136,6 +141,19 @@ export const userService = {
         status: 'pending' as const
       };
       const docRef = await addDoc(collection(db, path), newAppointment);
+      
+      // Trigger push notification to therapist
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: appointment.therapistId,
+          title: 'Novo Agendamento',
+          body: `Você tem uma nova solicitação de agendamento de ${appointment.patientNome}.`,
+          url: '/terapeuta'
+        })
+      }).catch(console.error);
+
       return { id: docRef.id, ...newAppointment };
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, path);

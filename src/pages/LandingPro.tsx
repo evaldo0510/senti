@@ -24,7 +24,9 @@ import {
   RefreshCw,
   Brain,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Menu,
+  X
 } from "lucide-react";
 
 const FAQItem = ({ question, answer }: { question: string, answer: string }) => {
@@ -59,6 +61,7 @@ const FAQItem = ({ question, answer }: { question: string, answer: string }) => 
 export default function LandingPro() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable } = usePWA();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const abrirWhatsApp = () => {
     const numero = "5511999999999";
@@ -122,12 +125,69 @@ export default function LandingPro() {
             </button>
             <button 
               onClick={() => navigate("/reset")} 
-              className="px-8 py-3 bg-emerald-600 text-white hover:bg-emerald-700 rounded-full text-sm font-bold transition-all hover:shadow-[0_10px_20px_rgba(5,150,105,0.2)] active:scale-95 flex items-center gap-2"
+              className="hidden sm:flex px-8 py-3 bg-emerald-600 text-white hover:bg-emerald-700 rounded-full text-sm font-bold transition-all hover:shadow-[0_10px_20px_rgba(5,150,105,0.2)] active:scale-95 items-center gap-2"
             >
               Começar Agora
             </button>
+            
+            {/* MOBILE MENU BUTTON */}
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 text-[#1a1a1a] hover:bg-black/5 rounded-xl transition-colors"
+            >
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
           </div>
         </div>
+
+        {/* MOBILE MENU OVERLAY */}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden bg-white border-b border-black/5 overflow-hidden"
+            >
+              <div className="px-6 py-8 flex flex-col gap-6">
+                <a 
+                  href="#metodo" 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-xl font-bold text-[#1a1a1a]"
+                >
+                  O Método
+                </a>
+                <a 
+                  href="#solucao" 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-xl font-bold text-[#1a1a1a]"
+                >
+                  Acolhimento
+                </a>
+                <a 
+                  href="#segmentos" 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-xl font-bold text-[#1a1a1a]"
+                >
+                  Ecossistema
+                </a>
+                <div className="h-px bg-black/5 my-2" />
+                <button 
+                  onClick={() => { navigate("/login"); setIsMenuOpen(false); }}
+                  className="text-lg font-bold text-[#4a4a4a] text-left"
+                >
+                  Entrar / Cadastrar
+                </button>
+                <button 
+                  onClick={() => { navigate("/reset"); setIsMenuOpen(false); }}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold text-center shadow-lg shadow-emerald-600/20"
+                >
+                  Começar Agora
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* HERO SECTION */}
@@ -149,7 +209,7 @@ export default function LandingPro() {
               transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="relative"
             >
-              <h1 className="text-7xl md:text-[10vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[0.85] italic">
+              <h1 className="text-5xl sm:text-7xl md:text-[10vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[0.85] italic">
                 Sua mente em <br />
                 <span className="text-emerald-700 font-bold not-italic">paz absoluta.</span>
               </h1>
@@ -160,7 +220,7 @@ export default function LandingPro() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="text-xl md:text-3xl text-[#4a4a4a] max-w-4xl mx-auto leading-relaxed font-light"
+              className="text-lg md:text-3xl text-[#4a4a4a] max-w-4xl mx-auto leading-relaxed font-light px-4"
             >
               A SENTI une a precisão da <span className="font-bold text-emerald-700">IA IARA</span> com o calor humano de <span className="font-bold text-emerald-700">especialistas renomados</span> para um acolhimento 24/7.
             </motion.p>
@@ -191,7 +251,7 @@ export default function LandingPro() {
       </section>
 
       {/* DIFERENCIAL IARA */}
-      <section className="py-32 px-6 bg-white relative z-10">
+      <section className="py-20 md:py-32 px-6 bg-white relative z-10">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, x: -40 }}
@@ -202,7 +262,7 @@ export default function LandingPro() {
             <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-widest">
               Tecnologia Exclusiva
             </div>
-            <h2 className="text-5xl md:text-7xl font-serif italic text-[#1a1a1a] leading-tight">
+            <h2 className="text-4xl md:text-7xl font-serif italic text-[#1a1a1a] leading-tight">
               Conheça a <span className="text-emerald-700 font-bold not-italic">IARA</span>
             </h2>
             <p className="text-xl text-[#4a4a4a] font-light leading-relaxed">
@@ -257,7 +317,7 @@ export default function LandingPro() {
       </section>
 
       {/* PÍLULAS TERAPÊUTICAS SECTION */}
-      <section className="py-32 px-6 bg-white relative z-10">
+      <section className="py-20 md:py-32 px-6 bg-white relative z-10">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-20 items-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -286,7 +346,7 @@ export default function LandingPro() {
                 </div>
                 <p className="text-xs font-bold text-slate-800">"Respire fundo por 4 segundos..."</p>
               </motion.div>
-
+ 
               <motion.div 
                 animate={{ y: [0, 10, 0] }}
                 transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
@@ -300,7 +360,7 @@ export default function LandingPro() {
               </motion.div>
             </div>
           </motion.div>
-
+ 
           <motion.div
             initial={{ opacity: 0, x: 40 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -310,7 +370,7 @@ export default function LandingPro() {
             <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold uppercase tracking-widest">
               Novidade Exclusiva
             </div>
-            <h2 className="text-5xl md:text-7xl font-serif italic text-[#1a1a1a] leading-tight">
+            <h2 className="text-4xl md:text-7xl font-serif italic text-[#1a1a1a] leading-tight">
               Pílulas <span className="text-emerald-700 font-bold not-italic">Terapêuticas</span>
             </h2>
             <p className="text-xl text-[#4a4a4a] font-light leading-relaxed">
@@ -344,12 +404,12 @@ export default function LandingPro() {
       </section>
 
       {/* JORNADA DO PACIENTE */}
-      <section id="metodo" className="py-40 px-6 relative z-10">
+      <section id="metodo" className="py-20 md:py-40 px-6 relative z-10">
         <div className="max-w-7xl mx-auto space-y-32">
           <div className="grid md:grid-cols-2 gap-12 items-end">
             <div className="space-y-6">
               <div className="w-12 h-1 bg-emerald-600"></div>
-              <h2 className="text-5xl md:text-7xl font-serif italic text-[#1a1a1a] tracking-tight leading-none">
+              <h2 className="text-4xl md:text-7xl font-serif italic text-[#1a1a1a] tracking-tight leading-none">
                 O Fluxo do <br /> <span className="text-emerald-700 font-bold not-italic">Acolhimento</span>
               </h2>
             </div>
@@ -439,7 +499,7 @@ export default function LandingPro() {
       </section>
 
       {/* COMO PODEMOS AJUDAR - CAROUSEL */}
-      <section id="solucao" className="py-32 px-6 bg-white relative z-10 overflow-hidden">
+      <section id="solucao" className="py-20 md:py-32 px-6 bg-white relative z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto space-y-16">
           <div className="text-center space-y-6">
             <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
@@ -520,10 +580,10 @@ export default function LandingPro() {
       </section>
 
       {/* SEGMENTAÇÃO SECTION */}
-      <section id="segmentos" className="py-40 px-6 bg-white/40 backdrop-blur-3xl relative z-10">
+      <section id="segmentos" className="py-20 md:py-40 px-6 bg-white/40 backdrop-blur-3xl relative z-10">
         <div className="max-w-7xl mx-auto space-y-24">
           <div className="text-center space-y-8">
-            <h2 className="text-5xl md:text-8xl font-serif italic text-[#1a1a1a] tracking-tight leading-[1]">
+            <h2 className="text-4xl md:text-8xl font-serif italic text-[#1a1a1a] tracking-tight leading-[1]">
               Um ecossistema <br /> <span className="text-emerald-700 font-bold not-italic">completo.</span>
             </h2>
             <p className="text-2xl text-[#4a4a4a] max-w-3xl mx-auto font-light">
@@ -596,7 +656,7 @@ export default function LandingPro() {
       </section>
 
       {/* FEATURES DETALHADAS */}
-      <section className="py-32 px-6 bg-[#f5f5f0] relative z-10">
+      <section className="py-20 md:py-32 px-6 bg-[#f5f5f0] relative z-10">
         <div className="max-w-7xl mx-auto space-y-24">
           <div className="text-center space-y-8">
             <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
@@ -661,7 +721,7 @@ export default function LandingPro() {
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="py-40 px-6 relative z-10 overflow-hidden">
+      <section className="py-20 md:py-40 px-6 relative z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="relative text-center">
             <motion.div 
@@ -688,7 +748,7 @@ export default function LandingPro() {
       </section>
 
       {/* FAQ SECTION */}
-      <section className="py-32 px-6 bg-white relative z-10">
+      <section className="py-20 md:py-32 px-6 bg-white relative z-10">
         <div className="max-w-4xl mx-auto space-y-16">
           <div className="text-center space-y-6">
             <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">

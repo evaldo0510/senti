@@ -1,7 +1,16 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDGTB2IkTWGH6vdDJwV-k4f-93fxf5etfg",
+  authDomain: "senti-app-novo.firebaseapp.com",
+  projectId: "senti-app-novo",
+  storageBucket: "senti-app-novo.firebasestorage.app",
+  messagingSenderId: "377095198449",
+  appId: "1:377095198449:web:ddc99dcf51be42fa98fb50",
+  measurementId: "G-Q7H7X8BZ60"
+};
 
 export enum OperationType {
   CREATE = 'create',
@@ -13,20 +22,7 @@ export enum OperationType {
 }
 
 const app = initializeApp(firebaseConfig);
-
-// Try to use the named database if provided, otherwise fallback to default
-let firestore;
-try {
-  const databaseId = (firebaseConfig as any).firestoreDatabaseId;
-  if (databaseId && databaseId !== "TODO_FIRESTORE_DATABASE_ID") {
-    firestore = getFirestore(app, databaseId);
-  } else {
-    firestore = getFirestore(app);
-  }
-} catch (e) {
-  console.error("Error initializing Firestore with named database, falling back to default:", e);
-  firestore = getFirestore(app);
-}
+const firestore = getFirestore(app);
 
 export const db = firestore;
 export const auth = getAuth(app);
@@ -36,7 +32,11 @@ export const loginWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, provider);
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+      console.log("Login popup closed by user.");
+      return null;
+    }
     console.error("Error logging in with Google", error);
     throw error;
   }
