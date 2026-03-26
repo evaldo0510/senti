@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
 import { 
   HeartPulse, 
@@ -38,6 +38,9 @@ import StarRating from "../components/StarRating";
 import Especialidades from "../components/Especialidades";
 import { getPillOfDay, Pill } from "../services/pillService";
 import { addXp, updateStreak, XP_ACTIONS, getLevelByXp, getNextLevel, LEVELS } from "../services/gamificationService";
+import { Onboarding } from "../components/Onboarding";
+import { AffirmationToast } from "../components/AffirmationToast";
+import { generateTherapistAvatar } from "../services/imageService";
 
 export default function DashboardPaciente() {
   const navigate = useNavigate();
@@ -55,11 +58,54 @@ export default function DashboardPaciente() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [dailyPill, setDailyPill] = useState<Pill | null>(null);
   const [pillRead, setPillRead] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const loadMoreNews = () => {
     setVisibleNewsCount(prev => prev + 3);
   };
+
+  useEffect(() => {
+    const isNewUser = localStorage.getItem("isNewUser");
+    if (!isNewUser) {
+      setShowWelcome(true);
+      localStorage.setItem("isNewUser", "false");
+    }
+  }, []);
+
+  useEffect(() => {
+    const checkAnaSilva = async () => {
+      const therapists = await userService.getFeaturedTherapists(10);
+      const hasAna = therapists.some(t => t.nome === "Dra. Ana Silva");
+      
+      if (!hasAna) {
+        const avatar = await generateTherapistAvatar();
+        // In a real app, we'd save this to Firestore. 
+        // For this demo, we'll just add her to the local state if needed.
+        if (avatar) {
+          const anaSilva: UserProfile = {
+            uid: "ana_silva_generated",
+            nome: "Dra. Ana Silva",
+            email: "ana.silva@senti.app",
+            tipo: "terapeuta",
+            fotoUrl: avatar,
+            especialidades: ["Ansiedade", "Depressão", "TCC"],
+            rating: 5.0,
+            reviewCount: 1,
+            online: true,
+            biografia: "Especialista em Terapia Cognitivo-Comportamental, focada em ajudar pacientes com ansiedade e depressão a encontrarem paz e equilíbrio.",
+            estilo: "acolhedor",
+            abordagem: "TCC",
+            intensidade: 40,
+            createdAt: new Date().toISOString()
+          };
+          setFeaturedTherapists(prev => [anaSilva, ...prev.slice(0, 2)]);
+        }
+      }
+    };
+    
+    checkAnaSilva();
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -251,6 +297,53 @@ export default function DashboardPaciente() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-32 transition-colors">
       <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+      <Onboarding />
+      <AffirmationToast />
+
+      <AnimatePresence>
+        {showWelcome && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[3rem] p-10 shadow-2xl border border-slate-200 dark:border-white/5 text-center space-y-8"
+            >
+              <div className="w-24 h-24 bg-emerald-100 dark:bg-emerald-500/20 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+                <Sparkles className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              
+              <div className="space-y-4">
+                <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 leading-tight">
+                  Bem-vindo ao seu refúgio emocional
+                </h2>
+                <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
+                  Estamos muito felizes em ter você aqui. O SENTI é o seu espaço seguro para cuidar da mente e do coração.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    setShowWelcome(false);
+                    navigate("/chat");
+                  }}
+                  className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-lg transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-3 active:scale-95"
+                >
+                  Falar com a IARA
+                  <MessageCircle className="w-5 h-5" />
+                </button>
+                <button 
+                  onClick={() => setShowWelcome(false)}
+                  className="w-full py-5 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-300 rounded-2xl font-bold text-base hover:bg-slate-200 dark:hover:bg-white/10 transition-all"
+                >
+                  Explorar o App
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       
       {appointmentToReview && (
         <ReviewModal 
@@ -263,7 +356,7 @@ export default function DashboardPaciente() {
       )}
 
       {/* Header */}
-      <header className="px-4 py-4 sm:px-6 sm:py-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
+      <header id="onboarding-welcome" className="px-4 py-4 sm:px-6 sm:py-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
             <HeartPulse className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
@@ -543,6 +636,7 @@ export default function DashboardPaciente() {
 
         {/* Mood Card */}
         <motion.section 
+          id="onboarding-mood"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group shadow-sm card-hover"
@@ -576,6 +670,7 @@ export default function DashboardPaciente() {
                 ReSet Agora
               </button>
               <button 
+                id="onboarding-iara"
                 onClick={() => navigate("/chat")}
                 className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-2xl text-sm font-bold transition-all border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2"
               >
@@ -708,7 +803,7 @@ export default function DashboardPaciente() {
         </section>
 
         {/* Marketplace / Terapeutas Online Section */}
-        <section className="space-y-4">
+        <section id="onboarding-therapists" className="space-y-4">
           <div className="flex justify-between items-end px-2">
             <div>
               <h3 className="text-xl font-medium text-slate-800 dark:text-slate-200">Match Inteligente</h3>
