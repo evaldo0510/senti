@@ -243,7 +243,14 @@ export default function Profissionais() {
                         <div className="flex justify-between items-start">
                           <div>
                             <h3 className="text-xl font-bold text-slate-100 group-hover:text-emerald-400 transition-colors">{prof.nome}</h3>
-                            <p className="text-emerald-400/80 text-sm font-medium">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
+                            <p className="text-emerald-400/80 text-sm font-medium mb-2">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
+                            <button 
+                              onClick={() => navigate(`/agendamento/${prof.uid}`)}
+                              className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20 transition-all flex items-center gap-1.5"
+                            >
+                              <CalendarIcon className="w-3 h-3" />
+                              Agendar
+                            </button>
                           </div>
                           <StarRating rating={prof.rating || 4.8} count={prof.reviewCount || 124} size={16} />
                         </div>

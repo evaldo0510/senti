@@ -170,7 +170,15 @@ export default function TerapeutaPerfil() {
                 )} />
               </div>
               
-              <h1 className="text-xl font-bold text-slate-100 mb-1">{terapeuta.nome}</h1>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <h1 className="text-xl font-bold text-slate-100">{terapeuta.nome}</h1>
+                {terapeuta.online && (
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                    <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Online agora</span>
+                  </div>
+                )}
+              </div>
               <p className="text-emerald-400 text-sm font-medium mb-4">{terapeuta.especialidades?.join(", ") || "Psicólogo"}</p>
               
               <div className="flex items-center justify-center gap-1 mb-6">
@@ -244,6 +252,15 @@ export default function TerapeutaPerfil() {
                 <p className="text-slate-400 leading-relaxed text-lg italic font-serif">
                   {terapeuta.biografia || "Profissional dedicado ao bem-estar emocional, com vasta experiência em ajudar pessoas a superarem desafios e encontrarem equilíbrio em suas vidas."}
                 </p>
+                <div className="pt-2">
+                  <button 
+                    onClick={() => navigate(`/atendimento/${terapeuta.uid}?type=chat`)}
+                    className="px-6 py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-2xl font-bold transition-all flex items-center gap-2 group"
+                  >
+                    <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    Chat Rápido
+                  </button>
+                </div>
               </section>
 
               {terapeuta.videoUrl && (
