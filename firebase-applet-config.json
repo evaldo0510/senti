@@ -1,10 +1,16 @@
-{
-  "projectId": "marcenariaappgit-3825936-68fd8",
-  "appId": "1:252242119928:web:8db0d16c3d40a3b7203f0d",
-  "apiKey": "AIzaSyCR_RgErwHskLGSrLUvNU-XhE6IQ5ujmtQ",
-  "authDomain": "marcenariaappgit-3825936-68fd8.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-58181161-2fe4-4dec-b68c-74875505175d",
-  "storageBucket": "marcenariaappgit-3825936-68fd8.firebasestorage.app",
-  "messagingSenderId": "252242119928",
-  "measurementId": ""
-}
+
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCR_RgErwHskLGSrLUvNU-XhE6IQ5ujmtQ",
+  authDomain: "senti-app-novo.firebaseapp.com",
+  projectId: "senti-app-novo",
+  storageBucket: "senti-app-novo.firebasestorage.app",
+  messagingSenderId: "377095198449",
+  appId: "1:377095198449:web:ddc99dcf51be42fa98fb50"
+};
+
+const app = initializeApp(firebaseConfig);
+
+export const db = getFirestore(app);
