@@ -114,7 +114,7 @@ export default function Profissionais() {
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
               <h1 className="text-2xl font-medium text-slate-200">Direcionamento Guiado</h1>
@@ -130,7 +130,7 @@ export default function Profissionais() {
                 view === "list" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
               )}
             >
-              <List className="w-5 h-5" />
+              <List className="w-4 h-4" />
             </button>
             <button 
               onClick={() => setView("map")}
@@ -139,7 +139,7 @@ export default function Profissionais() {
                 view === "map" ? "bg-emerald-600 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
               )}
             >
-              <MapIcon className="w-5 h-5" />
+              <MapIcon className="w-4 h-4" />
             </button>
           </div>
         </header>
@@ -147,7 +147,7 @@ export default function Profissionais() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <input 
                 type="text"
                 placeholder="Como você está se sentindo hoje?"
@@ -157,7 +157,7 @@ export default function Profissionais() {
               />
             </div>
             <div className="relative sm:w-1/3">
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <select
                 value={cidadeFiltro}
                 onChange={(e) => setCidadeFiltro(e.target.value)}
@@ -168,7 +168,7 @@ export default function Profissionais() {
                   <option key={cidade} value={cidade}>{cidade}</option>
                 ))}
               </select>
-              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none" />
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
             </div>
           </div>
 
@@ -420,8 +420,8 @@ export default function Profissionais() {
                     className="bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/30 rounded-2xl p-4 shadow-2xl transition-all group active:scale-95"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Zap className="w-6 h-6 text-white" />
+                      <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Zap className="w-4 h-4 text-white" />
                       </div>
                       <div className="text-left">
                         <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest">SENTI Go</p>
@@ -442,7 +442,7 @@ export default function Profissionais() {
               </div>
               
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
-                <MapPin className="w-6 h-6 text-emerald-400" />
+                <MapPin className="w-4 h-4 text-emerald-400" />
                 <div className="flex-1">
                   <p className="text-sm font-bold text-emerald-400">Sua localização atual</p>
                   <p className="text-xs text-slate-400">São Paulo, SP - Próximo à Av. Paulista</p>

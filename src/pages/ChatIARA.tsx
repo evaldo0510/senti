@@ -21,6 +21,13 @@ interface Message {
   imagem?: string | null;
 }
 
+interface Step {
+  id: number;
+  label: string;
+  completed?: boolean;
+  active?: boolean;
+}
+
 export default function ChatIARA() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -42,12 +49,29 @@ export default function ChatIARA() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
 
-  const steps = [
-    { id: 0, label: "Identificação", completed: true },
-    { id: 1, label: "Sinais Vitais", completed: true },
-    { id: 2, label: "Clínico Geral", active: true },
-    { id: 3, label: "Especialista" }
-  ];
+  const [currentStep, setCurrentStep] = useState(2);
+  const [steps, setSteps] = useState<Step[]>([
+    { id: 0, label: "Acolhimento", completed: true },
+    { id: 1, label: "Avaliação", completed: true },
+    { id: 2, label: "Triagem", active: true },
+    { id: 3, label: "Direcionamento" }
+  ]);
+
+  const updateSteps = (risco: string, direcionar: boolean) => {
+    if (risco === "alto") {
+      setSteps(prev => prev.map(s => 
+        s.id === 2 ? { ...s, active: false, completed: true } : 
+        s.id === 3 ? { ...s, active: true, label: "EMERGÊNCIA" } : s
+      ));
+      setCurrentStep(3);
+    } else if (direcionar) {
+      setSteps(prev => prev.map(s => 
+        s.id === 2 ? { ...s, active: false, completed: true } : 
+        s.id === 3 ? { ...s, active: true } : s
+      ));
+      setCurrentStep(3);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -123,6 +147,7 @@ export default function ChatIARA() {
       const result = await falarComIARA(msgAtual, historico, emocaoAtual);
       
       setEmocaoAtual({ emocao: result.emocao, intensidade: result.intensidade });
+      updateSteps(result.risco, result.direcionarEspecialista);
       
       if (result.risco === "alto") {
         setAlerta(true);
@@ -296,14 +321,14 @@ export default function ChatIARA() {
             animate={{ opacity: 1, y: 0 }}
             className="fixed bottom-24 left-6 right-6 z-[90] bg-emerald-600 p-6 rounded-[32px] shadow-2xl flex items-center gap-6 border border-emerald-400/30"
           >
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
-              <HeartHandshake className="w-8 h-8 text-white" />
+            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center animate-pulse">
+              <HeartHandshake className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1">
               <h3 className="font-black text-white text-lg leading-tight">Conectando com Especialista</h3>
               <p className="text-emerald-100 text-sm">A IARA identificou que você precisa de um acolhimento humano agora.</p>
             </div>
-            <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" />
           </motion.div>
         )}
       </AnimatePresence>
@@ -368,7 +393,7 @@ export default function ChatIARA() {
         {isExercising && (
           <div className="flex justify-center my-4">
             <div 
-              className="w-20 h-20 rounded-full bg-emerald-500 mx-auto"
+              className="w-16 h-16 rounded-full bg-emerald-500 mx-auto"
               style={{ animation: "pulse 4s infinite" }}
             />
           </div>
@@ -379,7 +404,7 @@ export default function ChatIARA() {
             animate={{ opacity: 1, scale: 1 }}
             className="bg-red-900/30 border border-red-500/30 p-4 rounded-2xl flex items-start gap-3 text-red-200"
           >
-            <AlertTriangle className="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-medium text-red-300 mb-1">Você não está sozinho.</p>
               <p className="text-sm text-red-200/80 mb-3">Por favor, procure ajuda imediata. Existem pessoas prontas para te ouvir agora mesmo.</p>

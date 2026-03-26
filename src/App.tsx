@@ -33,6 +33,7 @@ import Reset from "./pages/Reset";
 import Reset21 from "./pages/Reset21";
 import Reset21Day from "./pages/Reset21Day";
 import Reset21Sales from "./pages/Reset21Sales";
+import IARAChatBubble from "./components/IARAChatBubble";
 
 function App() {
   return (
@@ -72,6 +73,7 @@ function App() {
             <Route path="/registro/:appointmentId" element={<Registro />} />
             <Route path="/terapeuta/paciente/:id" element={<ProntuarioPaciente />} />
           </Routes>
+          <IARAChatBubble />
         </Router>
       </PWAProvider>
     </ThemeProvider>

@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, AlertTriangle, Activity, Heart, Shield, Info, ArrowLeft } from "lucide-react";
+import { ArrowRight, AlertTriangle, Activity, Heart, Shield, Info, ArrowLeft, MessageCircle } from "lucide-react";
 import { salvarDadosAnalytics } from "../services/analyticsService";
+import IARATriageChat from "../components/IARATriageChat";
 
 export default function Triagem() {
   const [step, setStep] = useState(0);
   const [emocao, setEmocao] = useState("");
   const [intensidade, setIntensidade] = useState(5);
   const [risco, setRisco] = useState<boolean | null>(null);
+  const [useIARA, setUseIARA] = useState(false);
   const navigate = useNavigate();
 
   const handleContinue = () => {
@@ -42,6 +44,31 @@ export default function Triagem() {
     { id: 2, label: "Triagem de Risco" }
   ];
 
+  if (useIARA) {
+    return (
+      <div className="min-h-screen bg-[#0a0502] flex flex-col items-center justify-center p-6 text-slate-100 relative overflow-hidden">
+        <button 
+          onClick={() => setUseIARA(false)}
+          className="fixed top-8 left-8 p-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all z-50"
+        >
+          <ArrowLeft className="w-5 h-5 text-slate-400" />
+        </button>
+        
+        <div className="w-full max-w-md space-y-6 relative z-10">
+          <div className="text-center space-y-2">
+            <h3 className="text-3xl font-black tracking-tighter text-white">Triagem com IARA</h3>
+            <p className="text-slate-400 text-sm">Nossa IA de acolhimento vai te guiar agora.</p>
+          </div>
+          <IARATriageChat />
+        </div>
+
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[120px]"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0502] flex flex-col items-center justify-center p-6 text-slate-100 relative overflow-hidden">
       
@@ -50,7 +77,16 @@ export default function Triagem() {
         onClick={() => navigate("/home")}
         className="fixed top-8 left-8 p-3 bg-white/5 hover:bg-white/10 rounded-full border border-white/10 transition-all z-50"
       >
-        <ArrowLeft className="w-6 h-6 text-slate-400" />
+        <ArrowLeft className="w-5 h-5 text-slate-400" />
+      </button>
+      
+      {/* IARA Alternative */}
+      <button 
+        onClick={() => setUseIARA(true)}
+        className="fixed top-8 right-8 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 rounded-full border border-emerald-500/30 transition-all z-50 flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+      >
+        <MessageCircle className="w-4 h-4" />
+        Triagem com IARA
       </button>
       
       {/* Atmospheric Background */}
@@ -81,7 +117,7 @@ export default function Triagem() {
           >
             <div className="space-y-4">
               <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/20">
-                <Activity className="w-8 h-8 text-emerald-400" />
+                <Activity className="w-6 h-6 text-emerald-400" />
               </div>
               <h3 className="text-4xl font-black tracking-tighter text-white">
                 O que você está sentindo agora?
@@ -116,7 +152,7 @@ export default function Triagem() {
           >
             <div className="space-y-4">
               <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto border border-blue-500/20">
-                <Heart className="w-8 h-8 text-blue-400" />
+                <Heart className="w-6 h-6 text-blue-400" />
               </div>
               <h3 className="text-4xl font-black tracking-tighter text-white">
                 Qual a intensidade disso?
@@ -156,7 +192,7 @@ export default function Triagem() {
               onClick={() => setStep(2)}
               className="w-full py-6 px-8 bg-white text-slate-950 rounded-[32px] font-black text-xl transition-all flex items-center justify-center gap-3 active:scale-[0.98] shadow-xl"
             >
-              Próximo Passo <ArrowRight className="w-6 h-6" />
+              Próximo Passo <ArrowRight className="w-5 h-5" />
             </button>
           </motion.div>
         )}
@@ -171,7 +207,7 @@ export default function Triagem() {
           >
             <div className="space-y-4">
               <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
-                <Shield className="w-8 h-8 text-red-400" />
+                <Shield className="w-6 h-6 text-red-400" />
               </div>
               <h3 className="text-4xl font-black tracking-tighter text-white">
                 Triagem de Segurança
@@ -189,7 +225,7 @@ export default function Triagem() {
                 }`}
               >
                 <span>Sim, preciso de ajuda urgente</span>
-                <AlertTriangle className="w-6 h-6" />
+                <AlertTriangle className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setRisco(false)}
@@ -198,7 +234,7 @@ export default function Triagem() {
                 }`}
               >
                 <span>Não, quero apenas conversar</span>
-                <ArrowRight className="w-6 h-6" />
+                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
 

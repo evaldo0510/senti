@@ -208,7 +208,7 @@ export default function Atendimento() {
       <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -240,7 +240,7 @@ export default function Atendimento() {
             className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
             title="Chamada de Vídeo"
           >
-            <Video className="w-5 h-5" />
+            <Video className="w-4 h-4" />
           </button>
           <button 
             onClick={() => {
@@ -262,7 +262,7 @@ export default function Atendimento() {
             className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
             title="Ligar"
           >
-            <Phone className="w-5 h-5" />
+            <Phone className="w-4 h-4" />
           </button>
           <button 
             onClick={() => navigate(`/registro/${appointmentId}`)}
@@ -286,7 +286,7 @@ export default function Atendimento() {
                 onClick={endCall}
                 className="p-2 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div ref={jitsiContainerRef} className="flex-1 w-full h-full" />
@@ -360,7 +360,7 @@ export default function Atendimento() {
             disabled={!mensagem.trim()}
             className="p-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl transition-colors flex-shrink-0"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4" />
           </button>
         </div>
       </div>

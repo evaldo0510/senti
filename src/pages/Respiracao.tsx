@@ -103,8 +103,8 @@ export default function Respiracao() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center space-y-6 relative z-10"
           >
-            <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(16,185,129,0.4)]">
-              <Heart className="w-10 h-10 text-slate-950 fill-current" />
+            <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(16,185,129,0.4)]">
+              <Heart className="w-8 h-8 text-slate-950 fill-current" />
             </div>
             <div className="space-y-2">
               <h2 className="text-4xl font-black text-white tracking-tighter">Sinais Estabilizados</h2>

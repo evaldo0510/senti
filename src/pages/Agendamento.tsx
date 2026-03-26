@@ -134,8 +134,8 @@ export default function Agendamento() {
         className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-100 text-center"
       >
         <div className="max-w-md w-full space-y-8 bg-slate-900 border border-white/5 p-8 rounded-3xl">
-          <div className="w-20 h-20 bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
-            <CheckCircle className="w-10 h-10 text-emerald-400" />
+          <div className="w-16 h-16 bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto border border-emerald-500/20">
+            <CheckCircle className="w-8 h-8 text-emerald-400" />
           </div>
           
           <div className="space-y-2">
@@ -152,7 +152,7 @@ export default function Agendamento() {
               </div>
             </div>
             <div className="pt-4 border-t border-white/5 flex items-center gap-3 text-slate-300">
-              <Clock className="w-5 h-5 text-emerald-400" />
+              <Clock className="w-4 h-4 text-emerald-400" />
               <span>Hoje às {horario}</span>
             </div>
           </div>
@@ -178,7 +178,7 @@ export default function Agendamento() {
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-white/10 rounded-full transition-colors">
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
             <h1 className="text-2xl font-medium text-slate-200">Agendar Sessão</h1>
           </div>
@@ -192,7 +192,7 @@ export default function Agendamento() {
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3 text-red-400">
-            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <p className="text-sm">{error}</p>
           </div>
         )}
@@ -220,7 +220,7 @@ export default function Agendamento() {
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-slate-200 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-emerald-400" />
+            <Calendar className="w-4 h-4 text-emerald-400" />
             Selecione Data e Horário
           </h3>
           
@@ -248,7 +248,7 @@ export default function Agendamento() {
               disabled={booking}
               className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              {booking && <Loader2 className="w-5 h-5 animate-spin" />}
+              {booking && <Loader2 className="w-4 h-4 animate-spin" />}
               Confirmar e Pagar (R$ {(((profissional.preco || 0) * (1 - (profissional.desconto || 0) / 100)) * 1.10).toFixed(2)})
             </button>
           </motion.div>

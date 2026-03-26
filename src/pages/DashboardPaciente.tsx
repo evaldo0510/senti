@@ -266,7 +266,7 @@ export default function DashboardPaciente() {
       <header className="px-4 py-4 sm:px-6 sm:py-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
-            <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
+            <HeartPulse className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="min-w-0">
             <h1 className="text-base sm:text-lg font-medium text-slate-800 dark:text-slate-200 truncate">
@@ -281,21 +281,21 @@ export default function DashboardPaciente() {
             aria-label="Alternar tema"
             className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
-            {theme === 'dark' ? <Sun className="w-5 h-5 text-amber-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
           </button>
           <button 
             onClick={() => setIsFeedbackOpen(true)}
             aria-label="Enviar feedback"
             className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
-            <MessageSquarePlus className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <MessageSquarePlus className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           </button>
           <button 
             onClick={() => navigate("/perfil")}
             aria-label="Ver perfil"
             className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
-            <User className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <User className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           </button>
         </div>
       </header>
@@ -308,7 +308,7 @@ export default function DashboardPaciente() {
             className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 flex items-center gap-3 shadow-sm"
           >
             <div className="w-10 h-10 bg-orange-100 dark:bg-orange-500/20 rounded-2xl flex items-center justify-center text-orange-600 dark:text-orange-400">
-              <Zap className="w-5 h-5 fill-current" />
+              <Zap className="w-4 h-4 fill-current" />
             </div>
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Streak</p>
@@ -321,7 +321,7 @@ export default function DashboardPaciente() {
             className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-white/5 flex items-center gap-3 shadow-sm"
           >
             <div className="w-10 h-10 bg-purple-100 dark:bg-purple-500/20 rounded-2xl flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Sparkles className="w-5 h-5 fill-current" />
+              <Sparkles className="w-4 h-4 fill-current" />
             </div>
             <div>
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Nível</p>
@@ -355,7 +355,7 @@ export default function DashboardPaciente() {
             className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none relative overflow-hidden group"
           >
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
-              <Sparkles size={120} className="text-emerald-500" />
+              <Sparkles size={48} className="text-emerald-500" />
             </div>
             
             <div className="relative z-10 space-y-6">
@@ -427,7 +427,7 @@ export default function DashboardPaciente() {
             <div className="relative z-10 flex items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <Bell className="w-5 h-5 text-emerald-100" />
+                  <Bell className="w-4 h-4 text-emerald-100" />
                   <span className="text-xs font-bold uppercase tracking-widest text-emerald-100">Notificações</span>
                 </div>
                 <h3 className="text-xl font-bold mb-1">Fique por dentro</h3>
@@ -454,7 +454,7 @@ export default function DashboardPaciente() {
             <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-5 h-5 text-amber-100" />
+                  <Calendar className="w-4 h-4 text-amber-100" />
                   <span className="text-xs font-bold uppercase tracking-widest text-amber-100">Lembrete de Sessão</span>
                 </div>
                 <h3 className="text-xl font-bold mb-1">Sessão em menos de 24h</h3>
@@ -492,12 +492,12 @@ export default function DashboardPaciente() {
           className="bg-slate-900 border border-emerald-500/30 rounded-[2.5rem] p-6 text-white shadow-2xl relative overflow-hidden group"
         >
           <div className="absolute -right-8 -top-8 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Zap className="w-40 h-40 text-emerald-400" />
+            <Zap className="w-16 h-16 text-emerald-400" />
           </div>
           <div className="relative z-10 space-y-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/30 backdrop-blur-md">
-                <Zap className="w-6 h-6 text-emerald-400" />
+                <Zap className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
                 <h3 className="text-lg font-black tracking-tight">SENTI Go</h3>
@@ -521,7 +521,7 @@ export default function DashboardPaciente() {
               className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-base transition-all shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-3 active:scale-95"
             >
               Conectar Agora
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </motion.section>
@@ -548,7 +548,7 @@ export default function DashboardPaciente() {
           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group shadow-sm card-hover"
         >
           <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 group-hover:opacity-10 dark:group-hover:opacity-20 transition-opacity">
-            <Activity className="w-24 h-24 text-emerald-500 dark:text-emerald-400" />
+            <Activity className="w-12 h-12 text-emerald-500 dark:text-emerald-400" />
           </div>
           
           <div className="relative z-10 space-y-4">
@@ -563,7 +563,7 @@ export default function DashboardPaciente() {
                 onClick={() => navigate("/diario")}
                 className="p-2 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-200 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition-colors"
               >
-                <Zap className="w-5 h-5" />
+                <Zap className="w-4 h-4" />
               </button>
             </div>
             
@@ -593,7 +593,7 @@ export default function DashboardPaciente() {
           className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-6 text-white shadow-xl shadow-indigo-900/20 relative overflow-hidden card-hover"
         >
           <div className="absolute -right-6 -top-6 opacity-20">
-            <Smartphone className="w-32 h-32 rotate-12" />
+            <Smartphone className="w-16 h-16 rotate-12" />
           </div>
           <div className="relative z-10 space-y-4">
             <div className="space-y-1">
@@ -619,7 +619,7 @@ export default function DashboardPaciente() {
           className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 relative overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm card-hover"
         >
           <div className="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Calendar className="w-32 h-32 text-emerald-500 dark:text-emerald-400" />
+            <Calendar className="w-16 h-16 text-emerald-500 dark:text-emerald-400" />
           </div>
           <div className="relative z-10 flex items-center justify-between">
             <div className="space-y-1">
@@ -627,13 +627,13 @@ export default function DashboardPaciente() {
               <p className="text-xl font-black text-slate-800 dark:text-slate-100">Seu ReSet Diário</p>
               <div className="flex items-center gap-2 mt-2">
                 <div className="w-32 h-1.5 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 w-[15%]" />
+                  <div className="h-full bg-emerald-50 w-[15%]" />
                 </div>
                 <span className="text-[10px] font-bold text-slate-500">Dia 3/21</span>
               </div>
             </div>
             <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-              <PlayCircle className="w-6 h-6" />
+              <PlayCircle className="w-5 h-5" />
             </div>
           </div>
         </motion.section>
@@ -645,12 +645,12 @@ export default function DashboardPaciente() {
           className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/40 relative overflow-hidden card-hover"
         >
           <div className="absolute -right-4 -bottom-4 opacity-20">
-            <Sparkles className="w-32 h-32" />
+            <Sparkles className="w-20 h-20" />
           </div>
           <div className="relative z-10 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-md">
-                <Video className="w-5 h-5" />
+                <Video className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">Sessão IARA Live</h3>
@@ -676,7 +676,7 @@ export default function DashboardPaciente() {
           >
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                <Calendar className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
                 <p className="text-xs text-emerald-600 dark:text-emerald-400/60 uppercase tracking-widest font-bold">Próxima Sessão</p>
@@ -690,7 +690,7 @@ export default function DashboardPaciente() {
               onClick={() => navigate(`/atendimento/${nextAppointment.id}`)}
               className="w-10 h-10 bg-emerald-600 dark:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-600/20 dark:shadow-emerald-900/40 hover:scale-110 transition-transform"
             >
-              <Video className="w-5 h-5" />
+              <Video className="w-4 h-4" />
             </button>
           </motion.section>
         )}
@@ -791,7 +791,7 @@ export default function DashboardPaciente() {
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                  <ArrowRight className="w-5 h-5" />
+                  <ArrowRight className="w-4 h-4" />
                 </div>
               </motion.div>
             ))}

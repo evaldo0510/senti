@@ -176,7 +176,7 @@ export default function Perfil() {
       {/* Header */}
       <header className="px-4 py-4 sm:p-6 flex justify-between items-center sticky top-0 bg-slate-950/80 backdrop-blur-md z-20 border-b border-white/5">
         <button onClick={() => navigate(-1)} className="p-3 -ml-2 hover:bg-white/5 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
-          <ArrowLeft className="w-5 h-5 text-slate-400" />
+          <ArrowLeft className="w-4 h-4 text-slate-400" />
         </button>
         <h1 className="text-base sm:text-lg font-medium text-slate-200">Meu Perfil</h1>
         <button 
@@ -189,11 +189,11 @@ export default function Perfil() {
           )}
         >
           {saving ? (
-            <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
           ) : isEditing ? (
-            <Save className="w-5 h-5" />
+            <Save className="w-4 h-4" />
           ) : (
-            <Edit2 className="w-5 h-5" />
+            <Edit2 className="w-4 h-4" />
           )}
         </button>
       </header>
@@ -209,7 +209,7 @@ export default function Perfil() {
               referrerPolicy="no-referrer"
             />
             <button className="absolute -bottom-2 -right-2 p-3 bg-emerald-600 rounded-2xl border-4 border-slate-950 text-white shadow-xl">
-              <Camera className="w-5 h-5" />
+              <Camera className="w-4 h-4" />
             </button>
           </div>
           <div className="text-center">
@@ -279,7 +279,7 @@ export default function Perfil() {
             <div className="space-y-2">
               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">E-mail</label>
               <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                <Mail className="w-5 h-5 text-slate-600" />
+                <Mail className="w-4 h-4 text-slate-600" />
                 <span className="text-slate-300">{profile?.email}</span>
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function Perfil() {
               <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Cidade</label>
               {isEditing ? (
                 <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600" />
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
                   <input 
                     type="text"
                     value={cidade}
@@ -299,7 +299,7 @@ export default function Perfil() {
                 </div>
               ) : (
                 <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-slate-600" />
+                  <MapPin className="w-4 h-4 text-slate-600" />
                   <span className="text-slate-300">{profile?.cidade || "Não informada"}</span>
                 </div>
               )}
@@ -309,7 +309,7 @@ export default function Perfil() {
           <div className="space-y-2">
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Membro desde</label>
             <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-4 flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-slate-600" />
+              <Calendar className="w-4 h-4 text-slate-600" />
               <span className="text-slate-300">
                 {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A"}
               </span>
@@ -323,7 +323,7 @@ export default function Perfil() {
               <div className="relative z-10 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-emerald-400" />
+                    <Zap className="w-4 h-4 text-emerald-400" />
                     <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Dica do Dia</p>
                   </div>
                   <button 
@@ -367,7 +367,7 @@ export default function Perfil() {
               {!analysis ? (
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto">
-                    <Activity className="w-8 h-8 text-emerald-400" />
+                    <Activity className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-bold text-slate-200">Análise Completa</p>
@@ -455,7 +455,7 @@ export default function Perfil() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
-                    <Bell className="w-5 h-5 text-emerald-400" />
+                    <Bell className="w-4 h-4 text-emerald-400" />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-200">Notificações Push</p>
@@ -497,7 +497,7 @@ export default function Perfil() {
             onClick={logout}
             className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-bold hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
             Sair da Conta
           </button>
           <p className="text-center text-[10px] text-slate-600 uppercase tracking-widest font-bold">

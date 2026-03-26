@@ -23,7 +23,7 @@ export default function Emergencia() {
       >
         <div className="space-y-4">
           <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center mx-auto border border-red-500/20">
-            <ShieldAlert className="w-8 h-8 text-red-500" />
+            <ShieldAlert className="w-6 h-6 text-red-500" />
           </div>
           
           <div className="space-y-2">
@@ -44,7 +44,7 @@ export default function Emergencia() {
             href="tel:188"
             className="group relative w-full py-5 bg-red-600 hover:bg-red-500 text-white rounded-[28px] font-black text-lg transition-all flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(220,38,38,0.3)] active:scale-[0.98]"
           >
-            <Phone className="w-5 h-5 animate-bounce" />
+            <Phone className="w-4 h-4 animate-bounce" />
             LIGAR 188 (CVV)
             <div className="absolute -top-2 -right-2 bg-white text-red-600 text-[10px] font-black px-2 py-1 rounded-full shadow-lg">24H</div>
           </a>
@@ -53,7 +53,7 @@ export default function Emergencia() {
             onClick={() => navigate("/pronto-atendimento")}
             className="w-full py-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-[28px] font-black text-lg transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
           >
-            <Heart className="w-5 h-5 text-emerald-400" />
+            <Heart className="w-4 h-4 text-emerald-400" />
             Falar com Especialista
           </button>
 
@@ -61,7 +61,7 @@ export default function Emergencia() {
             onClick={() => navigate("/chat")}
             className="w-full py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[28px] font-black text-lg transition-all flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(16,185,129,0.2)] active:scale-[0.98]"
           >
-            <Activity className="w-5 h-5 animate-pulse" />
+            <Activity className="w-4 h-4 animate-pulse" />
             Falar com a Iara (IA)
           </button>
         </div>
@@ -74,7 +74,7 @@ export default function Emergencia() {
               onClick={handleInstall}
               className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-3 shadow-lg active:scale-[0.95]"
             >
-              <Smartphone className="w-5 h-5" />
+              <Smartphone className="w-4 h-4" />
               {isInstallable ? "INSTALAR APLICATIVO" : "BAIXAR O APLICATIVO"}
             </button>
           </div>

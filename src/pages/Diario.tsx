@@ -32,9 +32,9 @@ export default function Diario() {
   };
 
   const getMoodIcon = (val: number) => {
-    if (val <= 3) return <Frown className="w-8 h-8 text-red-400" />;
-    if (val <= 6) return <Meh className="w-8 h-8 text-yellow-400" />;
-    return <Smile className="w-8 h-8 text-emerald-400" />;
+    if (val <= 3) return <Frown className="w-6 h-6 text-red-400" />;
+    if (val <= 6) return <Meh className="w-6 h-6 text-yellow-400" />;
+    return <Smile className="w-6 h-6 text-emerald-400" />;
   };
 
   const getMoodColor = (val: number) => {
@@ -224,7 +224,7 @@ export default function Diario() {
 
           {filteredHistorico.length === 0 ? (
             <div className="bg-slate-900/50 border border-white/5 p-8 rounded-3xl text-center">
-              <Activity className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+              <Activity className="w-8 h-8 text-slate-700 mx-auto mb-4" />
               <p className="text-slate-400">Nenhum registro para este dia.</p>
             </div>
           ) : (
