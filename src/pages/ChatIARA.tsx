@@ -36,6 +36,8 @@ export default function ChatIARA() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isExercising, setIsExercising] = useState(false);
+  const [isUserTyping, setIsUserTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
 
@@ -187,6 +189,18 @@ export default function ChatIARA() {
     }
   };
 
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMensagem(e.target.value);
+    
+    if (!isUserTyping) setIsUserTyping(true);
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsUserTyping(false);
+    }, 2000);
+  };
+
   const toggleMute = () => {
     const newMuted = !isMuted;
     setIsMuted(newMuted);
@@ -324,7 +338,7 @@ export default function ChatIARA() {
                 emocaoAtual.intensidade > 7 ? "bg-red-500" : "bg-emerald-500"
               }`} />
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                Detectado: {emocaoAtual.emocao} ({emocaoAtual.intensidade}/10)
+                Conectado • {emocaoAtual.emocao} ({emocaoAtual.intensidade}/10)
               </p>
             </div>
           </div>
@@ -435,6 +449,20 @@ export default function ChatIARA() {
             </div>
           </motion.div>
         )}
+        {isUserTyping && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex justify-end"
+          >
+            <div className="bg-emerald-600/10 p-3 rounded-2xl rounded-tr-sm border border-emerald-500/10 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+              <div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+              <div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <span className="text-[10px] text-emerald-500/60 font-medium ml-1">Você está digitando...</span>
+            </div>
+          </motion.div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -462,7 +490,7 @@ export default function ChatIARA() {
           </button>
           <textarea
             value={mensagem}
-            onChange={(e) => setMensagem(e.target.value)}
+            onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             placeholder="O que você está sentindo agora?"
             className="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none min-h-[52px] max-h-32"

@@ -4,8 +4,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, Calendar, Clock, CheckCircle, Loader2, AlertCircle, Zap, ChevronRight } from "lucide-react";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
-import { auth } from "../services/firebase";
-import CalendarAvailability from "../components/CalendarAvailability";
+import { paymentService } from "../services/paymentService";
 
 export default function Agendamento() {
   const { id } = useParams();
@@ -87,29 +86,19 @@ export default function Agendamento() {
 
       if (!result) throw new Error("Erro ao criar agendamento");
 
-      // Then call Stripe backend
-      const response = await fetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          therapistId: profissional.uid,
-          therapistName: profissional.nome,
-          price: profissional.preco || 150,
-          time: horario,
-          date: date.toLocaleDateString('pt-BR'),
-          appointmentId: result.id,
-          discountPercentage: profissional.desconto || 0
-        }),
-      });
-
-      const data = await response.json();
+      // Then call Stripe backend via paymentService
+      const data = await paymentService.createCheckoutSession(
+        result.id,
+        profissional.uid,
+        profissional.nome,
+        profissional.preco || 150,
+        horario,
+        date.toLocaleDateString('pt-BR'),
+        profissional.desconto || 0
+      );
       
       if (data.url) {
         window.location.href = data.url; // Redirect to Stripe
-      } else {
-        throw new Error(data.error || "Erro ao criar sessão de pagamento");
       }
     } catch (error: any) {
       console.error("Erro ao agendar:", error);

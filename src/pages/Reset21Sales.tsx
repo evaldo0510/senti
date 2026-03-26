@@ -18,6 +18,7 @@ import {
 import { cn } from "../lib/utils";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
+import { paymentService } from "../services/paymentService";
 
 export default function Reset21Sales() {
   const navigate = useNavigate();
@@ -33,24 +34,14 @@ export default function Reset21Sales() {
     }
 
     try {
-      const response = await fetch("/api/create-journey-checkout-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: currentUser.uid,
-          userEmail: currentUser.email
-        }),
-      });
-
-      const data = await response.json();
+      const data = await paymentService.createJourneyCheckoutSession(
+        currentUser.uid,
+        currentUser.email || ""
+      );
 
       if (data.url) {
         // Redirect to Stripe Checkout
         window.location.href = data.url;
-      } else {
-        throw new Error(data.error || "Erro ao criar sessão de checkout");
       }
     } catch (error) {
       console.error("Erro no checkout:", error);

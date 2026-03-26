@@ -220,35 +220,49 @@ export default function Diario() {
               <p className="text-slate-400">Nenhum registro para este dia.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
               {filteredHistorico.map((entry, idx) => (
-                <div key={entry.id || idx} className="bg-slate-900 border border-white/5 p-5 rounded-2xl flex gap-4 items-start">
-                  <div className="flex flex-col items-center justify-center min-w-[60px]">
-                    <div className={`w-3 h-3 rounded-full mb-2 ${getMoodColor(entry.value)}`} />
-                    <span className="text-2xl font-light">{entry.value}</span>
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">{getMoodLabel(entry.value)}</span>
-                    {entry.intensity !== undefined && (
-                      <span className="text-[9px] text-blue-400 font-bold mt-1">Int: {entry.intensity}</span>
-                    )}
+                <motion.div 
+                  key={entry.id || idx} 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="relative overflow-hidden group"
+                >
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${getMoodColor(entry.value)}`} />
+                  <div className="bg-slate-900 border border-white/5 p-5 pl-7 rounded-2xl flex flex-col sm:flex-row gap-4 items-start transition-all hover:bg-slate-800/80">
+                    <div className="flex flex-col items-center justify-center min-w-[80px] bg-slate-950/50 p-3 rounded-xl border border-white/5">
+                      <div className="mb-2">
+                        {getMoodIcon(entry.value)}
+                      </div>
+                      <span className="text-2xl font-black tracking-tighter text-white">{entry.value}</span>
+                      <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-1">{getMoodLabel(entry.value)}</span>
+                    </div>
+                    
+                    <div className="flex-1 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                          <Activity className="w-3 h-3" />
+                          <span>{new Date(entry.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                          {entry.intensity !== undefined && (
+                            <>
+                              <span className="text-slate-700">•</span>
+                              <span className="text-blue-400">Intensidade {entry.intensity}/10</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="relative">
+                        {entry.note ? (
+                          <p className="text-slate-300 text-sm leading-relaxed italic">"{entry.note}"</p>
+                        ) : (
+                          <p className="text-slate-600 text-sm italic">Sem anotações registradas.</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="flex-1 border-l border-white/5 pl-4">
-                    <p className="text-xs text-slate-500 mb-2">
-                      {new Date(entry.timestamp).toLocaleDateString('pt-BR', { 
-                        weekday: 'long', 
-                        day: 'numeric', 
-                        month: 'long',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                    {entry.note ? (
-                      <p className="text-slate-300 text-sm leading-relaxed">{entry.note}</p>
-                    ) : (
-                      <p className="text-slate-600 text-sm italic">Sem anotações neste dia.</p>
-                    )}
-                  </div>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}

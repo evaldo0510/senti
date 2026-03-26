@@ -2,47 +2,58 @@ import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export const paymentService = {
-  createPreference: async (appointmentId: string, amount: number, description: string) => {
-    const path = 'payment_preferences';
+  createCheckoutSession: async (appointmentId: string, therapistId: string, therapistName: string, price: number, time: string, date: string, discountPercentage: number = 0) => {
     try {
-      // In a real app, this would call a backend that interacts with Mercado Pago API
-      // For this demo, we'll simulate the creation and return a mock init_point
-      const preferenceData = {
-        appointmentId,
-        amount,
-        description,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-        userId: auth.currentUser?.uid
-      };
-      
-      const docRef = await addDoc(collection(db, path), preferenceData);
-      
-      // Mock Mercado Pago Checkout URL
-      return {
-        id: docRef.id,
-        init_point: `https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=${docRef.id}`
-      };
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          therapistId,
+          therapistName,
+          price,
+          time,
+          date,
+          appointmentId,
+          discountPercentage
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        return { url: data.url };
+      } else {
+        throw new Error(data.error || "Erro ao criar sessão de pagamento");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
+      console.error("Erro ao criar sessão de pagamento:", error);
+      throw error;
     }
   },
 
-  processPayment: async (appointmentId: string, paymentMethod: string) => {
-    const path = 'payments';
+  createJourneyCheckoutSession: async (userId: string, userEmail: string) => {
     try {
-      const paymentData = {
-        appointmentId,
-        paymentMethod,
-        status: 'approved',
-        timestamp: serverTimestamp(),
-        userId: auth.currentUser?.uid
-      };
-      
-      await addDoc(collection(db, path), paymentData);
-      return { success: true };
+      const response = await fetch('/api/create-journey-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          userEmail
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        return { url: data.url };
+      } else {
+        throw new Error(data.error || "Erro ao criar sessão de pagamento para jornada");
+      }
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
+      console.error("Erro ao criar sessão de pagamento para jornada:", error);
+      throw error;
     }
   }
 };

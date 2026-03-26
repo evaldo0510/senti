@@ -292,21 +292,15 @@ export default function Profissionais() {
                             onClick={() => navigate(`/agendamento/${prof.uid}`)}
                             className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
                           >
-                            <Zap className="w-4 h-4 fill-slate-950" />
-                            Conectar
+                            <MessageCircle className="w-4 h-4 fill-slate-950" />
+                            Conectar via Chat
                           </button>
                           <button 
                             onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
                             className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
                           >
-                            Ver Perfil
-                          </button>
-                          <button 
-                            onClick={() => falarWhatsApp(prof.nome || "Terapeuta")}
-                            className="w-full px-4 py-2 bg-slate-900 hover:bg-slate-800 text-emerald-400 rounded-xl text-xs font-bold transition-all border border-emerald-500/20 flex items-center justify-center gap-2"
-                          >
-                            <MessageCircle className="w-4 h-4" />
-                            Falar Direto
+                            <User className="w-4 h-4" />
+                            Ver Perfil Completo
                           </button>
                         </div>
                       </div>

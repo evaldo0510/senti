@@ -8,7 +8,15 @@ import Stripe from "stripe";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
-import firebaseConfig from "./firebase-applet-config.json" assert { type: "json" };
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load Firebase config safely
+const firebaseConfigPath = path.join(__dirname, "firebase-applet-config.json");
+const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf8"));
 
 dotenv.config();
 
@@ -23,9 +31,6 @@ const db = getFirestore(firebaseConfig.firestoreDatabaseId);
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY) 
   : null;
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export const app = express();
 

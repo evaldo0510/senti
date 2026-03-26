@@ -17,7 +17,7 @@
       "destination": "/server.ts"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api|assets|sw.js|manifest.webmanifest|icon.svg|favicon.ico|apple-touch-icon.png|mask-icon.svg).*)",
       "destination": "/index.html"
     }
   ]
