@@ -1,10 +1,10 @@
 {
-  "projectId": "marcenariaappgit-3825936-68fd8",
-  "appId": "1:252242119928:web:8db0d16c3d40a3b7203f0d",
-  "apiKey": "AIzaSyCR_RgErwHskLGSrLUvNU-XhE6IQ5ujmtQ",
-  "authDomain": "marcenariaappgit-3825936-68fd8.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-58181161-2fe4-4dec-b68c-74875505175d",
-  "storageBucket": "marcenariaappgit-3825936-68fd8.firebasestorage.app",
-  "messagingSenderId": "252242119928",
+  "projectId": "senti-app-novo",
+  "appId": "1:377095198449:web:2cc49f359205398298fb50",
+  "apiKey": "AIzaSyDGTB2IkTWGH6vdDJwV-k4f-93fxf5etfg",
+  "authDomain": "senti-app-novo.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "senti-app-novo.firebasestorage.app",
+  "messagingSenderId": "377095198449",
   "measurementId": ""
 }

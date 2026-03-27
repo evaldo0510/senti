@@ -18,7 +18,8 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  PieChart
+  PieChart,
+  Home
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
@@ -157,7 +158,7 @@ export default function Terapeuta() {
               activeTab === 'dashboard' ? "bg-emerald-900/20 text-emerald-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             )}
           >
-            <Activity className="w-5 h-5" />
+            <Home className="w-5 h-5" />
             Dashboard
           </button>
           <button 
@@ -187,7 +188,7 @@ export default function Terapeuta() {
               activeTab === 'historico' ? "bg-emerald-900/20 text-emerald-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
             )}
           >
-            <Clock className="w-5 h-5" />
+            <Activity className="w-5 h-5" />
             Histórico
           </button>
           <button 
@@ -852,7 +853,7 @@ export default function Terapeuta() {
             activeTab === 'dashboard' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <Activity className="w-5 h-5" />
+          <Home className="w-5 h-5" />
           <span className="text-[9px] font-bold uppercase tracking-widest">Dash</span>
         </button>
         <button 
@@ -882,7 +883,7 @@ export default function Terapeuta() {
             activeTab === 'historico' ? "text-emerald-400" : "text-slate-500"
           )}
         >
-          <Clock className="w-5 h-5" />
+          <Activity className="w-5 h-5" />
           <span className="text-[9px] font-bold uppercase tracking-widest">Histórico</span>
         </button>
         <button 

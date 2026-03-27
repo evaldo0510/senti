@@ -7,6 +7,7 @@ import Stripe from "stripe";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
+import firebaseConfig from "../firebase-applet-config.json";
 import fs from "fs";
 import webpush from "web-push";
 
@@ -18,15 +19,16 @@ dotenv.config();
 // Initialize Firebase Admin
 let db: admin.firestore.Firestore;
 try {
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      projectId: "marcenariaappgit-3825936-68fd8",
-    });
-  }
-  db = getFirestore();
+  const app = admin.apps.length 
+    ? admin.app() 
+    : admin.initializeApp({ projectId: firebaseConfig.projectId });
+    
+  db = getFirestore(firebaseConfig.firestoreDatabaseId);
+  console.log(`Firebase Admin initialized for project: ${firebaseConfig.projectId}, database: ${firebaseConfig.firestoreDatabaseId}`);
 } catch (error) {
   console.error("Error initializing Firebase Admin:", error);
-  // Fallback or handle error
+  // @ts-ignore
+  db = null;
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -34,13 +36,18 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 // Configure web-push
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BGlKxO68fwIFc_DCMSkAKMsaEnY5IV5mjp8A4KDMlYdcUCK7brY2qG3zVXBO-esLIqUa9Dh2-QQX4J3xl3lP-Uw";
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "uYaBVvFyVTSfCU3oB4j4o4J-wCJplzY5U1SsOotAHt0";
-webpush.setVapidDetails(
-  "mailto:suporte@senti.com.br",
-  vapidPublicKey,
-  vapidPrivateKey
-);
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails(
+    "mailto:suporte@senti.com.br",
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+} else {
+  console.warn("VAPID keys not found in environment variables. Push notifications will not work.");
+}
 
 export const app = express();
 
@@ -102,8 +109,13 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, 
 // Standard JSON parsing for other routes
 app.use(express.json());
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get("/api/health", async (req, res) => {
+  try {
+    const testSnapshot = await db.collection("health_check").limit(1).get();
+    res.json({ status: "ok", db: "connected", snapshotSize: testSnapshot.size });
+  } catch (error: any) {
+    res.status(500).json({ status: "error", db: "disconnected", error: error.message });
+  }
 });
 
 // Push Notification Endpoints
@@ -335,7 +347,7 @@ async function sendPushNotification(userId: string, title: string, body: string,
 
 // Scheduled tasks
 async function checkUpcomingAppointments() {
-  console.log("Checking for upcoming appointments...");
+  console.log(`Checking for upcoming appointments in database: ${firebaseConfig.firestoreDatabaseId}...`);
   try {
     const now = new Date();
     const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
@@ -345,6 +357,8 @@ async function checkUpcomingAppointments() {
     const snapshot = await db.collection("appointments")
       .where("status", "==", "confirmed")
       .get();
+    
+    console.log(`Found ${snapshot.size} confirmed appointments`);
 
     for (const doc of snapshot.docs) {
       const appt = doc.data();
