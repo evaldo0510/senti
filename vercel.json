@@ -1,10 +1,20 @@
 {
-  "headers": [
+  "functions": {
+    "api/index.ts": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
+    },
     {
       "source": "/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" }
-      ]
+      "destination": "/index.html"
     }
-  ]
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
 }

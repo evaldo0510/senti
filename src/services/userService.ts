@@ -476,6 +476,26 @@ export const userService = {
     }
   },
 
+  notifyTherapist: async (therapistId: string, patientNome: string) => {
+    try {
+      // Trigger push notification to therapist
+      const response = await fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: therapistId,
+          title: 'Atenção Necessária',
+          body: `O paciente ${patientNome} precisa de sua atenção agora.`,
+          url: '/terapeuta'
+        })
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("Error notifying therapist:", error);
+      return false;
+    }
+  },
+
   savePushSubscription: async (subscription: PushSubscription) => {
     const user = auth.currentUser;
     if (!user) return;

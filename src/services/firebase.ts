@@ -4,15 +4,7 @@ import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
-const firebaseConfig = firebaseAppletConfig || {
-  apiKey: "AIzaSyDGTB2IkTWGH6vdDJwV-k4f-93fxf5etfg",
-  authDomain: "senti-app-novo.firebaseapp.com",
-  projectId: "senti-app-novo",
-  storageBucket: "senti-app-novo.firebasestorage.app",
-  messagingSenderId: "377095198449",
-  appId: "1:377095198449:web:ddc99dcf51be42fa98fb50",
-  measurementId: "G-Q7H7X8BZ60"
-};
+const firebaseConfig = firebaseAppletConfig;
 
 export enum OperationType {
   CREATE = 'create',
@@ -24,7 +16,7 @@ export enum OperationType {
 }
 
 const app = initializeApp(firebaseConfig);
-const firestore = getFirestore(app);
+const firestore = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 
 export const db = firestore;
 export const auth = getAuth(app);

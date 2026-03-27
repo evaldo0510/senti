@@ -1,9 +1,10 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { Building2, Users, Activity, LogOut, PlusCircle, FileText, HeartPulse, ArrowLeft } from "lucide-react";
+import { Building2, Users, Activity, LogOut, PlusCircle, FileText, HeartPulse, ArrowLeft, Bell } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
+import { userService } from "../services/userService";
 
 export default function Clinica() {
   const navigate = useNavigate();
@@ -151,7 +152,19 @@ export default function Clinica() {
                     <p className="text-sm text-slate-400">Hoje às 14:00 - Dr. Marcos</p>
                   </div>
                 </div>
-                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">Confirmado</span>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={async () => {
+                      const success = await userService.notifyTherapist('therapist_id_here', 'João D.');
+                      if (success) alert("Terapeuta notificado!");
+                    }}
+                    className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors border border-emerald-500/20"
+                    title="Notificar Terapeuta"
+                  >
+                    <Bell className="w-4 h-4" />
+                  </button>
+                  <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-xs rounded-full">Confirmado</span>
+                </div>
               </div>
               
               <div className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-white/5">
@@ -162,7 +175,19 @@ export default function Clinica() {
                     <p className="text-sm text-slate-400">Hoje às 15:30 - Dra. Ana</p>
                   </div>
                 </div>
-                <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 text-xs rounded-full">Aguardando</span>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={async () => {
+                      const success = await userService.notifyTherapist('therapist_id_here', 'Maria S.');
+                      if (success) alert("Terapeuta notificado!");
+                    }}
+                    className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors border border-emerald-500/20"
+                    title="Notificar Terapeuta"
+                  >
+                    <Bell className="w-4 h-4" />
+                  </button>
+                  <span className="px-3 py-1 bg-yellow-500/10 text-yellow-400 text-xs rounded-full">Aguardando</span>
+                </div>
               </div>
             </div>
           </motion.div>

@@ -1,7 +1,6 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import Stripe from "stripe";
@@ -19,7 +18,7 @@ dotenv.config();
 // Initialize Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
-    projectId: "senti-app-novo",
+    projectId: "marcenariaappgit-3825936-68fd8",
   });
 }
 const db = getFirestore();
@@ -286,6 +285,7 @@ app.post("/api/create-journey-checkout-session", async (req, res) => {
 async function configureVite() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

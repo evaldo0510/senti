@@ -555,12 +555,28 @@ export default function Terapeuta() {
                         <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full uppercase">Em Tratamento</span>
                       </div>
                       
-                      <button 
-                        onClick={() => navigate(`/terapeuta/paciente/${patientId}`)}
-                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
-                      >
-                        Ver Prontuário Completo
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => navigate(`/terapeuta/paciente/${patientId}`)}
+                          className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
+                        >
+                          Ver Prontuário
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (profile) {
+                              const success = await userService.notifyTherapist(profile.uid, lastApp.patientNome || "Novo Paciente");
+                              if (success) {
+                                alert("Notificação enviada com sucesso!");
+                              }
+                            }
+                          }}
+                          className="px-4 py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 rounded-xl text-xs font-bold transition-all border border-emerald-500/20 flex items-center gap-2"
+                        >
+                          <Bell className="w-4 h-4" />
+                          Notificar
+                        </button>
+                      </div>
                     </motion.div>
                   );
                 })}

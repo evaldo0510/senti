@@ -9,6 +9,8 @@ import { registerSW } from 'virtual:pwa-register';
 // Register PWA service worker
 registerSW({ immediate: true });
 
+console.log("SENTI App starting...");
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

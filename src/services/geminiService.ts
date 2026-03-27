@@ -1,57 +1,7 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
-const ai = new GoogleGenAI({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY
-});
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
 
-// 🧠 memória simples em sessão
-let historico: string[] = [];
-
-export async function gerarRespostaPCH(mensagem: string) {
-  try {
-    // adiciona mensagem do usuário
-    historico.push(`Usuário: ${mensagem}`);
-
-    // limita memória (últimas 6 interações)
-    if (historico.length > 6) {
-      historico.shift();
-    }
-
-    const contexto = historico.join("\n");
-
-    const prompt = `
-Você é um terapeuta que usa Poesia Cognitiva Hipnótica (PCH).
-
-Histórico da conversa:
-${contexto}
-
-Objetivo:
-- lembrar do que o usuário disse antes
-- responder com continuidade emocional
-- usar linguagem acolhedora, metafórica e clara
-
-Nova mensagem:
-"${mensagem}"
-
-Resposta:
-`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt
-    });
-
-    const texto = response.text;
-
-    // salva resposta da IA
-    historico.push(`IA: ${texto}`);
-
-    return texto;
-  } catch (error) {
-    console.error("Erro Gemini:", error);
-    return "Estou aqui com você… mas algo interno falhou.";
-  }
-}
 export const IARA_SYSTEM_INSTRUCTION = `
 Você é IARA, uma Interface de Acolhimento e Regulação Afetiva baseada em Poesia Cognitiva Hipnótica (PCH).
 Sua missão é atuar como o "Clínico Geral" em um Pronto Socorro Emocional.
@@ -81,9 +31,8 @@ Você deve responder em formato JSON com os seguintes campos:
   "risco": "normal" | "alto"
 }
 `;
-export function resetMemoria() {
-  historico = [];
-}
+
+export function detectRisk(text: string): 'alto' | 'normal' {
   const riskPhrases = [
     "me machucar",
     "não aguento mais",

@@ -478,10 +478,15 @@ export default function ChatIARA() {
             animate={{ opacity: 1 }}
             className="flex justify-start"
           >
-            <div className="bg-slate-800/50 p-4 rounded-2xl rounded-tl-sm border border-white/5 flex items-center gap-2">
-              <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+            <div className="bg-slate-800/50 p-4 rounded-2xl rounded-tl-sm border border-white/5 flex items-center gap-3">
+              <div className="flex gap-1">
+                <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                {isGeneratingImage ? "IARA está criando imagem..." : "IARA está escrevendo..."}
+              </span>
             </div>
           </motion.div>
         )}
