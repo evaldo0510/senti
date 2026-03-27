@@ -16,12 +16,18 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 // Initialize Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: "marcenariaappgit-3825936-68fd8",
-  });
+let db: admin.firestore.Firestore;
+try {
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      projectId: "marcenariaappgit-3825936-68fd8",
+    });
+  }
+  db = getFirestore();
+} catch (error) {
+  console.error("Error initializing Firebase Admin:", error);
+  // Fallback or handle error
 }
-const db = getFirestore();
 
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY) 
@@ -304,48 +310,52 @@ async function configureVite() {
   }
 }
 
-configureVite();
+async function startServer() {
+  await configureVite();
 
-if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
-  const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"]
-    }
-  });
-
-  const PORT = 3000;
-
-  // Socket.io logic
-  io.on("connection", (socket) => {
-    console.log("A user connected:", socket.id);
-
-    socket.on("join", (userId: string) => {
-      socket.join(userId);
-      console.log(`User ${userId} joined their room`);
+  if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+    const httpServer = createServer(app);
+    const io = new Server(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
     });
 
-    socket.on("send_message", (data: { senderId: string; receiverId: string; text: string; appointmentId?: string }) => {
-      const message = {
-        id: Date.now().toString(),
-        ...data,
-        timestamp: new Date().toISOString()
-      };
-      
-      // Emit to both sender and receiver
-      io.to(data.senderId).emit("new_message", message);
-      io.to(data.receiverId).emit("new_message", message);
+    const PORT = 3000;
+
+    // Socket.io logic
+    io.on("connection", (socket) => {
+      console.log("A user connected:", socket.id);
+
+      socket.on("join", (userId: string) => {
+        socket.join(userId);
+        console.log(`User ${userId} joined their room`);
+      });
+
+      socket.on("send_message", (data: { senderId: string; receiverId: string; text: string; appointmentId?: string }) => {
+        const message = {
+          id: Date.now().toString(),
+          ...data,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Emit to both sender and receiver
+        io.to(data.senderId).emit("new_message", message);
+        io.to(data.receiverId).emit("new_message", message);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("User disconnected");
+      });
     });
 
-    socket.on("disconnect", () => {
-      console.log("User disconnected");
+    httpServer.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
     });
-  });
-
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  }
 }
+
+startServer();
 
 export default app;
