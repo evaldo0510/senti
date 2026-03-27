@@ -1,6 +1,19 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+let aiClient: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!aiClient) {
+    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not set. AI features will not work.");
+      // Return a dummy object or throw. We'll throw to be caught by the try/catch blocks.
+      throw new Error("GEMINI_API_KEY is missing");
+    }
+    aiClient = new GoogleGenAI({ apiKey });
+  }
+  return aiClient;
+}
 
 export const IARA_SYSTEM_INSTRUCTION = `
 Você é IARA, uma Interface de Acolhimento e Regulação Afetiva baseada em Poesia Cognitiva Hipnótica (PCH).
@@ -82,7 +95,7 @@ Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansieda
       }
     }
 
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         ...history, 
@@ -123,7 +136,7 @@ Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansieda
 
 export async function generateSpeech(text: string) {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text }] }],
       config: {
@@ -146,7 +159,7 @@ export async function generateSpeech(text: string) {
 
 export async function generateImage(prompt: string) {
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [

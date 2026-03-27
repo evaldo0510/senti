@@ -11,6 +11,16 @@ registerSW({ immediate: true });
 
 console.log("SENTI App starting...");
 
+try {
+  console.log("Runtime ENV check:", {
+    hasProcess: typeof process !== 'undefined',
+    hasEnv: typeof process !== 'undefined' && !!process.env,
+    hasGeminiKey: typeof process !== 'undefined' && process.env && !!process.env.GEMINI_API_KEY
+  });
+} catch (e) {
+  console.error("Error checking runtime ENV:", e);
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

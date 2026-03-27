@@ -47,7 +47,13 @@ export default function LiveIARA() {
       }
 
       // Initialize Gemini Live
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        alert("A chave da API do Gemini (GEMINI_API_KEY) não está configurada. Por favor, adicione-a nas variáveis de ambiente.");
+        setIsConnecting(false);
+        return;
+      }
+      const ai = new GoogleGenAI({ apiKey });
       const session = await ai.live.connect({
         model: "gemini-2.5-flash-native-audio-preview-12-2025",
         config: {

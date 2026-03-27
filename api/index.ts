@@ -19,16 +19,82 @@ dotenv.config();
 // Initialize Firebase Admin
 let db: admin.firestore.Firestore;
 try {
-  const app = admin.apps.length 
-    ? admin.app() 
-    : admin.initializeApp({ projectId: firebaseConfig.projectId });
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+  
+  if (!admin.apps.length) {
+    if (serviceAccount) {
+      console.log("Initializing Firebase Admin with service account from environment variable.");
+      const cert = JSON.parse(serviceAccount);
+      admin.initializeApp({
+        credential: admin.credential.cert(cert),
+        projectId: firebaseConfig.projectId
+      });
+    } else {
+      console.log(`Initializing Firebase Admin for project: ${firebaseConfig.projectId} using default credentials.`);
+      admin.initializeApp({
+        projectId: firebaseConfig.projectId
+      });
+    }
+  }
     
-  db = getFirestore(firebaseConfig.firestoreDatabaseId);
-  console.log(`Firebase Admin initialized for project: ${firebaseConfig.projectId}, database: ${firebaseConfig.firestoreDatabaseId}`);
+  // Use the database ID from config, or default if not specified
+  const databaseId = firebaseConfig.firestoreDatabaseId;
+  if (databaseId && databaseId !== "(default)") {
+    db = getFirestore(admin.app(), databaseId);
+  } else {
+    db = getFirestore();
+  }
+  
+  // Try to get service account email for debugging
+  admin.auth().listUsers(1).then(() => {
+    console.log("Firebase Admin has listUsers permission.");
+  }).catch((err) => {
+    console.log("Firebase Admin listUsers check failed (expected if not admin):", err.message);
+  });
+
+  console.log(`Firebase Admin initialized successfully. Project: ${firebaseConfig.projectId}, Database: ${databaseId || "(default)"}`);
 } catch (error) {
-  console.error("Error initializing Firebase Admin:", error);
+  console.error("CRITICAL: Error initializing Firebase Admin:", error);
   // @ts-ignore
   db = null;
+}
+
+// Structured Firestore Error Handling
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string;
+    email?: string;
+    emailVerified?: boolean;
+    isAnonymous?: boolean;
+    tenantId?: string;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: "admin-sdk",
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error Details: ', JSON.stringify(errInfo));
+  // We don't throw here for server background tasks to avoid crashing the interval loops,
+  // but we return the error so the caller knows it failed.
+  return new Error(JSON.stringify(errInfo));
 }
 
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -347,13 +413,12 @@ async function sendPushNotification(userId: string, title: string, body: string,
 
 // Scheduled tasks
 async function checkUpcomingAppointments() {
-  console.log(`Checking for upcoming appointments in database: ${firebaseConfig.firestoreDatabaseId}...`);
+  console.log(`Checking for upcoming appointments in project: ${firebaseConfig.projectId}...`);
   try {
     const now = new Date();
     const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
     
     // Query appointments that are confirmed and starting soon
-    // Note: In a real app, you'd use a more precise query with timestamps
     const snapshot = await db.collection("appointments")
       .where("status", "==", "confirmed")
       .get();
@@ -364,7 +429,6 @@ async function checkUpcomingAppointments() {
       const appt = doc.data();
       const apptDate = new Date(appt.date);
       
-      // If appointment is in the next 30 minutes and we haven't sent a reminder
       if (apptDate > now && apptDate <= thirtyMinutesFromNow && !appt.reminderSent) {
         // Notify patient
         await sendPushNotification(
@@ -387,7 +451,12 @@ async function checkUpcomingAppointments() {
       }
     }
   } catch (error) {
-    console.error("Error in checkUpcomingAppointments:", error);
+    console.error("Error in checkUpcomingAppointments:");
+    try {
+      handleFirestoreError(error, OperationType.GET, "appointments");
+    } catch (e) {
+      // Error already logged by handleFirestoreError
+    }
   }
 }
 
@@ -426,7 +495,12 @@ async function sendDailyContent() {
       }, 5000);
     }
   } catch (error) {
-    console.error("Error in sendDailyContent:", error);
+    console.error("Error in sendDailyContent:");
+    try {
+      handleFirestoreError(error, OperationType.GET, "users");
+    } catch (e) {
+      // Error already logged
+    }
   }
 }
 

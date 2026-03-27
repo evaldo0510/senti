@@ -19,7 +19,19 @@ import { GoogleGenAI } from "@google/genai";
 import { DirectMessage } from "../types";
 import { cryptoService } from './cryptoService';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+let aiClient: GoogleGenAI | null = null;
+
+function getAI() {
+  if (!aiClient) {
+    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not set. AI features will not work.");
+      throw new Error("GEMINI_API_KEY is missing");
+    }
+    aiClient = new GoogleGenAI({ apiKey });
+  }
+  return aiClient;
+}
 
 export const chatService = {
   sendMessage: async (appointmentId: string, senderId: string, receiverId: string, text: string, secret?: string) => {
@@ -76,7 +88,7 @@ export const chatService = {
         reader.readAsDataURL(audioBlob);
         const base64Data = await base64Promise;
 
-        const response = await ai.models.generateContent({
+        const response = await getAI().models.generateContent({
           model: "gemini-3-flash-preview",
           contents: [
             { text: "Transcreva este áudio de terapia. Retorne apenas o texto transcrito." },

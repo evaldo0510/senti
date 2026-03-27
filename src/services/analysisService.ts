@@ -15,7 +15,7 @@ export const analysisService = {
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated");
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
       // Fallback if no API key is set
       return {
