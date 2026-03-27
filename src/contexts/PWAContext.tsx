@@ -52,6 +52,21 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
   const subscribeToPush = async () => {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -60,21 +75,43 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const existingSubscription = await registration.pushManager.getSubscription();
       if (existingSubscription) {
         console.log('Already subscribed to push');
+        // Still send to backend just in case it's missing there
+        const { auth } = await import('../services/firebase');
+        const userId = auth.currentUser?.uid;
+        if (userId) {
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, subscription: existingSubscription })
+          });
+        }
         return;
       }
 
-      // In a real app, you'd get the public VAPID key from your server
-      // For this demo, we'll use a placeholder or assume it's handled
-      // const subscription = await registration.pushManager.subscribe({
-      //   userVisibleOnly: true,
-      //   applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      // });
+      // Fetch VAPID Public Key from backend
+      const response = await fetch('/api/push/public-key');
+      const { publicKey } = await response.json();
       
-      // console.log('Push subscription successful:', subscription);
-      // Save subscription to backend
-      // await userService.savePushSubscription(subscription);
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
       
-      console.log('Push subscription logic ready (requires VAPID keys for full implementation)');
+      console.log('Push subscription successful:', subscription);
+      
+      // Get current user from Auth
+      const { auth } = await import('../services/firebase');
+      const userId = auth.currentUser?.uid;
+      
+      if (userId) {
+        // Save subscription to backend
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, subscription })
+        });
+        console.log('Push subscription saved to backend');
+      }
     } catch (error) {
       console.error('Failed to subscribe to push:', error);
     }

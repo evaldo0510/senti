@@ -44,6 +44,7 @@ export interface Appointment {
   createdAt: string;
   reviewed?: boolean;
   reminded?: boolean;
+  reminderSent?: boolean;
   therapistPhone?: string;
   patientPhone?: string;
   sharedSecret?: string; // For E2EE chat

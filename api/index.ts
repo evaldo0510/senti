@@ -310,8 +310,122 @@ async function configureVite() {
   }
 }
 
+// Helper to send push notification
+async function sendPushNotification(userId: string, title: string, body: string, url?: string) {
+  try {
+    const subscriptionsSnapshot = await db.collection("users").doc(userId).collection("pushSubscriptions").get();
+    if (subscriptionsSnapshot.empty) return;
+
+    const payload = JSON.stringify({ title, body, url });
+    const sendPromises = subscriptionsSnapshot.docs.map(async (doc) => {
+      const subscription = doc.data() as webpush.PushSubscription;
+      try {
+        await webpush.sendNotification(subscription, payload);
+      } catch (error: any) {
+        if (error.statusCode === 410 || error.statusCode === 404) {
+          await doc.ref.delete();
+        }
+      }
+    });
+    await Promise.all(sendPromises);
+  } catch (error) {
+    console.error(`Error sending push to ${userId}:`, error);
+  }
+}
+
+// Scheduled tasks
+async function checkUpcomingAppointments() {
+  console.log("Checking for upcoming appointments...");
+  try {
+    const now = new Date();
+    const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+    
+    // Query appointments that are confirmed and starting soon
+    // Note: In a real app, you'd use a more precise query with timestamps
+    const snapshot = await db.collection("appointments")
+      .where("status", "==", "confirmed")
+      .get();
+
+    for (const doc of snapshot.docs) {
+      const appt = doc.data();
+      const apptDate = new Date(appt.date);
+      
+      // If appointment is in the next 30 minutes and we haven't sent a reminder
+      if (apptDate > now && apptDate <= thirtyMinutesFromNow && !appt.reminderSent) {
+        // Notify patient
+        await sendPushNotification(
+          appt.patientId,
+          "Lembrete de Sessão",
+          `Sua sessão com ${appt.therapistNome} começa em breve (às ${apptDate.toLocaleTimeString()}).`,
+          `/atendimento/${doc.id}`
+        );
+        
+        // Notify therapist
+        await sendPushNotification(
+          appt.therapistId,
+          "Próximo Atendimento",
+          `Sua sessão com ${appt.patientNome} começa em breve.`,
+          `/atendimento/${doc.id}`
+        );
+
+        // Mark as sent
+        await doc.ref.update({ reminderSent: true });
+      }
+    }
+  } catch (error) {
+    console.error("Error in checkUpcomingAppointments:", error);
+  }
+}
+
+const WELLBEING_TIPS = [
+  "Respire fundo por 1 minuto. Isso ajuda a acalmar o sistema nervoso.",
+  "Beba um copo de água agora. Hidratação é fundamental para o foco.",
+  "Tente identificar três coisas pelas quais você é grato hoje.",
+  "Faça uma pequena pausa e alongue seu pescoço e ombros.",
+  "Lembre-se: você está fazendo o seu melhor, e isso é o suficiente."
+];
+
+const THERAPEUTIC_PILLS = [
+  "Pílula de Atenção Plena: Observe 5 coisas que você pode ver agora.",
+  "Pílula de Autocompaixão: O que você diria a um amigo na sua situação?",
+  "Pílula de Energia: Levante-se e dê 10 pulinhos para circular o sangue.",
+  "Pílula de Calma: Feche os olhos e imagine um lugar onde você se sente seguro."
+];
+
+async function sendDailyContent() {
+  console.log("Sending daily well-being content...");
+  try {
+    const usersSnapshot = await db.collection("users").get();
+    for (const doc of usersSnapshot.docs) {
+      const userId = doc.id;
+      
+      // Randomly pick a tip and a pill
+      const tip = WELLBEING_TIPS[Math.floor(Math.random() * WELLBEING_TIPS.length)];
+      const pill = THERAPEUTIC_PILLS[Math.floor(Math.random() * THERAPEUTIC_PILLS.length)];
+
+      // Send Tip
+      await sendPushNotification(userId, "Dica de Bem-estar 🌿", tip, "/home");
+      
+      // Send Pill (delayed or separate)
+      setTimeout(() => {
+        sendPushNotification(userId, "Pílula Terapêutica 💊", pill, "/respiracao");
+      }, 5000);
+    }
+  } catch (error) {
+    console.error("Error in sendDailyContent:", error);
+  }
+}
+
 async function startServer() {
   await configureVite();
+
+  // Start schedulers
+  setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
+  setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
+  
+  // Run once on startup for demo
+  setTimeout(checkUpcomingAppointments, 10000);
+  setTimeout(sendDailyContent, 20000);
 
   if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
     const httpServer = createServer(app);

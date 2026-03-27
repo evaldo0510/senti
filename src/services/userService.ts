@@ -499,13 +499,14 @@ export const userService = {
   savePushSubscription: async (subscription: PushSubscription) => {
     const user = auth.currentUser;
     if (!user) return;
-    const path = `users/${user.uid}`;
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        pushSubscription: JSON.parse(JSON.stringify(subscription))
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, subscription })
       });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, path);
+      console.error("Error saving push subscription:", error);
     }
   },
 
