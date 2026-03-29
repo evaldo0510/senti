@@ -412,6 +412,9 @@ async function sendPushNotification(userId: string, title: string, body: string,
 }
 
 // Scheduled tasks
+let checkAppointmentsInterval: NodeJS.Timeout | null = null;
+let sendDailyContentInterval: NodeJS.Timeout | null = null;
+
 async function checkUpcomingAppointments() {
   console.log(`Checking for upcoming appointments in project: ${firebaseConfig.projectId}...`);
   try {
@@ -450,12 +453,20 @@ async function checkUpcomingAppointments() {
         await doc.ref.update({ reminderSent: true });
       }
     }
-  } catch (error) {
-    console.error("Error in checkUpcomingAppointments:");
-    try {
-      handleFirestoreError(error, OperationType.GET, "appointments");
-    } catch (e) {
-      // Error already logged by handleFirestoreError
+  } catch (error: any) {
+    if (error?.message?.includes('PERMISSION_DENIED') || error?.code === 7) {
+      // Silently stop the interval if we don't have admin permissions
+      // This happens in the AI Studio preview environment without a service account
+      if (checkAppointmentsInterval) {
+        clearInterval(checkAppointmentsInterval);
+      }
+    } else {
+      console.error("Error in checkUpcomingAppointments:");
+      try {
+        handleFirestoreError(error, OperationType.GET, "appointments");
+      } catch (e) {
+        // Error already logged by handleFirestoreError
+      }
     }
   }
 }
@@ -494,12 +505,20 @@ async function sendDailyContent() {
         sendPushNotification(userId, "Pílula Terapêutica 💊", pill, "/respiracao");
       }, 5000);
     }
-  } catch (error) {
-    console.error("Error in sendDailyContent:");
-    try {
-      handleFirestoreError(error, OperationType.GET, "users");
-    } catch (e) {
-      // Error already logged
+  } catch (error: any) {
+    if (error?.message?.includes('PERMISSION_DENIED') || error?.code === 7) {
+      // Silently stop the interval if we don't have admin permissions
+      // This happens in the AI Studio preview environment without a service account
+      if (sendDailyContentInterval) {
+        clearInterval(sendDailyContentInterval);
+      }
+    } else {
+      console.error("Error in sendDailyContent:");
+      try {
+        handleFirestoreError(error, OperationType.GET, "users");
+      } catch (e) {
+        // Error already logged
+      }
     }
   }
 }
@@ -508,8 +527,8 @@ async function startServer() {
   await configureVite();
 
   // Start schedulers
-  setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
-  setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
+  checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
+  sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
   
   // Run once on startup for demo
   setTimeout(checkUpcomingAppointments, 10000);

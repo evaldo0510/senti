@@ -34,6 +34,7 @@ import Reset21 from "./pages/Reset21";
 import Reset21Day from "./pages/Reset21Day";
 import Reset21Sales from "./pages/Reset21Sales";
 import IARAChatBubble from "./components/IARAChatBubble";
+import SOSButton from "./components/SOSButton";
 
 function App() {
   return (
@@ -74,6 +75,7 @@ function App() {
             <Route path="/terapeuta/paciente/:id" element={<ProntuarioPaciente />} />
           </Routes>
           <IARAChatBubble />
+          <SOSButton />
         </Router>
       </PWAProvider>
     </ThemeProvider>

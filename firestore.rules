@@ -181,6 +181,11 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
     }
 
+    // Allow the test connection document to be read by anyone (used for health checks)
+    match /test/connection {
+      allow read: if true;
+    }
+
     // Default deny
     match /{path=**} {
       allow read, write: if false;

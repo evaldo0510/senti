@@ -79,20 +79,6 @@ export default function LandingPro() {
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.8)_0%,_transparent_60%)]"></div>
       </div>
 
-      {/* SOS FLOATING BUTTON */}
-      <motion.button
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        onClick={() => navigate("/emergencia")}
-        className="fixed bottom-8 right-8 z-[100] w-20 h-20 bg-[#dc2626] rounded-full shadow-[0_20px_40px_rgba(220,38,38,0.3)] flex flex-col items-center justify-center gap-1 group overflow-hidden"
-      >
-        <div className="absolute inset-0 bg-white animate-ping opacity-20"></div>
-        <AlertCircle className="w-8 h-8 text-white relative z-10" />
-        <span className="text-[10px] font-black text-white relative z-10 uppercase tracking-tighter">SENTI SOS</span>
-      </motion.button>
-
       {/* NAVIGATION */}
       <nav className="fixed top-0 w-full z-50 bg-white/40 backdrop-blur-xl border-b border-black/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
