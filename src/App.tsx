@@ -33,6 +33,10 @@ import Reset from "./pages/Reset";
 import Reset21 from "./pages/Reset21";
 import Reset21Day from "./pages/Reset21Day";
 import Reset21Sales from "./pages/Reset21Sales";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Security from "./pages/Security";
+import Contact from "./pages/Contact";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 
@@ -48,6 +52,10 @@ function App() {
             <Route path="/reset21" element={<Reset21 />} />
             <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />
             <Route path="/reset-21/sales" element={<Reset21Sales />} />
+            <Route path="/termos" element={<Terms />} />
+            <Route path="/privacidade" element={<Privacy />} />
+            <Route path="/seguranca" element={<Security />} />
+            <Route path="/contato" element={<Contact />} />
             <Route path="/lead" element={<LeadForm />} />
             <Route path="/vendas-empresa" element={<VendasEmpresa />} />
             <Route path="/triagem" element={<Triagem />} />

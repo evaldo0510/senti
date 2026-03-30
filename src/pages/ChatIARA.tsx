@@ -9,7 +9,7 @@ import { analisarEmocao } from "../services/emocaoService";
 import { gerarExercicio } from "../services/pchService";
 import { decidirCaminho } from "../services/decisaoService";
 import { playPCM, stopAllAudio } from "../services/audioPlayer";
-import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book, MessageCircle } from "lucide-react";
+import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book, MessageCircle, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { auth } from "../services/firebase";
 import { salvarDadosAnalytics } from "../services/analyticsService";
@@ -31,12 +31,10 @@ interface Step {
 export default function ChatIARA() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { intensidade, emocao } = location.state || {};
+  const { intensidade, emocao, initialMessage, context, therapistName, therapistId } = location.state || {};
 
   const [mensagem, setMensagem] = useState("");
-  const [chat, setChat] = useState<Message[]>([
-    { tipo: "iara", texto: "Olá. Eu sou a IARA, a inteligência de acolhimento da SENTI. Como você está se sentindo agora?" }
-  ]);
+  const [chat, setChat] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [alerta, setAlerta] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -82,15 +80,26 @@ export default function ChatIARA() {
   }, [chat, alerta, isGeneratingImage]);
 
   useEffect(() => {
-    const speakInitial = async () => {
-      if (!isMuted && chat.length === 1 && chat[0].tipo === "iara") {
-        const base64Audio = await falarTexto(chat[0].texto);
+    const initChat = async () => {
+      let initialText = "Olá. Eu sou a IARA, a inteligência de acolhimento da SENTI. Como você está se sentindo agora?";
+      
+      if (context === "scheduling" && therapistName) {
+        initialText = `Olá! Vi que você está interessado em agendar uma sessão com ${therapistName}. Eu sou a IARA e posso tirar suas dúvidas iniciais sobre o processo de agendamento ou sobre como funciona a terapia na SENTI. O que você gostaria de saber?`;
+      } else if (initialMessage) {
+        initialText = initialMessage;
+      }
+
+      setChat([{ tipo: "iara", texto: initialText }]);
+
+      if (!isMuted) {
+        const base64Audio = await falarTexto(initialText);
         if (base64Audio) {
           playAudio(base64Audio);
         }
       }
     };
-    speakInitial();
+    
+    initChat();
 
     return () => {
       stopAllAudio();
@@ -372,6 +381,15 @@ export default function ChatIARA() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {context === "scheduling" && therapistId && (
+            <button 
+              onClick={() => navigate(`/agendamento/${therapistId}`)}
+              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-1.5"
+            >
+              <Calendar className="w-3 h-3" />
+              Agendar Agora
+            </button>
+          )}
           <button 
             onClick={toggleMute}
             className={`p-2 rounded-xl transition-all ${isMuted ? 'bg-red-500/10 text-red-400' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}

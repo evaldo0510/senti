@@ -12,6 +12,7 @@ import {
   Landmark, 
   ArrowRight, 
   Phone, 
+  Mail,
   Sparkles,
   Zap,
   Lock,
@@ -823,6 +824,52 @@ export default function LandingPro() {
         </div>
       </section>
 
+      {/* CONTACT CTA */}
+      <section className="py-20 px-6 relative z-10 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 items-center bg-[#f5f5f0] rounded-[64px] p-12 md:p-20 overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-100/50 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+            <div className="space-y-8 relative z-10">
+              <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] leading-tight tracking-tight">
+                Ainda tem <br /> <span className="text-emerald-700 font-bold not-italic">dúvidas?</span>
+              </h2>
+              <p className="text-xl text-[#4a4a4a] font-light max-w-md">
+                Nossa equipe está pronta para te ajudar a encontrar o melhor caminho para o seu bem-estar.
+              </p>
+              <button 
+                onClick={() => navigate("/contato")}
+                className="px-10 py-5 bg-[#1a1a1a] text-white rounded-[32px] font-bold text-lg hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95"
+              >
+                Falar com a Equipe
+                <MessageCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="relative hidden md:block">
+              <div className="aspect-square bg-white rounded-[48px] shadow-2xl p-12 flex flex-col justify-center gap-8 border border-black/5 rotate-3">
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                    <Mail className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#6a6a6a] uppercase tracking-widest">E-mail</p>
+                    <p className="text-lg font-medium text-[#1a1a1a]">contato@senti.app</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                    <Phone className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#6a6a6a] uppercase tracking-widest">WhatsApp</p>
+                    <p className="text-lg font-medium text-[#1a1a1a]">+55 (11) 99999-9999</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FOOTER */}
       <footer className="py-20 px-6 border-t border-black/5 bg-white relative z-10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12">
@@ -840,12 +887,13 @@ export default function LandingPro() {
               <button onClick={() => navigate("/reset21")} className="text-left hover:text-emerald-600 transition-colors">A Jornada</button>
               <button onClick={() => navigate("/chat")} className="text-left hover:text-emerald-600 transition-colors">IARA AI</button>
               <button onClick={() => navigate("/profissionais")} className="text-left hover:text-emerald-600 transition-colors">Especialistas</button>
+              <button onClick={() => navigate("/contato")} className="text-left hover:text-emerald-600 transition-colors">Contato</button>
             </div>
             <div className="flex flex-col gap-4">
               <span className="text-[#1a1a1a] font-bold uppercase tracking-widest text-xs">Legal</span>
-              <button onClick={() => navigate("/lead")} className="text-left hover:text-emerald-600 transition-colors">Termos</button>
-              <button onClick={() => navigate("/lead")} className="text-left hover:text-emerald-600 transition-colors">Privacidade</button>
-              <button onClick={() => navigate("/lead")} className="text-left hover:text-emerald-600 transition-colors">Segurança</button>
+              <button onClick={() => navigate("/termos")} className="text-left hover:text-emerald-600 transition-colors">Termos</button>
+              <button onClick={() => navigate("/privacidade")} className="text-left hover:text-emerald-600 transition-colors">Privacidade</button>
+              <button onClick={() => navigate("/seguranca")} className="text-left hover:text-emerald-600 transition-colors">Segurança</button>
             </div>
           </div>
         </div>
