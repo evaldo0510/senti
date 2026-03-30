@@ -24,7 +24,11 @@ import {
   MessageSquarePlus,
   Lightbulb,
   Smartphone,
-  Check
+  Check,
+  Wind,
+  Shield,
+  Users,
+  Brain
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
@@ -294,6 +298,43 @@ export default function DashboardPaciente() {
   ];
   const dicaHoje = dicasDoDia[new Date().getDate() % dicasDoDia.length];
 
+  const quickActions = [
+    { id: 'chat', label: 'IARA', icon: MessageCircle, path: '/chat', color: 'bg-emerald-500' },
+    { id: 'diario', label: 'Diário', icon: BookOpen, path: '/diario', color: 'bg-indigo-500' },
+    { id: 'respiracao', label: 'Respirar', icon: Wind, path: '/respiracao', color: 'bg-sky-500' },
+    { id: 'sos', label: 'SOS', icon: Shield, path: '/emergencia', color: 'bg-rose-500' },
+    { id: 'profissionais', label: 'Terapeutas', icon: Users, path: '/profissionais', color: 'bg-violet-500' },
+    { id: 'reset', label: 'ReSet', icon: RefreshCw, path: '/reset', color: 'bg-amber-500' },
+    { id: 'live', label: 'Live', icon: Video, path: '/live-iara', color: 'bg-emerald-600' },
+    { id: 'triagem', label: 'Triagem', icon: Activity, path: '/triagem', color: 'bg-slate-500' },
+    { id: 'perfil', label: 'Perfil', icon: User, path: '/perfil', color: 'bg-blue-500' },
+  ];
+
+  const moods = [
+    { emoji: "😊", label: "Bem", value: 8 },
+    { emoji: "😐", label: "Ok", value: 5 },
+    { emoji: "😔", label: "Triste", value: 3 },
+    { emoji: "😠", label: "Irritado", value: 2 },
+    { emoji: "😴", label: "Cansado", value: 4 },
+    { emoji: "🤩", label: "Radiante", value: 10 },
+    { emoji: "😰", label: "Ansioso", value: 2 },
+  ];
+
+  const handleQuickMood = async (value: number) => {
+    if (auth.currentUser) {
+      await userService.saveMood(value, 5, "Registro rápido via dashboard");
+      // Refresh mood history
+      const history = await new Promise<MoodEntry[]>((resolve) => {
+        const unsub = userService.getMoodHistory((h) => {
+          unsub();
+          resolve(h);
+        });
+      });
+      if (history.length > 0) setRecentMood(history[0]);
+      await addXp(auth.currentUser.uid, XP_ACTIONS.LOG_MOOD);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-32 transition-colors">
       <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
@@ -394,6 +435,65 @@ export default function DashboardPaciente() {
       </header>
 
       <main className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 sm:space-y-8">
+        {/* Quick Mood Carousel */}
+        <section className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Como você está agora?</h3>
+          </div>
+          <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+            {moods.map((m, idx) => (
+              <motion.button
+                key={m.label}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleQuickMood(m.value)}
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border border-white/5 transition-all",
+                  "w-16 bg-white dark:bg-slate-900 shadow-sm",
+                  idx % 2 === 0 ? "rotate-1" : "-rotate-1"
+                )}
+              >
+                <span className="text-xl">{m.emoji}</span>
+                <span className="text-[8px] font-bold text-slate-500 uppercase">{m.label}</span>
+              </motion.button>
+            ))}
+          </div>
+        </section>
+
+        {/* Quick Actions Carousel */}
+        <section className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Acesso Rápido</h3>
+          </div>
+          <div className="flex overflow-x-auto gap-3 pb-4 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+            {quickActions.map((action, idx) => (
+              <motion.button
+                key={action.id}
+                whileHover={{ y: -4, scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate(action.path)}
+                className={cn(
+                  "flex-shrink-0 flex flex-col items-center gap-2 p-3 rounded-2xl border border-white/10 shadow-sm transition-all",
+                  "w-20 sm:w-24",
+                  idx % 3 === 0 ? "bg-slate-900 dark:bg-white/5" : "bg-white dark:bg-slate-900",
+                  "hover:shadow-lg hover:shadow-emerald-500/5",
+                  idx % 2 === 0 ? "mt-1" : "mt-0"
+                )}
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-inner",
+                  action.color
+                )}>
+                  <action.icon className="w-4 h-4" />
+                </div>
+                <span className="text-[9px] font-bold text-slate-600 dark:text-slate-400 text-center truncate w-full">
+                  {action.label}
+                </span>
+              </motion.button>
+            ))}
+          </div>
+        </section>
+
         {/* Gamification Stats */}
         <div className="grid grid-cols-2 gap-4">
           <motion.div 

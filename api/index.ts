@@ -526,15 +526,17 @@ async function sendDailyContent() {
 async function startServer() {
   await configureVite();
 
-  // Start schedulers
-  checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
-  sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
-  
-  // Run once on startup for demo
-  setTimeout(checkUpcomingAppointments, 10000);
-  setTimeout(sendDailyContent, 20000);
-
   if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+    // Only start intervals if not on Vercel (Vercel uses Cron Jobs)
+    if (!process.env.VERCEL) {
+      checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
+      sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
+      
+      // Run once on startup for demo
+      setTimeout(checkUpcomingAppointments, 10000);
+      setTimeout(sendDailyContent, 20000);
+    }
+
     const httpServer = createServer(app);
     const io = new Server(httpServer, {
       cors: {

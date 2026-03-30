@@ -24,13 +24,16 @@ export default function Registro() {
         const app = await userService.getAppointment(appointmentId);
         if (app) {
           setAppointment(app);
-          setNota(app.notes || "");
+          setNota(app.notes || `Paciente: ${app.patientNome}\n\n`);
           setRisco(app.riskLevel || "baixo");
         }
       } else if (patientId) {
         const p = await userService.getUser(patientId);
         if (p) {
           setPatient(p);
+          if (!nota) {
+            setNota(`Paciente: ${p.nome}\n\n`);
+          }
         }
       }
     };

@@ -7,6 +7,7 @@ export const XP_ACTIONS = {
   DO_RESET: 10,
   READ_PILL: 3,
   COMPLETE_DAY: 20,
+  LOG_MOOD: 5,
 };
 
 export const LEVELS = [

@@ -93,6 +93,7 @@ export default function LandingPro() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#4a4a4a]">
             <a href="#metodo" className="hover:text-emerald-700 transition-colors">O Método</a>
             <a href="#solucao" className="hover:text-emerald-700 transition-colors">Acolhimento</a>
+            <a href="#precos" className="hover:text-emerald-700 transition-colors">Preços</a>
             <a href="#segmentos" className="hover:text-emerald-700 transition-colors">Ecossistema</a>
           </div>
 
@@ -150,6 +151,13 @@ export default function LandingPro() {
                   className="text-xl font-bold text-[#1a1a1a]"
                 >
                   Acolhimento
+                </a>
+                <a 
+                  href="#precos" 
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-xl font-bold text-[#1a1a1a]"
+                >
+                  Preços
                 </a>
                 <a 
                   href="#segmentos" 
@@ -730,6 +738,86 @@ export default function LandingPro() {
                 </div>
               </div>
             </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING SECTION */}
+      <section id="precos" className="py-20 md:py-32 px-6 bg-white relative z-10">
+        <div className="max-w-7xl mx-auto space-y-16">
+          <div className="text-center space-y-6">
+            <h2 className="text-4xl md:text-6xl font-serif italic text-[#1a1a1a] tracking-tight">
+              Planos que <span className="text-emerald-700 font-bold not-italic">cabem no seu momento.</span>
+            </h2>
+            <p className="text-xl text-[#4a4a4a] font-light max-w-2xl mx-auto">
+              Escolha a melhor forma de cuidar da sua saúde mental hoje.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                title: "Gratuito",
+                price: "R$ 0",
+                period: "/sempre",
+                desc: "Acesso básico para quem está começando a jornada.",
+                features: ["Triagem IARA ilimitada", "Diário Emocional básico", "Acesso à rede de terapeutas", "SOS Emergência"],
+                cta: "Começar Grátis",
+                path: "/login",
+                highlight: false
+              },
+              {
+                title: "Premium (ReSet 21)",
+                price: "R$ 29,90",
+                period: "/único",
+                desc: "O protocolo completo de reprogramação emocional.",
+                features: ["Tudo do Gratuito", "Jornada ReSet 21 Dias", "Biblioteca de Pílulas", "Relatórios Detalhados", "Suporte Prioritário"],
+                cta: "Garantir Minha Vaga",
+                path: "/reset-21/sales",
+                highlight: true
+              },
+              {
+                title: "Sessão Avulsa",
+                price: "R$ 120",
+                period: "/sessão",
+                desc: "Atendimento humano com especialistas verificados.",
+                features: ["Sessão de 50 minutos", "Videochamada Segura", "Prontuário Digital", "Chat Pós-Sessão"],
+                cta: "Agendar Agora",
+                path: "/profissionais",
+                highlight: false
+              }
+            ].map((plan, i) => (
+              <motion.div 
+                key={i}
+                whileHover={{ y: -10 }}
+                className={`p-10 rounded-[48px] border ${plan.highlight ? 'bg-emerald-600 text-white border-emerald-500 shadow-2xl shadow-emerald-600/20' : 'bg-[#f5f5f0]/50 border-black/5 text-[#1a1a1a]'} flex flex-col h-full transition-all`}
+              >
+                <div className="space-y-6 mb-10">
+                  <h3 className="text-2xl font-bold">{plan.title}</h3>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-5xl font-bold">{plan.price}</span>
+                    <span className={`text-sm ${plan.highlight ? 'text-emerald-100' : 'text-[#6a6a6a]'}`}>{plan.period}</span>
+                  </div>
+                  <p className={`text-lg font-light ${plan.highlight ? 'text-emerald-50' : 'text-[#4a4a4a]'}`}>{plan.desc}</p>
+                </div>
+
+                <div className="space-y-4 mb-12 flex-grow">
+                  {plan.features.map((f, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className={`w-1.5 h-1.5 rounded-full ${plan.highlight ? 'bg-white' : 'bg-emerald-500'}`}></div>
+                      <span className="text-sm font-light">{f}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button 
+                  onClick={() => navigate(plan.path)}
+                  className={`w-full py-5 rounded-2xl font-bold transition-all text-lg ${plan.highlight ? 'bg-white text-emerald-700 hover:bg-emerald-50' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/20'}`}
+                >
+                  {plan.cta}
+                </button>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
