@@ -49,7 +49,7 @@ export function AffirmationToast() {
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.9 }}
-          className="fixed bottom-24 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 z-50"
+          className="fixed bottom-64 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 z-50"
         >
           <div className="bg-white dark:bg-slate-900 border border-emerald-500/20 dark:border-emerald-500/30 p-4 rounded-2xl shadow-2xl shadow-emerald-500/10 flex items-start gap-3">
             <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
