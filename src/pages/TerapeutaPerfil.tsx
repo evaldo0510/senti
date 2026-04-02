@@ -21,7 +21,8 @@ import {
   Instagram,
   Globe,
   Mail,
-  Phone
+  Phone,
+  HeartPulse
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
@@ -41,6 +42,56 @@ export default function TerapeutaPerfil() {
   const [showContact, setShowContact] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState('sobre');
+
+  const tabs = [
+    { id: 'sobre', label: 'Sobre', icon: Shield },
+    { id: 'agenda', label: 'Agenda', icon: Calendar },
+    { id: 'especialidades', label: 'Especialidades', icon: Sparkles },
+    { id: 'avaliacoes', label: 'Avaliações', icon: Star },
+  ];
+
+  useEffect(() => {
+    const observerOptions = {
+      root: null,
+      rootMargin: '-150px 0px -70% 0px',
+      threshold: 0
+    };
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          setActiveTab(entry.target.id);
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+    
+    tabs.forEach(tab => {
+      const element = document.getElementById(tab.id);
+      if (element) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const scrollToSection = (id: string) => {
+    setActiveTab(id);
+    const element = document.getElementById(id);
+    if (element) {
+      const offset = 100; // Offset for sticky header
+      const bodyRect = document.body.getBoundingClientRect().top;
+      const elementRect = element.getBoundingClientRect().top;
+      const elementPosition = elementRect - bodyRect;
+      const offsetPosition = elementPosition - offset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleSelect = (date: Date, time: string) => {
     setSelectedDate(date);
@@ -148,187 +199,197 @@ export default function TerapeutaPerfil() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Hero Section */}
-      <div className="relative h-64 bg-gradient-to-b from-emerald-900/20 to-slate-950 border-b border-white/5">
-        <div className="max-w-4xl mx-auto px-6 pt-8 flex justify-between items-center">
+      <div className="relative h-48 md:h-64 bg-gradient-to-b from-brand-indigo/20 to-slate-950 border-b border-white/5">
+        <div className="max-w-6xl mx-auto px-6 pt-8 flex justify-between items-center">
           <button 
             onClick={() => navigate("/profissionais")} 
             className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md text-slate-200 text-sm font-medium border border-white/5"
           >
             <ArrowLeft className="w-4 h-4" />
-            Voltar para Profissionais
+            Voltar
           </button>
-          <button 
-            onClick={handleShare}
-            className="p-2 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md"
-            title="Compartilhar perfil"
-          >
-            <Share2 className="w-5 h-5" />
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleShare}
+              className="p-2.5 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md border border-white/5"
+              title="Compartilhar perfil"
+            >
+              <Share2 className="w-5 h-5 text-slate-300" />
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 -mt-32 pb-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* Sticky Navigation Tabs */}
+      <div className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-white/5 hidden md:block">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex items-center gap-8 h-16">
+            <div className="flex items-center gap-2 mr-8">
+              <HeartPulse className="w-6 h-6 text-brand-indigo" />
+              <span className="font-bold text-brand-text tracking-tight">Sentí</span>
+            </div>
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => scrollToSection(tab.id)}
+                className={cn(
+                  "h-full px-2 flex items-center gap-2 text-sm font-medium transition-all relative",
+                  activeTab === tab.id ? "text-brand-indigo" : "text-slate-400 hover:text-slate-200"
+                )}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+                {activeTab === tab.id && (
+                  <motion.div 
+                    layoutId="activeTab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-indigo"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 -mt-24 md:-mt-32 pb-20 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column: Profile Info */}
-          <div className="md:col-span-1 space-y-6">
+          <div className="lg:col-span-4 space-y-6">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-slate-900 border border-white/10 p-6 rounded-[2.5rem] text-center shadow-2xl relative overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-slate-900/80 backdrop-blur-xl border border-white/10 p-8 rounded-[2.5rem] text-center shadow-2xl relative overflow-hidden"
             >
-              <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
-              <div className="relative inline-block mb-4">
+              <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-brand-indigo to-brand-purple" />
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 bg-brand-indigo/20 blur-2xl rounded-full" />
                 <img 
                   src={terapeuta.fotoUrl || `https://picsum.photos/seed/${terapeuta.uid}/400/400`} 
                   alt={terapeuta.nome} 
-                  className="w-32 h-32 rounded-3xl object-cover border-4 border-slate-800 shadow-xl"
+                  className="w-36 h-36 rounded-[2rem] object-cover border-4 border-slate-800 shadow-2xl relative z-10"
                   referrerPolicy="no-referrer"
                 />
                 <div className={cn(
-                  "absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-4 border-slate-900",
+                  "absolute -bottom-1 -right-1 w-7 h-7 rounded-full border-4 border-slate-900 z-20",
                   terapeuta.online ? "bg-emerald-500" : "bg-slate-600"
                 )} />
               </div>
               
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+              <div className="space-y-1 mb-6">
+                <h1 className="text-2xl font-bold text-slate-100 flex items-center justify-center gap-2">
                   {terapeuta.nome}
                   {terapeuta.online && (
-                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" title="Online agora" />
+                    <HeartPulse className="w-5 h-5 text-emerald-500 animate-pulse" />
                   )}
                 </h1>
-                {terapeuta.online && (
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                    <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
-                    <span className="text-[8px] font-bold text-emerald-400 uppercase tracking-wider">Online agora</span>
-                  </div>
-                )}
+                <p className="text-brand-indigo font-semibold tracking-wide uppercase text-[10px]">{terapeuta.especialidades?.join(" • ") || "Psicólogo"}</p>
               </div>
-              <p className="text-emerald-400 text-sm font-medium mb-4">{terapeuta.especialidades?.join(", ") || "Psicólogo"}</p>
               
-              <div className="flex items-center justify-center gap-1 mb-6">
-                {[...Array(5)].map((_, i) => (
-                  <Star 
-                    key={i} 
-                    className={cn(
-                      "w-4 h-4", 
-                      i < Math.round(terapeuta.rating || 5) ? "text-yellow-500 fill-yellow-500" : "text-slate-700"
-                    )} 
-                  />
-                ))}
-                <span className="text-sm font-bold text-slate-300 ml-2">{terapeuta.rating?.toFixed(1) || "5.0"}</span>
+              <div className="flex items-center justify-center gap-1.5 mb-8 bg-slate-800/30 py-2 px-4 rounded-2xl w-fit mx-auto border border-white/5">
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                <span className="text-sm font-bold text-slate-200">{terapeuta.rating?.toFixed(1) || "5.0"}</span>
+                <span className="text-slate-500 text-xs ml-1">({terapeuta.reviewCount || 0} avaliações)</span>
               </div>
 
               <div className="space-y-3">
                 <button 
-                  onClick={() => navigate(`/agendamento/${terapeuta.uid}`)}
-                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                  onClick={() => scrollToSection('agenda')}
+                  className="w-full py-4 bg-brand-indigo hover:bg-brand-indigo/90 text-white rounded-2xl font-bold transition-all shadow-lg shadow-brand-indigo/20 flex items-center justify-center gap-2 group"
                 >
-                  <Calendar className="w-5 h-5" />
-                  Agendar Horário
+                  <Calendar className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  Agendar Sessão
                 </button>
-                <button 
-                  onClick={() => navigate(`/agendamento/${terapeuta.uid}?instant=true`)}
-                  className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5 flex items-center justify-center gap-2"
-                >
-                  <Video className="w-5 h-5 text-emerald-500" />
-                  Atender Agora
-                </button>
-                
-                {(terapeuta.instagram || terapeuta.website) && (
-                  <div className="flex gap-2 pt-2">
-                    {terapeuta.instagram && (
-                      <a 
-                        href={`https://instagram.com/${terapeuta.instagram.replace('@', '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
-                      >
-                        <Instagram className="w-4 h-4 text-pink-500/70" />
-                        Instagram
-                      </a>
-                    )}
-                    {terapeuta.website && (
-                      <a 
-                        href={terapeuta.website.startsWith('http') ? terapeuta.website : `https://${terapeuta.website}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
-                      >
-                        <Globe className="w-4 h-4 text-blue-500/70" />
-                        Site
-                      </a>
-                    )}
-                  </div>
+                {terapeuta.online && (
+                  <button 
+                    onClick={() => navigate(`/agendamento/${terapeuta.uid}?instant=true`)}
+                    className="w-full py-4 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-2xl font-bold transition-all border border-emerald-500/20 flex items-center justify-center gap-2"
+                  >
+                    <Video className="w-5 h-5" />
+                    Atender Agora
+                  </button>
                 )}
-
-                <button 
-                  onClick={falarWhatsApp}
-                  className="w-full py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-4 h-4 text-emerald-500/50" />
-                  Falar no WhatsApp
-                </button>
+                
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <button 
+                    onClick={handleMensagemRapida}
+                    className="py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-2xl text-xs font-semibold transition-all border border-white/5 flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-4 h-4 text-brand-indigo" />
+                    Chat
+                  </button>
+                  <button 
+                    onClick={falarWhatsApp}
+                    className="py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-2xl text-xs font-semibold transition-all border border-white/5 flex items-center justify-center gap-2"
+                  >
+                    <Instagram className="w-4 h-4 text-pink-500/70" />
+                    Social
+                  </button>
+                </div>
               </div>
             </motion.div>
 
-            <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">Valor da sessão</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-slate-100 font-bold text-lg">R$ {terapeuta.preco || "120"}</span>
-                  <div className="flex items-center gap-2 bg-slate-800/50 border border-white/10 rounded-xl px-3 py-1.5">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ajustar</span>
-                    <input 
-                      type="number" 
-                      defaultValue={120}
-                      className="bg-transparent border-none text-emerald-400 font-bold text-sm w-16 focus:outline-none focus:ring-0 p-0"
-                    />
+            <div className="bg-slate-900/50 backdrop-blur-md border border-white/5 p-8 rounded-[2.5rem] space-y-6">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Informações da Sessão</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-brand-indigo/10 rounded-xl">
+                      <Sparkles className="w-4 h-4 text-brand-indigo" />
+                    </div>
+                    <span className="text-sm text-slate-400">Investimento</span>
                   </div>
+                  <span className="text-slate-100 font-bold text-lg">R$ {terapeuta.preco || "120"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-emerald-500/10 rounded-xl">
+                      <Clock className="w-4 h-4 text-emerald-500" />
+                    </div>
+                    <span className="text-sm text-slate-400">Duração</span>
+                  </div>
+                  <span className="text-slate-100 font-medium">50 min</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-500/10 rounded-xl">
+                      <Video className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <span className="text-sm text-slate-400">Modalidade</span>
+                  </div>
+                  <span className="text-emerald-400 font-medium text-sm">Online</span>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">Duração</span>
-                <span className="text-slate-100 font-medium">50 minutos</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-400">Modalidade</span>
-                <span className="text-emerald-400 font-medium flex items-center gap-1">
-                  <Video className="w-4 h-4" /> Online
-                </span>
-              </div>
 
-              {/* Contact Info Section */}
-              <div className="pt-4 border-t border-white/5 space-y-3">
+              <div className="pt-6 border-t border-white/5">
                 {!showContact ? (
                   <button 
                     onClick={() => setShowContact(true)}
-                    className="w-full py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 text-slate-400 hover:text-slate-200 text-xs font-medium transition-all flex items-center justify-center gap-2"
                   >
                     <Shield className="w-3.5 h-3.5" />
-                    Compartilhar Informações de Contato
+                    Ver informações de contato
                   </button>
                 ) : (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-2"
+                    className="space-y-3"
                   >
-                    <div className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-xl border border-white/5">
-                      <Mail className="w-4 h-4 text-emerald-500" />
+                    <div className="p-4 bg-slate-800/30 rounded-2xl border border-white/5 flex items-center gap-3">
+                      <Mail className="w-4 h-4 text-brand-indigo" />
                       <span className="text-xs text-slate-300 truncate">{terapeuta.email}</span>
                     </div>
                     {terapeuta.telefone && (
-                      <div className="flex items-center gap-3 p-3 bg-slate-800/30 rounded-xl border border-white/5">
+                      <div className="p-4 bg-slate-800/30 rounded-2xl border border-white/5 flex items-center gap-3">
                         <Phone className="w-4 h-4 text-emerald-500" />
                         <span className="text-xs text-slate-300">{terapeuta.telefone}</span>
                       </div>
                     )}
                     <button 
                       onClick={() => setShowContact(false)}
-                      className="w-full text-center text-[10px] text-slate-500 hover:text-slate-400 transition-colors pt-1"
+                      className="w-full text-center text-[10px] text-slate-500 hover:text-slate-400 transition-colors pt-2"
                     >
-                      Ocultar informações
+                      Ocultar detalhes
                     </button>
                   </motion.div>
                 )}
@@ -337,51 +398,64 @@ export default function TerapeutaPerfil() {
           </div>
 
           {/* Right Column: Bio & Details */}
-          <div className="md:col-span-2 space-y-8">
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="space-y-6"
-            >
-              <section className="space-y-4">
-                <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
-                  <Shield className="w-6 h-6 text-emerald-500" />
-                  Sobre o Profissional
-                </h2>
-                <p className="text-slate-400 leading-relaxed text-lg italic font-serif">
-                  {terapeuta.biografia || "Profissional dedicado ao bem-estar emocional, com vasta experiência em ajudar pessoas a superarem desafios e encontrarem equilíbrio em suas vidas."}
-                </p>
-                <div className="pt-2">
-                  <button 
-                    onClick={handleMensagemRapida}
-                    className="px-6 py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-2xl font-bold transition-all flex items-center gap-2 group"
-                  >
-                    <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    Chat Rápido
-                  </button>
+          <div className="lg:col-span-8 space-y-12">
+            <div className="space-y-12">
+              {/* Section: Sobre */}
+              <section id="sobre" className="scroll-mt-24 space-y-6">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-brand-indigo/10 rounded-2xl flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-brand-indigo" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-100">Sobre o Profissional</h2>
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Biografia e Abordagem</p>
+                  </div>
+                </div>
+                
+                <div className="bg-slate-900/30 border border-white/5 p-8 rounded-[2.5rem] relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+                    <HeartPulse className="w-32 h-32" />
+                  </div>
+                  <p className="text-slate-300 leading-relaxed text-lg font-serif italic relative z-10">
+                    {terapeuta.biografia || "Profissional dedicado ao bem-estar emocional, com vasta experiência em ajudar pessoas a superarem desafios e encontrarem equilíbrio em suas vidas."}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8 pt-8 border-t border-white/5">
+                    <div className="flex items-start gap-4">
+                      <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-500">
+                        <Award className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200 text-sm">Qualificação</h4>
+                        <p className="text-xs text-slate-500">CRP Ativo e Verificado</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-4">
+                      <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-500">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200 text-sm">Experiência</h4>
+                        <p className="text-xs text-slate-500">+5 anos de atendimento clínico</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </section>
 
-              <section className="space-y-4 pt-4">
-                <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-emerald-500" />
-                  Horários Disponíveis
-                </h3>
-                <CalendarAvailability 
-                  therapist={terapeuta} 
-                  onSelect={handleSelect}
-                  selectedDate={selectedDate}
-                  selectedTime={selectedTime}
-                />
-              </section>
-
+              {/* Section: Video Presentation */}
               {terapeuta.videoUrl && (
-                <section className="space-y-4 pt-4">
-                  <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                    <PlayCircle className="w-5 h-5 text-emerald-500" />
-                    Apresentação
-                  </h3>
-                  <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-slate-900">
+                <section className="space-y-6">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                      <PlayCircle className="w-6 h-6 text-emerald-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-100">Apresentação em Vídeo</h3>
+                      <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Conheça o terapeuta</p>
+                    </div>
+                  </div>
+                  <div className="relative w-full aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 bg-slate-900 shadow-2xl">
                     <iframe 
                       src={getEmbedUrl(terapeuta.videoUrl)} 
                       title={`Apresentação de ${terapeuta.nome}`}
@@ -393,82 +467,94 @@ export default function TerapeutaPerfil() {
                 </section>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-900/30 border border-white/5 rounded-2xl flex items-start gap-4">
-                  <div className="p-2 bg-emerald-500/10 rounded-xl text-emerald-500">
-                    <Award className="w-5 h-5" />
+              {/* Section: Agenda */}
+              <section id="agenda" className="scroll-mt-24 space-y-6">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-brand-purple/10 rounded-2xl flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-brand-purple" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-slate-200 text-sm">Especialista</h4>
-                    <p className="text-xs text-slate-500">CRP Ativo e Verificado</p>
+                    <h3 className="text-2xl font-bold text-slate-100">Horários Disponíveis</h3>
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Agende sua próxima sessão</p>
                   </div>
                 </div>
-                <div className="p-4 bg-slate-900/30 border border-white/5 rounded-2xl flex items-start gap-4">
-                  <div className="p-2 bg-blue-500/10 rounded-xl text-blue-500">
-                    <Clock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-200 text-sm">Experiência</h4>
-                    <p className="text-xs text-slate-500">+5 anos de atendimento</p>
-                  </div>
-                </div>
-              </div>
-
-              <section className="space-y-4 pt-4">
-                <h3 className="text-xl font-bold text-slate-100">Especialidades</h3>
-                <div className="flex flex-wrap gap-2">
-                  {terapeuta.especialidades?.map((esp, i) => (
-                    <span key={i} className="px-4 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-slate-300">
-                      {esp}
-                    </span>
-                  )) || (
-                    <span className="px-4 py-2 bg-slate-900 border border-white/10 rounded-full text-sm text-slate-300">
-                      Psicologia Clínica
-                    </span>
-                  )}
+                <div className="bg-slate-900/30 border border-white/5 p-4 md:p-8 rounded-[2.5rem]">
+                  <CalendarAvailability 
+                    therapist={terapeuta} 
+                    onSelect={handleSelect}
+                    selectedDate={selectedDate}
+                    selectedTime={selectedTime}
+                  />
                 </div>
               </section>
 
+              {/* Section: Especialidades */}
+              <section id="especialidades" className="scroll-mt-24 space-y-8">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-brand-indigo/10 rounded-2xl flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-brand-indigo" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-100">Especialidades e Foco</h3>
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Áreas de atuação</p>
+                  </div>
+                </div>
 
-              <section className="space-y-4 pt-4">
-                <h3 className="text-xl font-bold text-slate-100">O que esperar das sessões</h3>
-                <ul className="space-y-3">
-                  {[
-                    "Ambiente seguro e acolhedor",
-                    "Escuta ativa e sem julgamentos",
-                    "Foco no seu desenvolvimento pessoal",
-                    "Ferramentas práticas para o dia a dia"
-                  ].map((item, i) => (
-                    <li key={i} className="flex items-center gap-3 text-slate-400">
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">Principais Áreas</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {terapeuta.especialidades?.map((esp, i) => (
+                        <span key={i} className="px-5 py-3 bg-slate-900 border border-white/10 rounded-2xl text-sm text-slate-200 font-medium hover:border-brand-indigo/30 transition-colors">
+                          {esp}
+                        </span>
+                      )) || (
+                        <span className="px-5 py-3 bg-slate-900 border border-white/10 rounded-2xl text-sm text-slate-200 font-medium">
+                          Psicologia Clínica
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider ml-1">O que esperar</h4>
+                    <ul className="space-y-4">
+                      {[
+                        "Ambiente seguro e acolhedor",
+                        "Escuta ativa e sem julgamentos",
+                        "Foco no seu desenvolvimento pessoal",
+                        "Ferramentas práticas para o dia a dia"
+                      ].map((item, i) => (
+                        <li key={i} className="flex items-center gap-3 text-slate-300 text-sm">
+                          <div className="w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                          </div>
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </section>
 
-              {terapeuta.cidade && (
-                <section className="space-y-4 pt-4">
-                  <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-slate-500" />
-                    Localização
-                  </h3>
-                  <p className="text-slate-400">{terapeuta.cidade}</p>
-                </section>
-              )}
-
-              {/* Avaliações Section */}
-              <section className="space-y-4 pt-8 border-t border-white/5">
+              {/* Section: Avaliações */}
+              <section id="avaliacoes" className="scroll-mt-24 space-y-8">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                    <Star className="w-5 h-5 text-yellow-500" />
-                    Avaliações dos Pacientes
-                  </h3>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center">
+                      <Star className="w-6 h-6 text-yellow-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-slate-100">Avaliações</h3>
+                      <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Depoimentos de pacientes</p>
+                    </div>
+                  </div>
+                  
                   {sortedReviews.length > 0 && (
                     <select 
                       value={sortOrder}
                       onChange={(e) => setSortOrder(e.target.value as 'desc' | 'asc')}
-                      className="bg-slate-900 border border-white/10 text-slate-300 text-sm rounded-xl px-3 py-1.5 focus:outline-none focus:border-emerald-500"
+                      className="bg-slate-900 border border-white/10 text-slate-300 text-xs font-bold rounded-xl px-4 py-2 focus:outline-none focus:border-brand-indigo transition-all"
                     >
                       <option value="desc">Mais recentes</option>
                       <option value="asc">Mais antigas</option>
@@ -477,37 +563,46 @@ export default function TerapeutaPerfil() {
                 </div>
 
                 {sortedReviews.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4">
                     {sortedReviews.map((review, i) => (
-                      <div key={i} className="bg-slate-900/50 border border-white/5 rounded-2xl p-5 space-y-3">
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        key={i} 
+                        className="bg-slate-900/50 border border-white/5 rounded-[2rem] p-6 space-y-4 hover:border-white/10 transition-all"
+                      >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 font-bold">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-slate-400 font-bold border border-white/5">
                               {review.userName?.charAt(0).toUpperCase() || "P"}
                             </div>
                             <div>
-                              <p className="font-bold text-slate-200 text-sm">{review.userName || "Paciente Anônimo"}</p>
-                              <p className="text-xs text-slate-500">{new Date(review.data).toLocaleDateString('pt-BR')}</p>
+                              <p className="font-bold text-slate-100">{review.userName || "Paciente Anônimo"}</p>
+                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{new Date(review.data).toLocaleDateString('pt-BR')}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                            <span className="font-bold text-slate-300 text-sm">{review.nota.toFixed(1)}</span>
+                          <div className="flex items-center gap-1.5 bg-yellow-500/10 px-3 py-1.5 rounded-xl border border-yellow-500/20">
+                            <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                            <span className="font-bold text-yellow-500 text-xs">{review.nota.toFixed(1)}</span>
                           </div>
                         </div>
                         {review.comentario && (
-                          <p className="text-slate-400 text-sm italic">"{review.comentario}"</p>
+                          <p className="text-slate-400 text-sm leading-relaxed italic">"{review.comentario}"</p>
                         )}
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-8 text-center">
-                    <p className="text-slate-500">Ainda não há avaliações para este profissional.</p>
+                  <div className="bg-slate-900/30 border border-white/5 rounded-[2.5rem] p-12 text-center">
+                    <div className="w-16 h-16 bg-slate-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Star className="w-8 h-8 text-slate-600" />
+                    </div>
+                    <p className="text-slate-500 font-medium">Ainda não há avaliações para este profissional.</p>
                   </div>
                 )}
               </section>
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>
