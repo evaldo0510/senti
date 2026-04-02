@@ -3,6 +3,7 @@ import { auth } from '../services/firebase';
 import { userService } from '../services/userService';
 import { UserProfile } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { LoadingScreen } from './LoadingScreen';
 
 interface AuthContextType {
   user: User | null;
@@ -52,6 +53,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  if (loading) {
+    return <LoadingScreen message="Autenticando sua sessão..." />;
+  }
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, isAuthReady }}>

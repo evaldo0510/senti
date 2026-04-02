@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import { 
   format, 
   addMonths, 
@@ -164,20 +165,34 @@ export default function CalendarAvailability({ therapist, onSelect, selectedDate
         <div className="space-y-2">
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">{title}</p>
           <div className="grid grid-cols-3 gap-2">
-            {groupSlots.map((slot, i) => (
-              <button
-                key={i}
-                onClick={() => onSelect(activeDate, slot)}
-                className={cn(
-                  "py-2.5 rounded-xl text-xs font-bold transition-all border",
-                  selectedTime === slot && isSameDay(activeDate, selectedDate || new Date(0))
-                    ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/20"
-                    : "bg-slate-900 border-white/5 text-slate-300 hover:bg-slate-800 hover:border-emerald-500/30"
-                )}
-              >
-                {slot}
-              </button>
-            ))}
+            {groupSlots.map((slot, i) => {
+              const isSelected = selectedTime === slot && isSameDay(activeDate, selectedDate || new Date(0));
+              return (
+                <motion.button
+                  key={i}
+                  whileTap={{ scale: 0.95 }}
+                  animate={isSelected ? { scale: 1.02, borderColor: "rgba(16, 185, 129, 0.5)" } : { scale: 1 }}
+                  onClick={() => onSelect(activeDate, slot)}
+                  className={cn(
+                    "py-2.5 rounded-xl text-xs font-bold transition-all border relative overflow-hidden",
+                    isSelected
+                      ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/20"
+                      : "bg-slate-900 border-white/5 text-slate-300 hover:bg-slate-800 hover:border-emerald-500/30"
+                  )}
+                >
+                  {isSelected && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="absolute top-1 right-1"
+                    >
+                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                    </motion.div>
+                  )}
+                  {slot}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
       );

@@ -13,6 +13,7 @@ import {
   Save, 
   Camera,
   ShieldCheck,
+  Lock,
   Activity,
   HeartPulse,
   Bell,
@@ -446,6 +447,50 @@ export default function Perfil() {
                   </div>
                 </motion.div>
               )}
+            </div>
+          </div>
+
+          {/* Security Settings */}
+          <div className="space-y-4 pt-4">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Segurança da Conta</label>
+            <div className="bg-slate-900/30 border border-white/5 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                    <Lock className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-200">Google Authenticator</p>
+                    <p className="text-xs text-slate-500">
+                      Status: {profile?.googleAuthenticatorEnabled ? 'Ativado' : 'Desativado'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={async () => {
+                    if (!profile) return;
+                    try {
+                      await userService.updateProfile(profile.uid, { 
+                        googleAuthenticatorEnabled: !profile.googleAuthenticatorEnabled 
+                      });
+                      // Force refresh profile in context if needed, but AuthProvider should catch it if using onSnapshot
+                    } catch (e) {
+                      console.error("Error toggling authenticator", e);
+                    }
+                  }}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                    profile?.googleAuthenticatorEnabled 
+                      ? "bg-slate-800 text-slate-400 border border-white/5" 
+                      : "bg-blue-600 hover:bg-blue-50 text-white"
+                  )}
+                >
+                  {profile?.googleAuthenticatorEnabled ? 'Desativar' : 'Ativar'}
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-600 leading-relaxed">
+                Adicione uma camada extra de segurança à sua conta utilizando o Google Authenticator para gerar códigos de verificação.
+              </p>
             </div>
           </div>
 

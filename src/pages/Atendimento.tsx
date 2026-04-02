@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X, Mic, Square, Play, Pause, Paperclip } from "lucide-react";
+import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X, Mic, Square, Play, Pause, Paperclip, Lock } from "lucide-react";
 import { chatService } from "../services/chatService";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -43,6 +43,13 @@ export default function Atendimento() {
       try {
         const app = await userService.getAppointment(appointmentId);
         if (app) {
+          // Ensure sharedSecret exists for E2EE
+          if (!app.sharedSecret) {
+            const newSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            await userService.updateAppointment(appointmentId, { sharedSecret: newSecret });
+            app.sharedSecret = newSecret;
+          }
+          
           setAppointment(app);
           
           if (auth.currentUser) {
@@ -215,63 +222,36 @@ export default function Atendimento() {
     }
   };
 
+  const startWhatsAppCall = (type: 'video' | 'audio') => {
+    const number = auth.currentUser?.uid === appointment?.patientId 
+      ? appointment?.therapistPhone 
+      : appointment?.patientPhone;
+    
+    if (!number) {
+      alert("Número de telefone não disponível para esta chamada.");
+      return;
+    }
+
+    // Clean number: remove all non-digits
+    const cleanNumber = number.replace(/\D/g, '');
+    
+    // Add country code if missing (assuming Brazil +55 if it starts with 11-99)
+    let finalNumber = cleanNumber;
+    if (finalNumber.length === 11 || finalNumber.length === 10) {
+      finalNumber = '55' + finalNumber;
+    }
+
+    const message = type === 'video' 
+      ? "Olá! Estou pronto para nossa sessão por vídeo. Podemos começar?" 
+      : "Olá! Estou pronto para nossa sessão por áudio. Podemos começar?";
+    
+    const url = `https://wa.me/${finalNumber}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
   const startCall = () => {
     if (!appointmentId || !appointment || !auth.currentUser) return;
-    
-    setIsCallActive(true);
-    
-    // Small delay to ensure the container is rendered
-    setTimeout(() => {
-      if (!jitsiContainerRef.current) return;
-
-      const domain = "meet.jit.si";
-      const roomName = `SENTI-${appointmentId}-${appointment.sharedSecret?.substring(0, 8) || "secure"}`;
-      
-      const options = {
-        roomName: roomName,
-        width: "100%",
-        height: "100%",
-        parentNode: jitsiContainerRef.current,
-        userInfo: {
-          displayName: auth.currentUser.displayName || (auth.currentUser.uid === appointment.patientId ? "Paciente" : "Terapeuta"),
-          email: auth.currentUser.email || ""
-        },
-        configOverwrite: {
-          startWithAudioMuted: false,
-          startWithVideoMuted: false,
-          enableWelcomePage: false,
-          prejoinPageEnabled: false,
-          disableDeepLinking: true,
-        },
-        interfaceConfigOverwrite: {
-          TOOLBAR_BUTTONS: [
-            'microphone', 'camera', 'closedcaptions', 'desktop', 'fullscreen',
-            'fodeviceselection', 'hangup', 'profile', 'chat', 'recording',
-            'livestreaming', 'etherpad', 'sharedvideo', 'settings', 'raisehand',
-            'videoquality', 'filmstrip', 'invite', 'feedback', 'stats', 'shortcuts',
-            'tileview', 'videobackgroundblur', 'download', 'help', 'mute-everyone',
-            'security'
-          ],
-        }
-      };
-
-      try {
-        // @ts-ignore
-        jitsiApiRef.current = new window.JitsiMeetExternalAPI(domain, options);
-        
-        jitsiApiRef.current.addEventListeners({
-          readyToClose: () => {
-            endCall();
-          },
-          videoConferenceTerminated: () => {
-            endCall();
-          }
-        });
-      } catch (error) {
-        console.error("Error initializing Jitsi:", error);
-        setIsCallActive(false);
-      }
-    }, 100);
+    startWhatsAppCall('video');
   };
 
   const endCall = () => {
@@ -314,10 +294,17 @@ export default function Atendimento() {
               <h2 className="text-lg font-medium text-slate-200">
                 {auth.currentUser?.uid === appointment?.patientId ? appointment?.therapistNome : appointment?.patientNome || "Paciente"}
               </h2>
-              <p className="text-xs text-emerald-400 flex items-center gap-1">
-                <span className={`w-2 h-2 rounded-full ${otherUser?.online ? "bg-emerald-500" : "bg-slate-500"}`}></span>
-                {otherUser?.online ? "Online agora" : "Offline"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-emerald-400 flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${otherUser?.online ? "bg-emerald-500" : "bg-slate-500"}`}></span>
+                  {otherUser?.online ? "Online agora" : "Offline"}
+                </p>
+                <span className="text-slate-700 text-[10px]">•</span>
+                <div className="flex items-center gap-1 text-[10px] text-emerald-500/60 font-medium uppercase tracking-wider">
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>E2EE Ativo</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -330,24 +317,9 @@ export default function Atendimento() {
             <Video className="w-4 h-4" />
           </button>
           <button 
-            onClick={() => {
-              const number = auth.currentUser?.uid === appointment?.patientId 
-                ? appointment?.therapistPhone 
-                : appointment?.patientPhone;
-              
-              if (number) {
-                // Use phone.call if available, otherwise fallback to tel:
-                if (typeof (window as any).phone?.call === 'function') {
-                  (window as any).phone.call(number);
-                } else {
-                  window.location.href = `tel:${number}`;
-                }
-              } else {
-                alert("Número de telefone não disponível para este contato.");
-              }
-            }}
+            onClick={() => startWhatsAppCall('audio')}
             className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"
-            title="Ligar"
+            title="Chamada de Áudio (WhatsApp)"
           >
             <Phone className="w-4 h-4" />
           </button>

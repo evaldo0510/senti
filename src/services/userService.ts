@@ -262,6 +262,15 @@ export const userService = {
     });
   },
 
+  updateAppointment: async (id: string, data: Partial<Appointment>) => {
+    const path = `appointments/${id}`;
+    try {
+      await updateDoc(doc(db, 'appointments', id), data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
   updateAppointmentStatus: async (id: string, status: Appointment['status']) => {
     const path = `appointments/${id}`;
     try {

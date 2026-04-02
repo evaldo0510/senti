@@ -108,6 +108,7 @@ export interface UserProfile {
   estilo?: 'acolhedor' | 'provocador' | 'analitico' | 'pratico';
   abordagem?: string;
   googleCalendarConnected?: boolean;
+  googleAuthenticatorEnabled?: boolean;
   totalEarnings?: number;
   pendingEarnings?: number;
   // Campos para pacientes

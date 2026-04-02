@@ -36,11 +36,17 @@ export default function Login() {
       }
     } catch (err: any) {
       let message = "Erro ao fazer login com Google.";
-      try {
-        const parsed = JSON.parse(err.message);
-        if (parsed.error) message = parsed.error;
-      } catch (e) {
-        message = err.message || message;
+      
+      // Handle specific Firebase Auth errors
+      if (err.code === 'auth/unauthorized-domain') {
+        message = "Este domínio não está autorizado no Firebase Console. Por favor, adicione o domínio atual à lista de domínios autorizados nas configurações de Autenticação do Firebase.";
+      } else {
+        try {
+          const parsed = JSON.parse(err.message);
+          if (parsed.error) message = parsed.error;
+        } catch (e) {
+          message = err.message || message;
+        }
       }
       setError(message);
     }

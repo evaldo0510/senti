@@ -20,7 +20,8 @@ import {
   DollarSign,
   PieChart,
   Home,
-  Share2
+  Share2,
+  Lock
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
@@ -865,6 +866,43 @@ export default function Terapeuta() {
                     </div>
                   </div>
                 </div>
+                <div className="md:col-span-2 space-y-3">
+                  <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Segurança da Conta</label>
+                  <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-blue-500/10 rounded-2xl">
+                        <Lock className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Google Authenticator</h4>
+                        <p className="text-xs text-slate-500">
+                          Status: {profile?.googleAuthenticatorEnabled ? 'Ativado' : 'Desativado'}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={async () => {
+                        if (!profile) return;
+                        try {
+                          await userService.updateProfile(profile.uid, { 
+                            googleAuthenticatorEnabled: !profile.googleAuthenticatorEnabled 
+                          });
+                        } catch (e) {
+                          console.error("Error toggling authenticator", e);
+                        }
+                      }}
+                      className={cn(
+                        "px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap",
+                        profile?.googleAuthenticatorEnabled 
+                          ? "bg-slate-800 text-slate-400 border border-white/5" 
+                          : "bg-blue-600 hover:bg-blue-500 text-white"
+                      )}
+                    >
+                      {profile?.googleAuthenticatorEnabled ? 'Desativar' : 'Ativar'}
+                    </button>
+                  </div>
+                </div>
+
                 <div className="md:col-span-2 space-y-3">
                   <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Biografia Profissional</label>
                   <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 text-slate-300 leading-relaxed italic">

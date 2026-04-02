@@ -156,15 +156,24 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Users can read their own profile. 
-      // Terapeutas are public for everyone to find them (but only non-sensitive fields if possible, 
-      // here we allow read if tipo is terapeuta).
-      allow read: if (isAuthenticated() && isOwner(userId)) || 
-                     (resource.data != null && resource.data.tipo == 'terapeuta') || 
-                     isTherapist() || 
-                     isAdmin();
+      // Terapeutas are public for everyone to find them.
+      allow read: if isAuthenticated() && (
+        isOwner(userId) || 
+        resource.data.tipo == 'terapeuta' || 
+        isTherapist() || 
+        isAdmin()
+      );
+      
+      // Allow unauthenticated read for therapists (needed for landing page/search)
+      allow read: if resource.data.tipo == 'terapeuta';
       
       allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo != 'admin' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo == resource.data.tipo || isAdmin());
+      
+      // Allow updates to own profile, ensuring tipo doesn't change unless admin
+      allow update: if isOwner(userId) && 
+                    (request.resource.data.tipo == resource.data.tipo || isAdmin()) &&
+                    // Ensure required fields are still present
+                    request.resource.data.keys().hasAll(['uid', 'email', 'tipo', 'createdAt']);
 
       match /pushSubscriptions/{subscriptionId} {
         allow read, write: if isOwner(userId);
