@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Search, MapPin, Star, Video, MessageCircle, User, List, Map as MapIcon, Zap, Calendar as CalendarIcon, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Search, MapPin, Star, Video, MessageCircle, User, List, Map as MapIcon, Zap, Calendar as CalendarIcon, ChevronDown, ChevronUp, Tag } from "lucide-react";
 import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
+import { useAuth } from "../components/AuthProvider";
 import Especialidades from "../components/Especialidades";
 import CalendarAvailability from "../components/CalendarAvailability";
 import StarRating from "../components/StarRating";
@@ -13,6 +14,7 @@ import TherapistMap from "../components/TherapistMap";
 export default function Profissionais() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile: userProfile } = useAuth();
   const [busca, setBusca] = useState("");
   const [cidadeFiltro, setCidadeFiltro] = useState("");
   const [view, setView] = useState<"list" | "map">("list");
@@ -293,7 +295,26 @@ export default function Profissionais() {
                       <div className="flex flex-col justify-between items-end gap-4 sm:border-l border-white/5 sm:pl-5 min-w-[160px]">
                         <div className="text-right">
                           <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block">Sessão</span>
-                          <span className="text-slate-100 font-bold text-2xl">R$ {prof.preco || "150"}</span>
+                          {userProfile?.isComunidade && prof.descontoComunidade ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-slate-500 line-through text-xs">R$ {prof.preco || "120"}</span>
+                              <div className="flex items-center gap-1 text-emerald-400">
+                                <Tag className="w-3 h-3" />
+                                <span className="font-bold text-2xl">R$ {((prof.preco || 120) * (1 - prof.descontoComunidade / 100)).toFixed(0)}</span>
+                              </div>
+                              <span className="text-[8px] text-emerald-500 font-bold uppercase tracking-tighter">Desconto Comunidade</span>
+                            </div>
+                          ) : prof.desconto ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-slate-500 line-through text-xs">R$ {prof.preco || "120"}</span>
+                              <div className="flex items-center gap-1 text-emerald-400">
+                                <Tag className="w-3 h-3" />
+                                <span className="font-bold text-2xl">R$ {((prof.preco || 120) * (1 - prof.desconto / 100)).toFixed(0)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-100 font-bold text-2xl">R$ {prof.preco || "120"}</span>
+                          )}
                         </div>
                         <div className="flex flex-col gap-2 w-full">
                           <button 

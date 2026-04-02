@@ -228,7 +228,17 @@ export default function TerapeutaPerfil() {
             <div className="bg-slate-900/50 border border-white/5 p-6 rounded-[2rem] space-y-4">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-400">Valor da sessão</span>
-                <span className="text-slate-100 font-bold text-lg">R$ {terapeuta.preco || "150"}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-slate-100 font-bold text-lg">R$ {terapeuta.preco || "120"}</span>
+                  <div className="flex items-center gap-2 bg-slate-800/50 border border-white/10 rounded-xl px-3 py-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Ajustar</span>
+                    <input 
+                      type="number" 
+                      defaultValue={120}
+                      className="bg-transparent border-none text-emerald-400 font-bold text-sm w-16 focus:outline-none focus:ring-0 p-0"
+                    />
+                  </div>
+                </div>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-slate-400">Duração</span>

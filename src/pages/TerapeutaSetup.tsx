@@ -9,8 +9,9 @@ export default function TerapeutaSetup() {
   const navigate = useNavigate();
   const [nome, setNome] = useState("");
   const [especialidade, setEspecialidade] = useState("");
-  const [preco, setPreco] = useState("");
-  const [desconto, setDesconto] = useState("");
+  const [preco, setPreco] = useState("120");
+  const [desconto, setDesconto] = useState("0");
+  const [descontoComunidade, setDescontoComunidade] = useState("0");
   const [intensidade, setIntensidade] = useState<number>(50);
   const [estilo, setEstilo] = useState<'acolhedor' | 'provocador' | 'analitico' | 'pratico'>("acolhedor");
   const [abordagem, setAbordagem] = useState<string>("TCC");
@@ -23,8 +24,9 @@ export default function TerapeutaSetup() {
         if (profile) {
           setNome(profile.nome || "");
           setEspecialidade(profile.especialidades?.[0] || "");
-          setPreco(profile.preco?.toString() || "");
+          setPreco(profile.preco?.toString() || "120");
           setDesconto(profile.desconto?.toString() || "0");
+          setDescontoComunidade(profile.descontoComunidade?.toString() || "0");
           setIntensidade(profile.intensidade || 50);
           setEstilo((profile.estilo as any) || "acolhedor");
           setAbordagem(profile.abordagem || "TCC");
@@ -42,8 +44,9 @@ export default function TerapeutaSetup() {
       await userService.updateProfile(auth.currentUser.uid, {
         nome,
         especialidades: [especialidade],
-        preco: parseFloat(preco) || 0,
+        preco: parseFloat(preco) || 120,
         desconto: parseFloat(desconto) || 0,
+        descontoComunidade: parseFloat(descontoComunidade) || 0,
         intensidade,
         estilo,
         abordagem,
@@ -144,6 +147,24 @@ export default function TerapeutaSetup() {
                   type="number"
                   value={desconto}
                   onChange={(e) => setDesconto(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  max="100"
+                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Desconto Comunidade/Centro (%)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <ArrowRight className="h-5 w-5 text-slate-500" />
+                </div>
+                <input
+                  type="number"
+                  value={descontoComunidade}
+                  onChange={(e) => setDescontoComunidade(e.target.value)}
                   placeholder="0"
                   min="0"
                   max="100"

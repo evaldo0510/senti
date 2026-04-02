@@ -33,6 +33,7 @@ import Reset from "./pages/Reset";
 import Reset21 from "./pages/Reset21";
 import Reset21Day from "./pages/Reset21Day";
 import Reset21Sales from "./pages/Reset21Sales";
+import Subscription from "./pages/Subscription";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Security from "./pages/Security";
@@ -48,6 +49,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPro />} />
             <Route path="/home" element={<DashboardPaciente />} />
+            <Route path="/assinatura" element={<Subscription />} />
             <Route path="/reset" element={<Reset />} />
             <Route path="/reset21" element={<Reset21 />} />
             <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />

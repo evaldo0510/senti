@@ -1,14 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { HeartPulse, ArrowLeft, User, Briefcase } from "lucide-react";
 import { loginWithGoogle } from "../services/firebase";
 import { userService } from "../services/userService";
+import { useAuth } from "../components/AuthProvider";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { user, profile, isAuthReady } = useAuth();
   const [error, setError] = useState("");
   const [tipoSelecionado, setTipoSelecionado] = useState<"usuario" | "terapeuta" | "empresa" | "prefeitura">("usuario");
+
+  useEffect(() => {
+    if (isAuthReady && user) {
+      // Se já estiver logado, vai para o dashboard
+      navigate("/dashboard");
+    }
+  }, [user, isAuthReady, navigate]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,8 +30,8 @@ export default function Login() {
     try {
       const user = await loginWithGoogle();
       if (user) {
-        await userService.syncProfile(user, tipoSelecionado);
-        localStorage.setItem("tipo", tipoSelecionado);
+        const profile = await userService.syncProfile(user, tipoSelecionado);
+        localStorage.setItem("tipo", profile?.tipo || tipoSelecionado);
         navigate("/dashboard");
       }
     } catch (err: any) {

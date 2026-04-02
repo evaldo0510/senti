@@ -40,6 +40,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientPr
       const [hours, minutes] = selectedSlot.split(':');
       date.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       
+      // Calcular preço final com descontos
+      let finalPrice = therapist.preco || 120;
+      
+      // Desconto da comunidade se o paciente for da comunidade
+      if (patientProfile.isComunidade && therapist.descontoComunidade) {
+        finalPrice = finalPrice * (1 - (therapist.descontoComunidade / 100));
+      } else if (therapist.desconto) {
+        // Desconto geral se não houver desconto de comunidade aplicado
+        finalPrice = finalPrice * (1 - (therapist.desconto / 100));
+      }
+      
       await userService.createAppointment({
         patientId: auth.currentUser.uid,
         patientNome: patientProfile.nome,
@@ -48,7 +59,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientPr
         date: date.toISOString(),
         status: 'pending',
         type: 'video',
-        price: therapist.preco || 0
+        price: finalPrice
       });
       
       setSuccess(true);

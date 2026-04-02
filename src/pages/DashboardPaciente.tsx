@@ -28,7 +28,8 @@ import {
   Wind,
   Shield,
   Users,
-  Brain
+  Brain,
+  Crown
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
@@ -410,6 +411,21 @@ export default function DashboardPaciente() {
           </div>
         </div>
         <div className="flex gap-1.5 sm:gap-2">
+          <button 
+            onClick={() => navigate("/assinatura")}
+            aria-label="Assinatura"
+            className={cn(
+              "p-2.5 rounded-full border transition-all min-w-[44px] min-h-[44px] flex items-center justify-center relative group",
+              userProfile?.isPremium 
+                ? "bg-amber-500/10 border-amber-500/20 text-amber-500" 
+                : "bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-amber-500/10 hover:border-amber-500/20 hover:text-amber-500"
+            )}
+          >
+            <Crown className={cn("w-4 h-4", userProfile?.isPremium && "fill-current")} />
+            {!userProfile?.isPremium && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+            )}
+          </button>
           <button 
             onClick={toggleTheme}
             aria-label="Alternar tema"

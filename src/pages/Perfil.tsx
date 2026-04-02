@@ -19,7 +19,8 @@ import {
   Zap,
   Sparkles,
   Play,
-  Square
+  Square,
+  Crown
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -489,6 +490,45 @@ export default function Perfil() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Subscription / Premium */}
+        <div className="space-y-4 pt-4">
+          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Assinatura</label>
+          <motion.div 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate("/assinatura")}
+            className={cn(
+              "p-6 rounded-[2rem] border cursor-pointer transition-all relative overflow-hidden group",
+              profile?.isPremium 
+                ? "bg-gradient-to-br from-amber-500/20 to-amber-600/20 border-amber-500/30" 
+                : "bg-slate-900/30 border-white/5 hover:border-emerald-500/30"
+            )}
+          >
+            <div className="relative z-10 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className={cn(
+                  "w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner",
+                  profile?.isPremium ? "bg-amber-500 text-white" : "bg-slate-800 text-slate-400"
+                )}>
+                  <Crown className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white">
+                    {profile?.isPremium ? "Licença Completa Ativa" : "Obter Licença Completa"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {profile?.isPremium ? "Você tem acesso a todas as ferramentas." : "Acesse todas as ferramentas da sede."}
+                  </p>
+                </div>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 group-hover:text-white transition-colors">
+                <Zap className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl" />
+          </motion.div>
         </div>
 
         {/* Actions */}

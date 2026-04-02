@@ -100,6 +100,7 @@ export interface UserProfile {
   avaliacoes?: Avaliacao[];
   online?: boolean;
   desconto?: number; // Porcentagem de desconto (0-100)
+  descontoComunidade?: number; // Porcentagem de desconto para comunidade (0-100)
   latitude?: number;
   longitude?: number;
   // Campos para terapeutas (DNA Profissional)
@@ -118,6 +119,7 @@ export interface UserProfile {
   lastActive?: string; // ISO date
   achievements?: string[];
   isPremium?: boolean;
+  isComunidade?: boolean; // Se o paciente é da comunidade/centro
   journeyProgress?: number; // Current day in the 21-day journey
 }
 

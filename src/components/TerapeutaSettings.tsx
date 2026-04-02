@@ -18,12 +18,13 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
   const [formData, setFormData] = useState<Partial<UserProfile>>({
     nome: profile.nome || '',
     biografia: profile.biografia || '',
-    preco: profile.preco || 0,
+    preco: profile.preco || 120,
     especialidades: profile.especialidades || [],
     disponibilidade: profile.disponibilidade || [],
     fotoUrl: profile.fotoUrl || '',
     estilo: profile.estilo || 'acolhedor',
-    abordagem: profile.abordagem || ''
+    abordagem: profile.abordagem || '',
+    descontoComunidade: profile.descontoComunidade || 0
   });
 
   const [newSpecialty, setNewSpecialty] = useState('');
@@ -161,27 +162,40 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
 
           <div className="space-y-6">
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Biografia Profissional</label>
+              <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Biografia Profissional</label>
+              <div className="relative group/bio">
+                <textarea
+                  value={formData.biografia}
+                  onChange={(e) => setFormData({ ...formData, biografia: e.target.value })}
+                  className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-[2rem] p-6 text-brand-text focus:border-brand-indigo/30 outline-none transition-all min-h-[200px] font-medium placeholder:text-brand-text/20 resize-none pr-16"
+                  placeholder="Conte um pouco sobre sua experiência e abordagem terapêutica..."
+                />
                 <button
                   onClick={handleGenerateBio}
                   disabled={generatingBio}
-                  className="flex items-center gap-1.5 text-[10px] font-bold text-brand-indigo hover:text-brand-indigo/80 transition-colors disabled:opacity-50"
+                  title="Sugerir com IARA"
+                  className={cn(
+                    "absolute top-4 right-4 p-3 rounded-2xl transition-all shadow-lg z-10",
+                    generatingBio 
+                      ? "bg-brand-indigo/20 text-brand-indigo cursor-not-allowed" 
+                      : "bg-brand-indigo text-white hover:scale-110 active:scale-95 shadow-brand-indigo/20"
+                  )}
                 >
                   {generatingBio ? (
-                    <div className="w-3 h-3 border border-brand-indigo/30 border-t-brand-indigo rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-brand-indigo/30 border-t-brand-indigo rounded-full animate-spin" />
                   ) : (
-                    <Sparkles size={12} />
+                    <Sparkles size={20} />
                   )}
-                  Sugerir com IARA
                 </button>
+                {generatingBio && (
+                  <div className="absolute inset-0 bg-brand-bg/40 backdrop-blur-[2px] rounded-[2rem] flex items-center justify-center animate-in fade-in duration-300 z-0">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-3 border-brand-indigo/20 border-t-brand-indigo rounded-full animate-spin" />
+                      <p className="text-[10px] font-bold text-brand-indigo uppercase tracking-widest">IARA está escrevendo...</p>
+                    </div>
+                  </div>
+                )}
               </div>
-              <textarea
-                value={formData.biografia}
-                onChange={(e) => setFormData({ ...formData, biografia: e.target.value })}
-                className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl p-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all min-h-[160px] font-medium placeholder:text-brand-text/20 resize-none"
-                placeholder="Conte um pouco sobre sua experiência e abordagem terapêutica..."
-              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -228,6 +242,22 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
                   />
                 </div>
               </div>
+              <div className="space-y-3">
+                <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Desconto Comunidade (%)</label>
+                <div className="relative group">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={formData.descontoComunidade}
+                    onChange={(e) => setFormData({ ...formData, descontoComunidade: Number(e.target.value) })}
+                    className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl py-4 px-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all font-bold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">URL da Foto de Perfil</label>
                 <input
