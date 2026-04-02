@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+import { auth } from '../services/firebase';
+
 interface PWAContextType {
   installPrompt: any;
   handleInstall: () => Promise<void>;
@@ -71,39 +73,37 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const registration = await navigator.serviceWorker.ready;
       
-      // Check if already subscribed
-      const existingSubscription = await registration.pushManager.getSubscription();
-      if (existingSubscription) {
-        console.log('Already subscribed to push');
-        // Still send to backend just in case it's missing there
-        const { auth } = await import('../services/firebase');
-        const userId = auth.currentUser?.uid;
-        if (userId) {
-          await fetch('/api/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, subscription: existingSubscription })
-          });
+        // Check if already subscribed
+        const existingSubscription = await registration.pushManager.getSubscription();
+        if (existingSubscription) {
+          console.log('Already subscribed to push');
+          // Still send to backend just in case it's missing there
+          const userId = auth.currentUser?.uid;
+          if (userId) {
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, subscription: existingSubscription })
+            });
+          }
+          return;
         }
-        return;
-      }
 
-      // Fetch VAPID Public Key from backend
-      const response = await fetch('/api/push/public-key');
-      const { publicKey } = await response.json();
-      
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey)
-      });
-      
-      console.log('Push subscription successful:', subscription);
-      
-      // Get current user from Auth
-      const { auth } = await import('../services/firebase');
-      const userId = auth.currentUser?.uid;
-      
-      if (userId) {
+        // Fetch VAPID Public Key from backend
+        const response = await fetch('/api/push/public-key');
+        const { publicKey } = await response.json();
+        
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        
+        console.log('Push subscription successful:', subscription);
+        
+        // Get current user from Auth
+        const userId = auth.currentUser?.uid;
+        
+        if (userId) {
         // Save subscription to backend
         await fetch('/api/push/subscribe', {
           method: 'POST',

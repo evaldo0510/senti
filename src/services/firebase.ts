@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -15,7 +15,8 @@ export enum OperationType {
   WRITE = 'write',
 }
 
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase SDK safely
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const firestore = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
 
 export const db = firestore;

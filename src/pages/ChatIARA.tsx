@@ -1,25 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { falarComIARA, ChatMessage } from "../services/iaraService";
-import { encontrarTerapeutas } from "../services/matchService";
-import { generateImage } from "../services/geminiService";
-import { falarTexto } from "../services/voiceService";
-import { ouvirUsuario } from "../services/audioInput";
-import { analisarEmocao } from "../services/emocaoService";
-import { gerarExercicio } from "../services/pchService";
-import { decidirCaminho } from "../services/decisaoService";
-import { playPCM, stopAllAudio } from "../services/audioPlayer";
 import { Send, ArrowLeft, HeartHandshake, AlertTriangle, Volume2, VolumeX, Image as ImageIcon, Mic, Book, MessageCircle, Calendar } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { auth } from "../services/firebase";
-import { salvarDadosAnalytics } from "../services/analyticsService";
-
-interface Message {
-  tipo: "user" | "iara";
-  texto: string;
-  audio?: string | null;
-  imagem?: string | null;
-}
+import IARAChat from "../components/IARAChat";
 
 interface Step {
   id: number;
@@ -33,20 +16,9 @@ export default function ChatIARA() {
   const navigate = useNavigate();
   const { intensidade, emocao, initialMessage, context, therapistName, therapistId } = location.state || {};
 
-  const [mensagem, setMensagem] = useState("");
-  const [chat, setChat] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [alerta, setAlerta] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [isExercising, setIsExercising] = useState(false);
-  const [isUserTyping, setIsUserTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
-
+  const [showBreathing, setShowBreathing] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [currentStep, setCurrentStep] = useState(2);
   const [steps, setSteps] = useState<Step[]>([
     { id: 0, label: "Acolhimento", completed: true },
@@ -55,219 +27,30 @@ export default function ChatIARA() {
     { id: 3, label: "Direcionamento" }
   ]);
 
-  const updateSteps = (risco: string, direcionar: boolean) => {
-    if (risco === "alto") {
-      setSteps(prev => prev.map(s => 
-        s.id === 2 ? { ...s, active: false, completed: true } : 
-        s.id === 3 ? { ...s, active: true, label: "EMERGÊNCIA" } : s
-      ));
-      setCurrentStep(3);
-    } else if (direcionar) {
-      setSteps(prev => prev.map(s => 
-        s.id === 2 ? { ...s, active: false, completed: true } : 
-        s.id === 3 ? { ...s, active: true } : s
-      ));
-      setCurrentStep(3);
-    }
+  const handleRiscoAlto = () => {
+    setAlerta(true);
+    setSteps(prev => prev.map(s => 
+      s.id === 2 ? { ...s, active: false, completed: true } : 
+      s.id === 3 ? { ...s, active: true, label: "EMERGÊNCIA" } : s
+    ));
+    setCurrentStep(3);
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const handleDirecionar = (especialidade: string) => {
+    setIsTransitioning(true);
+    setSteps(prev => prev.map(s => 
+      s.id === 2 ? { ...s, active: false, completed: true } : 
+      s.id === 3 ? { ...s, active: true } : s
+    ));
+    setCurrentStep(3);
+    setTimeout(() => {
+      navigate(`/profissionais?tipo=${especialidade || "geral"}`);
+    }, 5000);
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [chat, alerta, isGeneratingImage]);
-
-  useEffect(() => {
-    const initChat = async () => {
-      let initialText = "Olá. Eu sou a IARA, a inteligência de acolhimento da SENTI. Como você está se sentindo agora?";
-      
-      if (context === "scheduling" && therapistName) {
-        initialText = `Olá! Vi que você está interessado em agendar uma sessão com ${therapistName}. Eu sou a IARA e posso tirar suas dúvidas iniciais sobre o processo de agendamento ou sobre como funciona a terapia na SENTI. O que você gostaria de saber?`;
-      } else if (initialMessage) {
-        initialText = initialMessage;
-      }
-
-      setChat([{ tipo: "iara", texto: initialText }]);
-
-      if (!isMuted) {
-        const base64Audio = await falarTexto(initialText);
-        if (base64Audio) {
-          playAudio(base64Audio);
-        }
-      }
-    };
-    
-    initChat();
-
-    return () => {
-      stopAllAudio();
-    };
-  }, []);
-
-  const playAudio = async (base64Audio: string) => {
-    if (isMuted) return;
-    
-    if (currentAudioSource.current) {
-      try {
-        currentAudioSource.current.stop();
-      } catch (e) {
-        // Ignore if already stopped
-      }
-    }
-    
-    const source = await playPCM(base64Audio);
-    if (source) {
-      currentAudioSource.current = source;
-      setIsSpeaking(true);
-      source.onended = () => setIsSpeaking(false);
-    }
-  };
-
-  const [emocaoAtual, setEmocaoAtual] = useState<{ emocao: string; intensidade: number }>({ emocao: emocao || "calma", intensidade: intensidade || 5 });
-  const [showBreathing, setShowBreathing] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  const abrirWhatsApp = () => {
-    window.open("https://wa.me/5511999999999?text=Preciso%20de%20ajuda%20urgente", "_blank");
-  };
-
-  const enviarMensagem = async (textoOverride?: string) => {
-    const msgAtual = textoOverride || mensagem;
-    if (!msgAtual.trim() || isLoading) return;
-
-    // AJUSTE CRÍTICO (CRISE)
-    if (msgAtual.toLowerCase().includes("não aguento") || msgAtual.toLowerCase().includes("nao aguento") || msgAtual.toLowerCase().includes("quero morrer") || msgAtual.toLowerCase().includes("me matar") || msgAtual.toLowerCase().includes("suicídio")) {
-      abrirWhatsApp();
-    }
-
-    const novaConversa: Message[] = [...chat, { tipo: "user", texto: msgAtual }];
-    setChat(novaConversa);
-    if (!textoOverride) setMensagem("");
-    setIsLoading(true);
-
-    const historico: ChatMessage[] = chat.map(msg => ({
-      role: msg.tipo === "user" ? "user" : "model",
-      parts: [{ text: msg.texto }]
-    }));
-
-    try {
-      const result = await falarComIARA(msgAtual, historico, emocaoAtual);
-      
-      setEmocaoAtual({ emocao: result.emocao, intensidade: result.intensidade });
-      updateSteps(result.risco, result.direcionarEspecialista);
-      
-      if (result.risco === "alto") {
-        setAlerta(true);
-      }
-
-      // Salva os dados para o Looker Studio
-      salvarDadosAnalytics({
-        usuario: auth.currentUser?.displayName || "Anônimo",
-        humor: result.intensidade,
-        risco: result.risco,
-        atendimento: result.direcionarEspecialista ? "sim" : "nao",
-        tipo: "IARA"
-      });
-
-      setChat([...novaConversa, { tipo: "iara", texto: result.resposta }]);
-      
-      if (!isMuted) {
-        const base64Audio = await falarTexto(result.resposta);
-        if (base64Audio) {
-          playAudio(base64Audio);
-        }
-      }
-
-      // Handle contextual breathing
-      if (result.sugerirRespiracao) {
-        setTimeout(() => setShowBreathing(true), 1500);
-      }
-
-      // Handle specialist transition
-      if (result.direcionarEspecialista) {
-        setIsTransitioning(true);
-        setTimeout(async () => {
-          const terapeutas = await encontrarTerapeutas(msgAtual);
-          const terapeutaPrincipal = terapeutas[0];
-          navigate(`/profissionais?tipo=${terapeutaPrincipal?.especialidades?.[0] || "geral"}`);
-        }, 5000);
-      }
-
-    } catch (error) {
-      console.error("Erro no chat:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGerarImagem = async () => {
-    if (isLoading || isGeneratingImage) return;
-    
-    setIsGeneratingImage(true);
-    const lastUserMessage = chat.slice().reverse().find(m => m.tipo === "user")?.texto || "Paz e tranquilidade";
-    const imageData = await generateImage(lastUserMessage);
-    
-    if (imageData) {
-      setChat(prev => [...prev, { 
-        tipo: "iara", 
-        texto: "Criei esta imagem para ajudar você a se acalmar e focar no momento presente...", 
-        imagem: imageData 
-      }]);
-    }
-    setIsGeneratingImage(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      enviarMensagem();
-    }
-  };
-
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMensagem(e.target.value);
-    
-    if (!isUserTyping) setIsUserTyping(true);
-    
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsUserTyping(false);
-    }, 2000);
-  };
-
-  const toggleMute = () => {
-    const newMuted = !isMuted;
-    setIsMuted(newMuted);
-    if (newMuted && currentAudioSource.current) {
-      try {
-        currentAudioSource.current.stop();
-      } catch (e) {
-        // Ignore
-      }
-    }
-  };
-
-  const handleMicClick = () => {
-    if (isListening) return;
-    setIsListening(true);
-    ouvirUsuario(
-      (texto) => {
-        setMensagem(texto);
-        enviarMensagem(texto);
-      },
-      () => setIsListening(false)
-    );
-  };
-
-  const handleReplay = async (texto: string) => {
-    const base64Audio = await falarTexto(texto);
-    if (base64Audio) {
-      playAudio(base64Audio);
-    }
-  };
+  const initialText = context === "scheduling" && therapistName 
+    ? `Olá! Vi que você está interessado em agendar uma sessão com ${therapistName}. Eu sou a IARA e posso tirar suas dúvidas iniciais sobre o processo de agendamento ou sobre como funciona a terapia na SENTI. O que você gostaria de saber?`
+    : initialMessage || "Olá. Eu sou a IARA, a inteligência de acolhimento da SENTI. Como você está se sentindo agora?";
 
   return (
     <motion.div 
@@ -370,14 +153,6 @@ export default function ChatIARA() {
               <h2 className="text-base font-black tracking-tighter text-emerald-400">IARA</h2>
               <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-widest border border-emerald-500/20">Clínico Geral</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                emocaoAtual.intensidade > 7 ? "bg-red-500" : "bg-emerald-500"
-              }`} />
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                Conectado • {emocaoAtual.emocao} ({emocaoAtual.intensidade}/10)
-              </p>
-            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
@@ -391,13 +166,6 @@ export default function ChatIARA() {
             </button>
           )}
           <button 
-            onClick={toggleMute}
-            className={`p-2 rounded-xl transition-all ${isMuted ? 'bg-red-500/10 text-red-400' : 'bg-white/5 text-slate-300 hover:bg-white/10'}`}
-            title={isMuted ? "Ativar som" : "Desativar som"}
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className={`w-4 h-4 ${isSpeaking ? 'animate-pulse text-emerald-400' : ''}`} />}
-          </button>
-          <button 
             onClick={() => navigate("/diario")}
             className="p-2 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl transition-all border border-white/5"
             title="Diário"
@@ -407,20 +175,12 @@ export default function ChatIARA() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {isExercising && (
-          <div className="flex justify-center my-4">
-            <div 
-              className="w-16 h-16 rounded-full bg-emerald-500 mx-auto"
-              style={{ animation: "pulse 4s infinite" }}
-            />
-          </div>
-        )}
+      <div className="flex-1 overflow-hidden p-4">
         {alerta && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-red-900/30 border border-red-500/30 p-4 rounded-2xl flex items-start gap-3 text-red-200"
+            className="bg-red-900/30 border border-red-500/30 p-4 rounded-2xl flex items-start gap-3 text-red-200 mb-4"
           >
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
@@ -433,136 +193,13 @@ export default function ChatIARA() {
           </motion.div>
         )}
 
-        {isSpeaking && (
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-center mb-4"
-          >
-            <div className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-1.5 rounded-full flex items-center gap-2">
-              <div className="flex gap-1">
-                {[1, 2, 3].map(i => (
-                  <motion.div 
-                    key={i}
-                    animate={{ height: [4, 12, 4] }}
-                    transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
-                    className="w-1 bg-emerald-400 rounded-full"
-                  />
-                ))}
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400">IARA está falando...</span>
-            </div>
-          </motion.div>
-        )}
-
-        {chat.map((msg, index) => (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            key={index}
-            className={`flex ${msg.tipo === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] p-4 rounded-2xl ${
-                msg.tipo === "user"
-                  ? "bg-emerald-600/20 text-emerald-50 rounded-tr-sm border border-emerald-500/20"
-                  : "bg-slate-800/50 text-slate-200 rounded-tl-sm border border-white/5"
-              }`}
-            >
-              <p className="leading-relaxed whitespace-pre-wrap">{msg.texto}</p>
-              {msg.tipo === "iara" && (
-                <button 
-                  onClick={() => handleReplay(msg.texto)}
-                  className="mt-2 flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-widest transition-colors"
-                >
-                  <Volume2 className="w-3 h-3" />
-                  Ouvir novamente
-                </button>
-              )}
-              {msg.imagem && (
-                <img 
-                  src={msg.imagem} 
-                  alt="Imagem gerada pela IARA" 
-                  className="mt-3 rounded-xl w-full object-cover shadow-md border border-white/10"
-                  referrerPolicy="no-referrer"
-                />
-              )}
-            </div>
-          </motion.div>
-        ))}
-        {(isLoading || isGeneratingImage) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex justify-start"
-          >
-            <div className="bg-slate-800/50 p-4 rounded-2xl rounded-tl-sm border border-white/5 flex items-center gap-3">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <div className="w-2 h-2 bg-emerald-500/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                {isGeneratingImage ? "IARA está criando imagem..." : "IARA está escrevendo..."}
-              </span>
-            </div>
-          </motion.div>
-        )}
-        {isUserTyping && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex justify-end"
-          >
-            <div className="bg-emerald-600/10 p-3 rounded-2xl rounded-tr-sm border border-emerald-500/10 flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              <span className="text-[10px] text-emerald-500/60 font-medium ml-1">Você está digitando...</span>
-            </div>
-          </motion.div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="p-4 bg-slate-900/80 backdrop-blur-md border-t border-white/10">
-        <div className="max-w-4xl mx-auto relative flex items-end gap-2">
-          <button
-            onClick={handleMicClick}
-            disabled={isLoading || isListening}
-            className={`p-2.5 rounded-xl transition-all flex items-center justify-center flex-shrink-0 ${
-              isListening 
-                ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse" 
-                : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200 border border-white/10"
-            }`}
-            title="Falar"
-          >
-            <Mic className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleGerarImagem}
-            disabled={isLoading || isGeneratingImage}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-800/50 disabled:text-slate-600 text-slate-300 rounded-xl transition-all flex-shrink-0 border border-white/10"
-            title="Gerar imagem calmante"
-          >
-            <ImageIcon className="w-4 h-4" />
-          </button>
-          <textarea
-            value={mensagem}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder="O que você está sentindo agora?"
-            className="w-full bg-slate-800/30 border border-white/5 rounded-2xl py-3 px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/30 resize-none min-h-[48px] max-h-32 text-sm"
-            rows={1}
-          />
-          <button 
-            onClick={() => enviarMensagem()}
-            disabled={!mensagem.trim() || isLoading}
-            className="p-2.5 bg-emerald-600 hover:bg-emerald-50 text-emerald-900 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl transition-all flex-shrink-0 shadow-lg shadow-emerald-900/20"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+        <IARAChat 
+          initialMessage={initialText}
+          context={context}
+          onRiscoAlto={handleRiscoAlto}
+          onDirecionar={handleDirecionar}
+          className="h-full"
+        />
       </div>
     </motion.div>
   );

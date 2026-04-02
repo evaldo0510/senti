@@ -13,7 +13,8 @@ import webpush from "web-push";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const firebaseConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../firebase-applet-config.json"), "utf8"));
+const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+const firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
 
 dotenv.config();
 
@@ -46,11 +47,9 @@ try {
     db = getFirestore();
   }
   
-  // Try to get service account email for debugging
-  admin.auth().listUsers(1).then(() => {
-    console.log("Firebase Admin has listUsers permission.");
-  }).catch((err) => {
-    console.log("Firebase Admin listUsers check failed (expected if not admin):", err.message);
+  // Try to get service account email for debugging (silent)
+  admin.auth().listUsers(1).catch(() => {
+    // This is expected to fail if not using a service account with admin privileges
   });
 
   console.log(`Firebase Admin initialized successfully. Project: ${firebaseConfig.projectId}, Database: ${databaseId || "(default)"}`);
@@ -567,6 +566,8 @@ async function startServer() {
 
   if (!process.env.VERCEL) {
     // Only start intervals if not on Vercel (Vercel uses Cron Jobs)
+    // NOTE: On Vercel, persistent intervals and Socket.io will not work.
+    // Use Vercel Cron Jobs for scheduled tasks.
     checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
     sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
     
