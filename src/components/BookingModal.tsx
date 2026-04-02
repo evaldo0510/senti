@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Clock, CheckCircle2, ShieldCheck, Star, Zap } from 'lucide-react';
 import { UserProfile, Availability } from '../types';
 import { userService } from '../services/userService';
 import { auth } from '../services/authService';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import StarRating from './StarRating';
 
 interface BookingModalProps {
   therapist: UserProfile;
@@ -67,12 +68,19 @@ export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientPr
         animate={{ scale: 1, opacity: 1, y: 0 }}
         className="glass-card w-full max-w-md rounded-[3rem] overflow-hidden border-brand-text/5"
       >
-        <div className="p-8 border-b border-brand-text/5 flex items-center justify-between bg-brand-slate/30">
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-indigo">Agendamento</p>
+        <div className="p-8 border-b border-brand-text/5 flex items-center justify-between bg-brand-slate/30 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-indigo via-emerald-500 to-brand-indigo animate-gradient-x" />
+          <div className="space-y-1 relative z-10">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-indigo">Agendamento Seguro</p>
+              <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                <ShieldCheck size={10} />
+                <span className="text-[8px] font-bold uppercase tracking-tighter">Garantia SENTI</span>
+              </div>
+            </div>
             <h3 className="text-2xl font-serif font-bold text-brand-text">Sessão com {therapist.nome}</h3>
           </div>
-          <button onClick={onClose} className="w-10 h-10 rounded-full bg-brand-bg flex items-center justify-center text-brand-text/40 hover:text-brand-text hover:bg-brand-slate transition-all">
+          <button onClick={onClose} className="w-10 h-10 rounded-full bg-brand-bg flex items-center justify-center text-brand-text/40 hover:text-brand-text hover:bg-brand-slate transition-all relative z-10">
             <X size={20} />
           </button>
         </div>
@@ -94,13 +102,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientPr
                         setSelectedSlot(null);
                       }}
                       className={cn(
-                        "px-5 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all border",
+                        "px-5 py-2.5 rounded-2xl text-[10px] font-bold uppercase tracking-widest transition-all border relative overflow-hidden group",
                         selectedDay === a.day 
                           ? "bg-brand-indigo border-brand-indigo text-white shadow-lg shadow-brand-indigo/20" 
                           : "bg-brand-bg/50 border-brand-text/5 text-brand-text/40 hover:border-brand-indigo/30 hover:text-brand-indigo"
                       )}
                     >
-                      {a.day}
+                      <span className="relative z-10">{a.day}</span>
+                      {selectedDay !== a.day && (
+                        <div className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-indigo/20 group-hover:bg-brand-indigo/40 transition-all" />
+                      )}
                     </button>
                   ))}
                   {availability.length === 0 && (
@@ -117,47 +128,96 @@ export const BookingModal: React.FC<BookingModalProps> = ({ therapist, patientPr
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="space-y-4 overflow-hidden"
+                    className="space-y-6 overflow-hidden"
                   >
                     <div className="flex items-center gap-3 text-brand-text/40 text-[10px] font-bold uppercase tracking-widest">
                       <Clock size={14} className="text-brand-indigo" />
                       <span>Selecione o horário</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {availability.find(a => a.day === selectedDay)?.slots.map((slot) => (
-                        <button
-                          key={slot}
-                          onClick={() => setSelectedSlot(slot)}
-                          className={cn(
-                            "px-5 py-2.5 rounded-2xl text-[10px] font-bold transition-all border",
-                            selectedSlot === slot 
-                              ? "bg-brand-green border-brand-green text-white shadow-lg shadow-brand-green/20" 
-                              : "bg-brand-bg/50 border-brand-text/5 text-brand-text/40 hover:border-brand-green/30 hover:text-brand-green"
-                          )}
-                        >
-                          {slot}
-                        </button>
-                      ))}
+                    
+                    <div className="space-y-6">
+                      {(() => {
+                        const slots = availability.find(a => a.day === selectedDay)?.slots || [];
+                        const morning = slots.filter(s => parseInt(s.split(':')[0]) < 12);
+                        const afternoon = slots.filter(s => parseInt(s.split(':')[0]) >= 12 && parseInt(s.split(':')[0]) < 18);
+                        const evening = slots.filter(s => parseInt(s.split(':')[0]) >= 18);
+
+                        const renderSlotGroup = (title: string, groupSlots: string[]) => {
+                          if (groupSlots.length === 0) return null;
+                          return (
+                            <div className="space-y-3">
+                              <p className="text-[10px] font-bold text-brand-text/30 uppercase tracking-widest ml-1">{title}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {groupSlots.map((slot) => (
+                                  <button
+                                    key={slot}
+                                    onClick={() => setSelectedSlot(slot)}
+                                    className={cn(
+                                      "px-5 py-2.5 rounded-2xl text-[10px] font-bold transition-all border",
+                                      selectedSlot === slot 
+                                        ? "bg-brand-green border-brand-green text-white shadow-lg shadow-brand-green/20" 
+                                        : "bg-brand-bg/50 border-brand-text/5 text-brand-text/40 hover:border-brand-green/30 hover:text-brand-green"
+                                    )}
+                                  >
+                                    {slot}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        };
+
+                        return (
+                          <>
+                            {renderSlotGroup("Manhã", morning)}
+                            {renderSlotGroup("Tarde", afternoon)}
+                            {renderSlotGroup("Noite", evening)}
+                          </>
+                        );
+                      })()}
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="pt-4">
+              <div className="pt-4 space-y-6">
+                <div className="bg-slate-50 dark:bg-white/5 rounded-2xl p-4 border border-slate-100 dark:border-white/5 flex items-start gap-4">
+                  <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+                    <Zap size={20} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Garantia de Qualidade</p>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Sua primeira sessão é protegida. Se não houver conexão com o profissional, nós garantimos o reembolso ou a troca sem custos.
+                    </p>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleBook}
                   disabled={!selectedSlot || loading}
-                  className="w-full bg-brand-dark text-white font-bold py-5 rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-3 border border-white/5"
+                  className="w-full bg-brand-indigo text-white font-bold py-5 rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-3 border border-white/5 group"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    "Confirmar Agendamento"
+                    <>
+                      <span>Confirmar Agendamento</span>
+                      <ShieldCheck size={18} className="group-hover:scale-110 transition-transform" />
+                    </>
                   )}
                 </button>
-                <p className="text-center text-[10px] text-brand-text/30 font-bold uppercase tracking-widest mt-4">
-                  Pagamento via PIX ou Cartão após confirmação
-                </p>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1 h-1 bg-emerald-500 rounded-full" />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Ambiente Seguro</span>
+                  </div>
+                  <div className="w-1 h-1 bg-slate-300 rounded-full" />
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1 h-1 bg-emerald-500 rounded-full" />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Sigilo Absoluto</span>
+                  </div>
+                </div>
               </div>
             </>
           ) : (

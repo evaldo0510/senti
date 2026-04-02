@@ -1,5 +1,5 @@
 {
-  "name": "SENTI",
-  "description": "SENTI: Onde sua dor encontra pausa. Inteligência de acolhimento, regulação emocional e conexão com especialistas.",
+  "name": "Sentí",
+  "description": "Sentí: Pronto atendimento emocional. Inteligência de acolhimento, regulação emocional e conexão com especialistas.",
   "requestFramePermissions": ["microphone"]
 }

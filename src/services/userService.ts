@@ -170,15 +170,27 @@ export const userService = {
       };
       const docRef = await addDoc(collection(db, path), newAppointment);
       
-      // Trigger push notification to therapist
+      // Notify Therapist
       fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: appointment.therapistId,
-          title: 'Novo Agendamento',
-          body: `Você tem uma nova solicitação de agendamento de ${appointment.patientNome}.`,
+          title: 'Novo Agendamento 📅',
+          body: `Você tem uma nova solicitação de ${appointment.patientNome} para ${new Date(appointment.date).toLocaleDateString('pt-BR')} às ${appointment.time}.`,
           url: '/terapeuta'
+        })
+      }).catch(console.error);
+
+      // Notify Patient (Confirmation of request)
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: appointment.patientId,
+          title: 'Solicitação Enviada ✅',
+          body: `Sua solicitação para ${appointment.therapistNome} em ${new Date(appointment.date).toLocaleDateString('pt-BR')} às ${appointment.time} foi enviada e aguarda confirmação.`,
+          url: '/dashboard'
         })
       }).catch(console.error);
 
@@ -253,7 +265,43 @@ export const userService = {
   updateAppointmentStatus: async (id: string, status: Appointment['status']) => {
     const path = `appointments/${id}`;
     try {
-      await updateDoc(doc(db, 'appointments', id), { status });
+      const apptRef = doc(db, 'appointments', id);
+      const apptSnap = await getDoc(apptRef);
+      
+      if (apptSnap.exists()) {
+        const appt = apptSnap.data() as Appointment;
+        await updateDoc(apptRef, { status });
+
+        const statusText = status === 'confirmed' ? 'Confirmado ✅' : 
+                          status === 'cancelled' ? 'Cancelado ❌' : 
+                          status === 'completed' ? 'Concluído ✨' : status;
+
+        const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+
+        // Notify Patient
+        fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: appt.patientId,
+            title: `Agendamento ${statusText}`,
+            body: `Sua sessão com ${appt.therapistNome} em ${dateStr} às ${appt.time} foi ${status === 'confirmed' ? 'confirmada' : status === 'cancelled' ? 'cancelada' : status}.`,
+            url: status === 'confirmed' ? `/atendimento/${id}` : '/dashboard'
+          })
+        }).catch(console.error);
+
+        // Notify Therapist (Self-confirmation or update)
+        fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: appt.therapistId,
+            title: `Sessão ${statusText}`,
+            body: `O status da sessão com ${appt.patientNome} em ${dateStr} às ${appt.time} foi atualizado para ${status}.`,
+            url: '/terapeuta'
+          })
+        }).catch(console.error);
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }

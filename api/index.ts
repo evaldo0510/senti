@@ -147,11 +147,37 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, 
     if (appointmentId) {
       console.log(`Confirming appointment: ${appointmentId}`);
       try {
-        await db.collection("appointments").doc(appointmentId).update({
+        const apptRef = db.collection("appointments").doc(appointmentId);
+        await apptRef.update({
           status: "confirmed",
           paymentId: session.id,
           updatedAt: new Date().toISOString()
         });
+
+        // Fetch appointment data to send notifications
+        const apptDoc = await apptRef.get();
+        if (apptDoc.exists) {
+          const appt = apptDoc.data();
+          if (appt) {
+            const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+            
+            // Notify Patient
+            await sendPushNotification(
+              appt.patientId,
+              "Pagamento Confirmado ✅",
+              `Sua sessão com ${appt.therapistNome} em ${dateStr} às ${appt.time} está confirmada!`,
+              `/atendimento/${appointmentId}`
+            );
+
+            // Notify Therapist
+            await sendPushNotification(
+              appt.therapistId,
+              "Sessão Confirmada 💰",
+              `O pagamento de ${appt.patientNome} para a sessão em ${dateStr} às ${appt.time} foi confirmado.`,
+              "/terapeuta"
+            );
+          }
+        }
       } catch (error) {
         console.error("Error updating appointment:", error);
       }
@@ -261,10 +287,32 @@ app.post("/api/create-checkout-session", async (req, res) => {
     // Mock success for development: update appointment directly
     if (appointmentId) {
       try {
-        await db.collection("appointments").doc(appointmentId).update({
+        const apptRef = db.collection("appointments").doc(appointmentId);
+        await apptRef.update({
           status: "confirmed",
           updatedAt: new Date().toISOString()
         });
+
+        // Notify for mock success too
+        const apptDoc = await apptRef.get();
+        if (apptDoc.exists) {
+          const appt = apptDoc.data();
+          if (appt) {
+            const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+            await sendPushNotification(
+              appt.patientId,
+              "Sessão Confirmada ✅",
+              `Sua sessão com ${appt.therapistNome} em ${dateStr} às ${appt.time} foi confirmada!`,
+              `/atendimento/${appointmentId}`
+            );
+            await sendPushNotification(
+              appt.therapistId,
+              "Novo Atendimento Confirmado 📅",
+              `${appt.patientNome} confirmou a sessão para ${dateStr} às ${appt.time}.`,
+              "/terapeuta"
+            );
+          }
+        }
       } catch (error) {
         console.error("Error updating mock appointment:", error);
       }

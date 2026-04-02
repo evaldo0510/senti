@@ -8,6 +8,7 @@ import { cn } from "../lib/utils";
 import Especialidades from "../components/Especialidades";
 import CalendarAvailability from "../components/CalendarAvailability";
 import StarRating from "../components/StarRating";
+import TherapistMap from "../components/TherapistMap";
 
 export default function Profissionais() {
   const navigate = useNavigate();
@@ -353,100 +354,7 @@ export default function Profissionais() {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              <div className="bg-slate-900 rounded-[2.5rem] border border-white/5 p-8 aspect-square sm:aspect-video relative overflow-hidden">
-                {/* Simulated Map Background */}
-                <div className="absolute inset-0 opacity-20 pointer-events-none">
-                  <div className="absolute inset-0" style={{ 
-                    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)',
-                    backgroundSize: '40px 40px'
-                  }} />
-                  <svg className="w-full h-full text-emerald-500/20" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <path d="M0,50 Q25,25 50,50 T100,50" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                    <path d="M0,30 Q25,55 50,30 T100,30" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                    <path d="M30,0 Q55,25 30,50 T30,100" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                    <path d="M70,0 Q45,25 70,50 T70,100" fill="none" stroke="currentColor" strokeWidth="0.5" />
-                  </svg>
-                </div>
-
-                {/* Map Markers */}
-                {profissionaisFiltrados.map((prof, idx) => {
-                  // Random-ish positions for simulation if lat/lng not perfect
-                  const top = prof.latitude ? `${((prof.latitude + 23.6) * 1000) % 80 + 10}%` : `${(idx * 25 + 20) % 80}%`;
-                  const left = prof.longitude ? `${((prof.longitude + 46.7) * 1000) % 80 + 10}%` : `${(idx * 35 + 15) % 80}%`;
-                  
-                  return (
-                    <motion.div
-                      key={prof.uid}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: idx * 0.1 }}
-                      style={{ top, left }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 group cursor-pointer"
-                      onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
-                    >
-                      <div className="relative">
-                        <div className={cn(
-                          "w-12 h-12 rounded-2xl border-2 p-0.5 transition-all group-hover:scale-110 shadow-xl",
-                          prof.online ? "border-emerald-500 bg-emerald-500/20" : "border-slate-600 bg-slate-800"
-                        )}>
-                          <img 
-                            src={prof.fotoUrl || `https://picsum.photos/seed/${prof.uid}/100/100`} 
-                            alt={prof.nome}
-                            className="w-full h-full rounded-xl object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                        {prof.online && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900 animate-pulse" />
-                        )}
-                        
-                        {/* Tooltip */}
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all pointer-events-none">
-                          <div className="bg-slate-800 border border-white/10 rounded-xl p-2 shadow-2xl whitespace-nowrap">
-                            <p className="text-xs font-bold text-white">{prof.nome}</p>
-                            <p className="text-[10px] text-emerald-400 font-medium">{prof.especialidades?.[0]}</p>
-                          </div>
-                          <div className="w-2 h-2 bg-slate-800 border-r border-b border-white/10 rotate-45 mx-auto -mt-1" />
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-
-                {/* Map Controls */}
-                <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
-                  <button 
-                    onClick={() => {
-                      const firstOnline = profissionaisFiltrados.find(p => p.online);
-                      if (firstOnline) {
-                        navigate(`/agendamento/${firstOnline.uid}?instant=true`);
-                      } else {
-                        alert("Nenhum terapeuta online no momento. Tente novamente em instantes.");
-                      }
-                    }}
-                    className="bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/30 rounded-2xl p-4 shadow-2xl transition-all group active:scale-95"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                        <Zap className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-[10px] font-bold text-emerald-100 uppercase tracking-widest">SENTI Go</p>
-                        <p className="text-sm font-bold text-white">Conectar Agora</p>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  <div className="flex flex-col gap-2">
-                    <button className="w-10 h-10 bg-slate-800/90 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-colors">
-                      +
-                    </button>
-                    <button className="w-10 h-10 bg-slate-800/90 backdrop-blur-md border border-white/10 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-colors">
-                      -
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <TherapistMap therapists={profissionaisFiltrados} />
               
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
                 <MapPin className="w-4 h-4 text-emerald-400" />

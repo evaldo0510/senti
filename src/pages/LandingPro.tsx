@@ -87,7 +87,7 @@ export default function LandingPro() {
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-[0_10px_20px_rgba(5,150,105,0.2)] group-hover:scale-110 transition-transform">
               <Heart className="w-6 h-6 text-white fill-current" />
             </div>
-            <span className="text-2xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">SENTI</span>
+            <span className="text-2xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">Sentí</span>
           </div>
           
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#4a4a4a]">
@@ -205,8 +205,8 @@ export default function LandingPro() {
               className="relative"
             >
               <h1 className="text-5xl sm:text-7xl md:text-[10vw] font-serif font-light tracking-tight text-[#1a1a1a] leading-[0.85] italic">
-                Sua mente em <br />
-                <span className="text-emerald-700 font-bold not-italic">paz absoluta.</span>
+                Pronto atendimento <br />
+                <span className="text-emerald-700 font-bold not-italic">emocional.</span>
               </h1>
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-200/40 rounded-full blur-3xl animate-pulse"></div>
             </motion.div>
@@ -217,7 +217,7 @@ export default function LandingPro() {
               transition={{ duration: 0.8, delay: 0.3 }}
               className="text-lg md:text-3xl text-[#4a4a4a] max-w-4xl mx-auto leading-relaxed font-light px-4"
             >
-              A SENTI une a precisão da <span className="font-bold text-emerald-700">IA IARA</span> com o calor humano de <span className="font-bold text-emerald-700">especialistas renomados</span> para um acolhimento 24/7.
+              A <span className="font-bold text-emerald-700">Sentí</span> une a precisão da <span className="font-bold text-emerald-700">IA IARA</span> com o calor humano de <span className="font-bold text-emerald-700">especialistas renomados</span> para um acolhimento 24/7.
             </motion.p>
           </div>
 

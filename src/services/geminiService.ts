@@ -186,3 +186,27 @@ export async function generateImage(prompt: string) {
     return null;
   }
 }
+
+export async function generateTherapistBio(especialidades: string[], estilo?: string, abordagem?: string) {
+  try {
+    const prompt = `Gere uma biografia profissional curta (máximo 400 caracteres) para um terapeuta.
+Especialidades: ${especialidades.join(', ')}
+Estilo de atendimento: ${estilo || 'acolhedor'}
+Abordagem: ${abordagem || 'não especificada'}
+
+A biografia deve ser escrita em primeira pessoa, ser acolhedora, profissional e transmitir confiança. Foque em como o terapeuta ajuda seus pacientes. Não use placeholders como [Nome].`;
+
+    const response = await getAI().models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        temperature: 0.8,
+      },
+    });
+
+    return response.text?.trim() || null;
+  } catch (error) {
+    console.error("Erro ao gerar biografia:", error);
+    return null;
+  }
+}

@@ -111,38 +111,40 @@ export default function DashboardPaciente() {
 
         // Get featured therapists
         const therapists = await userService.getFeaturedTherapists(3);
-        setFeaturedTherapists(therapists);
-
-        // Check for Ana Silva and generate avatar if needed
+        
+        // Check for Ana Silva in the fetched list
         const anaSilva = therapists.find(t => t.nome === "Dra. Ana Silva");
-        if (!anaSilva || (anaSilva.fotoUrl && anaSilva.fotoUrl.includes('dicebear'))) {
+        
+        if (!anaSilva) {
+          // If not found, we'll add her, but first check if we already have an avatar for her
           const avatar = await generateTherapistAvatar();
-          if (avatar) {
-            if (anaSilva) {
+          const newAnaSilva: UserProfile = {
+            uid: "ana_silva_generated",
+            nome: "Dra. Ana Silva",
+            email: "ana.silva@senti.app",
+            tipo: "terapeuta",
+            fotoUrl: avatar || "https://images.unsplash.com/photo-1559839734-2b71f1536780?w=400&auto=format&fit=crop&q=60",
+            especialidades: ["Ansiedade", "Depressão", "TCC"],
+            rating: 5.0,
+            reviewCount: 1,
+            online: true,
+            biografia: "Especialista em Terapia Cognitivo-Comportamental, focada em ajudar pacientes com ansiedade e depressão a encontrarem paz e equilíbrio.",
+            estilo: "acolhedor",
+            abordagem: "TCC",
+            intensidade: 40,
+            createdAt: new Date().toISOString()
+          };
+          setFeaturedTherapists([newAnaSilva, ...therapists.slice(0, 2)]);
+        } else {
+          // If she exists but has a dicebear avatar, update it
+          if (anaSilva.fotoUrl && anaSilva.fotoUrl.includes('dicebear')) {
+            const avatar = await generateTherapistAvatar();
+            if (avatar) {
               await userService.updateProfile(anaSilva.uid, { fotoUrl: avatar });
-              setFeaturedTherapists(prev => 
-                prev.map(t => t.uid === anaSilva.uid ? { ...t, fotoUrl: avatar } : t)
-              );
-            } else {
-              const newAnaSilva: UserProfile = {
-                uid: "ana_silva_generated",
-                nome: "Dra. Ana Silva",
-                email: "ana.silva@senti.app",
-                tipo: "terapeuta",
-                fotoUrl: avatar,
-                especialidades: ["Ansiedade", "Depressão", "TCC"],
-                rating: 5.0,
-                reviewCount: 1,
-                online: true,
-                biografia: "Especialista em Terapia Cognitivo-Comportamental, focada em ajudar pacientes com ansiedade e depressão a encontrarem paz e equilíbrio.",
-                estilo: "acolhedor",
-                abordagem: "TCC",
-                intensidade: 40,
-                createdAt: new Date().toISOString()
-              };
-              setFeaturedTherapists(prev => [newAnaSilva, ...prev.slice(0, 2)]);
+              anaSilva.fotoUrl = avatar;
             }
           }
+          setFeaturedTherapists(therapists);
         }
 
         // Mock news data
@@ -354,10 +356,10 @@ export default function DashboardPaciente() {
               
               <div className="space-y-4">
                 <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 leading-tight">
-                  Bem-vindo ao seu refúgio emocional
+                  Bem-vindo ao seu pronto atendimento emocional
                 </h2>
                 <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed">
-                  Estamos muito felizes em ter você aqui. O SENTI é o seu espaço seguro para cuidar da mente e do coração.
+                  Estamos muito felizes em ter você aqui. O <span className="font-bold text-emerald-600 dark:text-emerald-400">Sentí</span> é o seu espaço seguro para cuidar da mente e do coração.
                 </p>
               </div>
 
@@ -404,7 +406,7 @@ export default function DashboardPaciente() {
             <h1 className="text-base sm:text-lg font-medium text-slate-800 dark:text-slate-200 truncate">
               {getGreeting()}, <span className="text-emerald-600 dark:text-emerald-400">{userProfile?.nome?.split(' ')[0] || "Paciente"}</span>
             </h1>
-            <p className="text-[10px] sm:text-xs text-slate-500">SENTI App</p>
+            <p className="text-[10px] sm:text-xs text-slate-500 font-bold uppercase tracking-widest">Sentí • Pronto Atendimento</p>
           </div>
         </div>
         <div className="flex gap-1.5 sm:gap-2">
@@ -676,7 +678,7 @@ export default function DashboardPaciente() {
           </motion.div>
         )}
         
-        {/* SENTI Go - Instant Help (Uber-like) */}
+        {/* Sentí Go - Instant Help (Uber-like) */}
         <motion.section 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -691,13 +693,13 @@ export default function DashboardPaciente() {
                 <Zap className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-lg font-black tracking-tight">SENTI Go</h3>
+                <h3 className="text-lg font-black tracking-tight">Sentí Go</h3>
                 <p className="text-emerald-400/80 text-xs font-bold uppercase tracking-widest">Ajuda Instantânea</p>
               </div>
             </div>
             
             <p className="text-slate-400 text-sm leading-relaxed">
-              Precisa falar com alguém agora? O <span className="text-white font-bold">SENTI Go</span> encontra o primeiro terapeuta disponível para você em segundos.
+              Precisa falar com alguém agora? O <span className="text-white font-bold">Sentí Go</span> encontra o primeiro terapeuta disponível para você em segundos.
             </p>
 
             <button 
@@ -790,7 +792,7 @@ export default function DashboardPaciente() {
           </div>
           <div className="relative z-10 space-y-4">
             <div className="space-y-1">
-              <h3 className="text-lg font-black">SENTI no seu Bolso</h3>
+              <h3 className="text-lg font-black">Sentí no seu Bolso</h3>
               <p className="text-indigo-100 text-xs">Baixe o app para acesso offline e notificações em tempo real.</p>
             </div>
             <button 

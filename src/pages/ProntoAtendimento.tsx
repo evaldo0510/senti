@@ -40,8 +40,8 @@ export default function ProntoAtendimento() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white">Pronto Atendimento</h1>
-            <p className="text-slate-400 text-sm">Acolhimento imediato 24h</p>
+            <h1 className="text-2xl font-bold text-white">Sentí <span className="text-emerald-500">Go</span></h1>
+            <p className="text-slate-400 text-sm italic">Pronto atendimento emocional</p>
           </div>
         </header>
 

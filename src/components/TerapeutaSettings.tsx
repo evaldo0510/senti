@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Save, Plus, Trash2, Clock, DollarSign, BookOpen, Award } from 'lucide-react';
+import { Save, Plus, Trash2, Clock, DollarSign, BookOpen, Award, Sparkles } from 'lucide-react';
 import { UserProfile, Availability } from '../types';
 import { updateUserProfile, auth } from '../services/authService';
 import { cn } from '../lib/utils';
+import { generateTherapistBio } from '../services/geminiService';
 
 interface TerapeutaSettingsProps {
   profile: UserProfile;
@@ -20,10 +21,37 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
     preco: profile.preco || 0,
     especialidades: profile.especialidades || [],
     disponibilidade: profile.disponibilidade || [],
-    fotoUrl: profile.fotoUrl || ''
+    fotoUrl: profile.fotoUrl || '',
+    estilo: profile.estilo || 'acolhedor',
+    abordagem: profile.abordagem || ''
   });
 
   const [newSpecialty, setNewSpecialty] = useState('');
+  const [generatingBio, setGeneratingBio] = useState(false);
+
+  const handleGenerateBio = async () => {
+    if (!formData.especialidades || formData.especialidades.length === 0) {
+      setError("Adicione pelo menos uma especialidade para gerar a biografia.");
+      return;
+    }
+
+    setGeneratingBio(true);
+    try {
+      const bio = await generateTherapistBio(
+        formData.especialidades,
+        formData.estilo,
+        formData.abordagem
+      );
+      if (bio) {
+        setFormData({ ...formData, biografia: bio });
+      }
+    } catch (err) {
+      console.error("Erro ao gerar biografia:", err);
+      setError("Erro ao gerar sugestão de biografia.");
+    } finally {
+      setGeneratingBio(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!auth.currentUser) return;
@@ -133,13 +161,53 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
 
           <div className="space-y-6">
             <div className="space-y-3">
-              <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Biografia Profissional</label>
+              <div className="flex items-center justify-between">
+                <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Biografia Profissional</label>
+                <button
+                  onClick={handleGenerateBio}
+                  disabled={generatingBio}
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-brand-indigo hover:text-brand-indigo/80 transition-colors disabled:opacity-50"
+                >
+                  {generatingBio ? (
+                    <div className="w-3 h-3 border border-brand-indigo/30 border-t-brand-indigo rounded-full animate-spin" />
+                  ) : (
+                    <Sparkles size={12} />
+                  )}
+                  Sugerir com IARA
+                </button>
+              </div>
               <textarea
                 value={formData.biografia}
                 onChange={(e) => setFormData({ ...formData, biografia: e.target.value })}
                 className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl p-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all min-h-[160px] font-medium placeholder:text-brand-text/20 resize-none"
                 placeholder="Conte um pouco sobre sua experiência e abordagem terapêutica..."
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Estilo de Atendimento</label>
+                <select
+                  value={formData.estilo}
+                  onChange={(e) => setFormData({ ...formData, estilo: e.target.value as any })}
+                  className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl py-4 px-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all font-bold appearance-none"
+                >
+                  <option value="acolhedor">Acolhedor</option>
+                  <option value="provocador">Provocador</option>
+                  <option value="analitico">Analítico</option>
+                  <option value="pratico">Prático</option>
+                </select>
+              </div>
+              <div className="space-y-3">
+                <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">Abordagem Terapêutica</label>
+                <input
+                  type="text"
+                  value={formData.abordagem}
+                  onChange={(e) => setFormData({ ...formData, abordagem: e.target.value })}
+                  className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl py-4 px-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all font-medium placeholder:text-brand-text/20"
+                  placeholder="Ex: TCC, Psicanálise, Gestalt..."
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -37,3 +37,32 @@ export async function generateTherapistAvatar() {
   }
   return null;
 }
+
+export async function generateNewsImage(theme: string) {
+  try {
+    const response = await getAI().models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            text: `Uma imagem conceitual e artística representando o tema: ${theme}. Estilo minimalista, cores suaves, iluminação terapêutica, transmitindo uma sensação de bem-estar e saúde mental. Sem texto.`,
+          },
+        ],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9"
+        }
+      }
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
+    }
+  } catch (error) {
+    console.error("Error generating news image:", error);
+  }
+  return null;
+}

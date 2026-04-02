@@ -74,11 +74,20 @@ export default function CalendarAvailability({ therapist, onSelect, selectedDate
     const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     return (
       <div className="grid grid-cols-7 mb-2">
-        {days.map((day, i) => (
-          <div key={i} className="text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-            {day}
-          </div>
-        ))}
+        {days.map((day, i) => {
+          const hasAvailabilityOnThisDay = therapist.disponibilidade?.some(d => dayMap[d.day.toLowerCase()] === i);
+          return (
+            <div 
+              key={i} 
+              className={cn(
+                "text-center text-[10px] font-bold uppercase tracking-widest transition-colors",
+                hasAvailabilityOnThisDay ? "text-emerald-400" : "text-slate-600"
+              )}
+            >
+              {day}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -110,17 +119,20 @@ export default function CalendarAvailability({ therapist, onSelect, selectedDate
           <div
             key={day.toString()}
             className={cn(
-              "relative h-12 flex items-center justify-center cursor-pointer transition-all rounded-xl m-0.5",
+              "relative h-12 flex items-center justify-center cursor-pointer transition-all rounded-xl m-0.5 group",
               !isCurrentMonth ? "text-slate-700 pointer-events-none" : "",
               isPast ? "text-slate-800 pointer-events-none" : "text-slate-300",
               isSelected ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20" : "hover:bg-slate-800",
-              hasAvailability && !isPast && isCurrentMonth && !isSelected ? "border border-emerald-500/20" : ""
+              hasAvailability && !isPast && isCurrentMonth && !isSelected ? "border border-emerald-500/30 bg-emerald-500/5" : ""
             )}
             onClick={() => !isPast && setActiveDate(cloneDay)}
           >
-            <span className="text-sm font-medium">{formattedDate}</span>
+            <span className={cn(
+              "text-sm font-medium",
+              hasAvailability && !isPast && isCurrentMonth && !isSelected ? "text-emerald-400" : ""
+            )}>{formattedDate}</span>
             {hasAvailability && !isPast && isCurrentMonth && !isSelected && (
-              <div className="absolute bottom-1.5 w-1 h-1 bg-emerald-500 rounded-full" />
+              <div className="absolute bottom-1.5 w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
             )}
           </div>
         );
@@ -141,16 +153,18 @@ export default function CalendarAvailability({ therapist, onSelect, selectedDate
     const availability = therapist.disponibilidade?.find(d => dayMap[d.day.toLowerCase()] === dayOfWeek);
     const slots = availability?.slots || [];
 
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-slate-400 mb-2">
-          <Clock className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-widest">Horários para {format(activeDate, "dd 'de' MMMM", { locale: ptBR })}</span>
-        </div>
-        
-        {slots.length > 0 ? (
+    // Group slots by period
+    const morning = slots.filter(s => parseInt(s.split(':')[0]) < 12);
+    const afternoon = slots.filter(s => parseInt(s.split(':')[0]) >= 12 && parseInt(s.split(':')[0]) < 18);
+    const evening = slots.filter(s => parseInt(s.split(':')[0]) >= 18);
+
+    const renderSlotGroup = (title: string, groupSlots: string[]) => {
+      if (groupSlots.length === 0) return null;
+      return (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">{title}</p>
           <div className="grid grid-cols-3 gap-2">
-            {slots.map((slot, i) => (
+            {groupSlots.map((slot, i) => (
               <button
                 key={i}
                 onClick={() => onSelect(activeDate, slot)}
@@ -158,12 +172,29 @@ export default function CalendarAvailability({ therapist, onSelect, selectedDate
                   "py-2.5 rounded-xl text-xs font-bold transition-all border",
                   selectedTime === slot && isSameDay(activeDate, selectedDate || new Date(0))
                     ? "bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-900/20"
-                    : "bg-slate-900 border-white/5 text-slate-300 hover:bg-slate-800"
+                    : "bg-slate-900 border-white/5 text-slate-300 hover:bg-slate-800 hover:border-emerald-500/30"
                 )}
               >
                 {slot}
               </button>
             ))}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-2 text-slate-400 mb-2">
+          <Clock className="w-4 h-4" />
+          <span className="text-xs font-bold uppercase tracking-widest">Horários para {format(activeDate, "dd 'de' MMMM", { locale: ptBR })}</span>
+        </div>
+        
+        {slots.length > 0 ? (
+          <div className="space-y-4">
+            {renderSlotGroup("Manhã", morning)}
+            {renderSlotGroup("Tarde", afternoon)}
+            {renderSlotGroup("Noite", evening)}
           </div>
         ) : (
           <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-6 text-center">

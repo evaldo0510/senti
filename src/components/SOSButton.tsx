@@ -28,7 +28,7 @@ const SOSButton: React.FC = () => {
       >
         <div className="absolute inset-0 bg-white animate-ping opacity-20"></div>
         <AlertCircle className="h-8 w-8 text-white relative z-10" />
-        <span className="text-[10px] font-black text-white relative z-10 uppercase tracking-tighter">SENTI SOS</span>
+        <span className="text-[10px] font-black text-white relative z-10 uppercase tracking-tighter">Sentí SOS</span>
       </motion.button>
     </AnimatePresence>
   );

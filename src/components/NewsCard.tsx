@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Share2, Check, ExternalLink, UserPlus, Copy, Image as ImageIcon } from 'lucide-react';
+import { Share2, Check, ExternalLink, UserPlus, Copy, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { generateNewsImage } from '../services/imageService';
 
 import { cn } from '../lib/utils';
 
@@ -43,9 +44,36 @@ export const NewsCard: React.FC<NewsCardProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [aiGeneratedImage, setAiGeneratedImage] = useState<string | null>(null);
+  const [generatingImage, setGeneratingImage] = useState(false);
 
-  const finalImageUrl = imageUrl || image;
+  const finalImageUrl = aiGeneratedImage || imageUrl || image;
   const showPlaceholder = !finalImageUrl || imageError;
+
+  useEffect(() => {
+    const triggerAIGeneration = async () => {
+      if ((!imageUrl && !image) || imageError) {
+        if (!aiGeneratedImage && !generatingImage && title) {
+          setGeneratingImage(true);
+          try {
+            // Extract a simple theme from title
+            const theme = title.split(' ').slice(0, 5).join(' ');
+            const generated = await generateNewsImage(theme);
+            if (generated) {
+              setAiGeneratedImage(generated);
+              setImageError(false); // Reset error if AI image succeeded
+            }
+          } catch (error) {
+            console.error("AI Image Generation failed:", error);
+          } finally {
+            setGeneratingImage(false);
+          }
+        }
+      }
+    };
+
+    triggerAIGeneration();
+  }, [imageUrl, image, imageError, title, aiGeneratedImage, generatingImage]);
 
   const handleConnect = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -194,14 +222,19 @@ export const NewsCard: React.FC<NewsCardProps> = ({
       )}
 
       <div className="w-full h-48 overflow-hidden relative bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center border-b border-slate-200 dark:border-white/5 shrink-0">
-        {showPlaceholder ? (
+        {generatingImage ? (
+          <div className="flex flex-col items-center justify-center text-emerald-500 animate-pulse">
+            <Sparkles className="w-8 h-8 mb-2" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">IA gerando imagem...</span>
+          </div>
+        ) : showPlaceholder && !aiGeneratedImage ? (
           <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
             <ImageIcon className="w-10 h-10 mb-2 opacity-50" />
             <span className="text-[10px] font-bold uppercase tracking-widest">Imagem indisponível</span>
           </div>
         ) : (
           <>
-            {!imageLoaded && (
+            {(!imageLoaded && !aiGeneratedImage) && (
               <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-slate-100 dark:bg-slate-800/50">
                 <ImageIcon className="w-10 h-10 text-slate-400 dark:text-slate-600" />
               </div>
@@ -211,9 +244,15 @@ export const NewsCard: React.FC<NewsCardProps> = ({
               alt={title || "Notícia"} 
               onLoad={() => setImageLoaded(true)}
               onError={() => setImageError(true)}
-              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
+              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${(imageLoaded || aiGeneratedImage) ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
               referrerPolicy="no-referrer"
             />
+            {aiGeneratedImage && (
+              <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full flex items-center gap-1 border border-white/10">
+                <Sparkles size={8} className="text-emerald-400" />
+                <span className="text-[8px] font-bold text-white uppercase tracking-widest">IA</span>
+              </div>
+            )}
           </>
         )}
       </div>
