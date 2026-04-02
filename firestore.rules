@@ -11,21 +11,17 @@ service cloud.firestore {
     // Fields:
     //   - uid: string (required)
     //   - email: string (required, email format)
-    //   - nome: string (required)
-    //   - tipo: string (required, ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'admin'])
+    //   - displayName: string (optional)
+    //   - role: string (required, ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'admin'])
     //   - createdAt: string (required, date-time)
     //
     // Collection: appointments
     // Document ID: {appointmentId}
     // Fields:
     //   - patientId: string (required)
-    //   - patientNome: string (required)
     //   - therapistId: string (required)
-    //   - therapistNome: string (required)
     //   - date: string (required, date-time)
     //   - status: string (required, ['pending', 'confirmed', 'cancelled', 'completed'])
-    //   - type: string (required, ['video', 'chat', 'presencial'])
-    //   - price: number (required)
     //   - createdAt: string (required, date-time)
     //
     // Collection: messages
@@ -33,9 +29,11 @@ service cloud.firestore {
     // Fields:
     //   - senderId: string (required)
     //   - receiverId: string (required)
-    //   - text: string (required, max 1000 chars)
-    //   - timestamp: string (required, date-time)
+    //   - text: string (required, max 5000 chars)
+    //   - timestamp: timestamp (required)
     //   - appointmentId: string (optional)
+    //   - read: boolean (optional)
+    //   - encrypted: boolean (optional)
     //
     // Collection: emotion_logs
     // Document ID: {logId}
@@ -43,6 +41,13 @@ service cloud.firestore {
     //   - userId: string (required)
     //   - emotion: string (required)
     //   - intensity: number (required, 1-10)
+    //   - timestamp: string (required, date-time)
+    //
+    // Collection: diary_entries
+    // Document ID: {entryId}
+    // Fields:
+    //   - userId: string (required)
+    //   - content: string (required)
     //   - timestamp: string (required, date-time)
     //
     // Collection: memoria_iara
@@ -73,14 +78,14 @@ service cloud.firestore {
            request.auth.token.email == "mentefelizterapias@gmail.com" && 
            request.auth.token.email_verified == true) ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin')
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
         );
     }
 
     function isTherapist() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'terapeuta';
     }
 
     function isValidEmail(email) {
@@ -100,10 +105,10 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return request.resource.data.keys().hasAll(['uid', 'email', 'tipo', 'createdAt']) &&
+      return request.resource.data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
-             data.tipo in ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'clinica', 'hospital', 'admin'] &&
+             data.role in ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'clinica', 'hospital', 'admin'] &&
              isValidDateString(data.createdAt);
     }
 
@@ -132,6 +137,13 @@ service cloud.firestore {
              isValidDateString(data.timestamp);
     }
 
+    function isValidDiaryEntry(data) {
+      return request.resource.data.keys().hasAll(['userId', 'content', 'timestamp']) &&
+             data.userId == request.auth.uid &&
+             data.content is string && data.content.size() <= 10000 &&
+             isValidDateString(data.timestamp);
+    }
+
     function isValidMemoriaIara(data) {
       return hasOnlyAllowedFields(['perfil', 'historico']) &&
              data.perfil is map &&
@@ -144,15 +156,15 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Users can read their own profile. 
-      // Terapeutas are public for everyone to find them.
-      // Terapeutas can read patient profiles for management.
+      // Terapeutas are public for everyone to find them (but only non-sensitive fields if possible, 
+      // here we allow read if role is terapeuta).
       allow read: if (isAuthenticated() && isOwner(userId)) || 
-                     (resource.data != null && resource.data.tipo == 'terapeuta') || 
+                     (resource.data != null && resource.data.role == 'terapeuta') || 
                      isTherapist() || 
                      isAdmin();
       
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo != 'admin' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo == resource.data.tipo || isAdmin());
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
 
       match /pushSubscriptions/{subscriptionId} {
         allow read, write: if isOwner(userId);
@@ -178,8 +190,8 @@ service cloud.firestore {
 
     match /diary_entries/{entryId} {
       allow read: if isOwner(resource.data.userId) || isTherapist() || isAdmin();
-      allow create: if isOwner(request.resource.data.userId);
-      allow update: if isOwner(resource.data.userId);
+      allow create: if isOwner(request.resource.data.userId) && isValidDiaryEntry(request.resource.data);
+      allow update: if isOwner(resource.data.userId) && isValidDiaryEntry(request.resource.data);
       allow delete: if isOwner(resource.data.userId);
     }
 

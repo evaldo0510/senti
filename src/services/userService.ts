@@ -277,6 +277,7 @@ export const userService = {
                           status === 'completed' ? 'Concluído ✨' : status;
 
         const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+        const timeStr = appt.time || new Date(appt.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         // Notify Patient
         fetch('/api/push/send', {
@@ -285,7 +286,7 @@ export const userService = {
           body: JSON.stringify({
             userId: appt.patientId,
             title: `Agendamento ${statusText}`,
-            body: `Sua sessão com ${appt.therapistNome} em ${dateStr} às ${appt.time} foi ${status === 'confirmed' ? 'confirmada' : status === 'cancelled' ? 'cancelada' : status}.`,
+            body: `Sua sessão com ${appt.therapistNome} em ${dateStr} às ${timeStr} foi ${status === 'confirmed' ? 'confirmada' : status === 'cancelled' ? 'cancelada' : status}.`,
             url: status === 'confirmed' ? `/atendimento/${id}` : '/dashboard'
           })
         }).catch(console.error);
@@ -297,7 +298,7 @@ export const userService = {
           body: JSON.stringify({
             userId: appt.therapistId,
             title: `Sessão ${statusText}`,
-            body: `O status da sessão com ${appt.patientNome} em ${dateStr} às ${appt.time} foi atualizado para ${status}.`,
+            body: `O status da sessão com ${appt.patientNome} em ${dateStr} às ${timeStr} foi atualizado para ${status}.`,
             url: '/terapeuta'
           })
         }).catch(console.error);

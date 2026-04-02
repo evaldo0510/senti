@@ -17,6 +17,8 @@
         "reviews": { "type": "number", "description": "Number of reviews" },
         "online": { "type": "boolean", "description": "If therapist offers online sessions" },
         "presencial": { "type": "boolean", "description": "If therapist offers in-person sessions" },
+        "biografia": { "type": "string", "description": "Therapist's bio" },
+        "videoUrl": { "type": "string", "description": "Therapist's intro video URL" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" }
       },
       "required": ["uid", "email", "role"]
@@ -42,10 +44,24 @@
         "senderId": { "type": "string", "description": "UID of the sender" },
         "receiverId": { "type": "string", "description": "UID of the receiver" },
         "text": { "type": "string", "description": "Message content" },
-        "timestamp": { "type": "string", "format": "date-time", "description": "Message timestamp" },
-        "appointmentId": { "type": "string", "description": "Optional appointment context" }
+        "timestamp": { "type": "object", "description": "Firestore server timestamp" },
+        "appointmentId": { "type": "string", "description": "Optional appointment context" },
+        "read": { "type": "boolean", "description": "If message has been read" },
+        "encrypted": { "type": "boolean", "description": "If message text is encrypted" }
       },
       "required": ["senderId", "receiverId", "text", "timestamp"]
+    },
+    "DiaryEntry": {
+      "title": "DiaryEntry",
+      "description": "Private diary entry for the user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user" },
+        "title": { "type": "string", "description": "Entry title" },
+        "content": { "type": "string", "description": "Entry content" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Entry timestamp" }
+      },
+      "required": ["userId", "content", "timestamp"]
     },
     "EmotionLog": {
       "title": "EmotionLog",
@@ -109,6 +125,10 @@
     "memoria_iara": {
       "schema": "MemoriaIara",
       "description": "Collection of IARA's memory for each user"
+    },
+    "diary_entries": {
+      "schema": "DiaryEntry",
+      "description": "Collection of user diary entries"
     }
   }
 }

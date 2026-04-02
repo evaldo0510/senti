@@ -390,16 +390,37 @@ export default function Terapeuta() {
                       <motion.div 
                         key={app.id}
                         layout
-                        className="bg-slate-900 border border-white/5 p-5 rounded-3xl flex flex-col sm:flex-row gap-4 items-center hover:border-emerald-500/30 transition-all"
+                        className="bg-slate-900 border border-white/5 p-5 rounded-3xl flex flex-col sm:flex-row gap-4 items-center hover:border-emerald-500/30 transition-all group"
                       >
                         <div className="flex items-center gap-4 flex-1">
-                          <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center text-xl font-bold text-emerald-400 border border-white/5">
-                            {app.patientNome?.charAt(0) || "P"}
+                          <div className="relative">
+                            <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center text-xl font-bold text-emerald-400 border border-white/5 group-hover:border-emerald-500/50 transition-colors">
+                              {app.patientNome?.charAt(0) || "P"}
+                            </div>
+                            <div className={cn(
+                              "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900",
+                              app.status === 'pending' ? "bg-amber-500" :
+                              app.status === 'confirmed' ? "bg-emerald-500" :
+                              app.status === 'completed' ? "bg-blue-500" : "bg-red-500"
+                            )} />
                           </div>
                           <div>
-                            <h4 className="font-bold text-slate-100 text-lg">{app.patientNome}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-slate-100 text-lg">{app.patientNome}</h4>
+                              <span className={cn(
+                                "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                app.status === 'pending' ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                app.status === 'confirmed' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                app.status === 'completed' ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                                "bg-red-500/10 text-red-400 border border-red-500/20"
+                              )}>
+                                {app.status === 'pending' ? 'Pendente' : 
+                                 app.status === 'confirmed' ? 'Confirmada' : 
+                                 app.status === 'completed' ? 'Concluída' : 'Cancelada'}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-3 text-sm text-slate-500">
-                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {new Date(app.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {app.time || new Date(app.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
                               <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(app.date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
                             </div>
                           </div>
@@ -410,17 +431,19 @@ export default function Terapeuta() {
                             <>
                               <button 
                                 onClick={() => handleStatusUpdate(app.id, 'confirmed')}
-                                className="flex-1 sm:flex-none p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl transition-all shadow-lg shadow-emerald-900/20"
+                                className="flex-1 sm:flex-none px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2 font-bold text-sm"
                                 title="Confirmar"
                               >
-                                <CheckCircle2 className="w-5 h-5" />
+                                <CheckCircle2 className="w-4 h-4" />
+                                Confirmar
                               </button>
                               <button 
                                 onClick={() => handleStatusUpdate(app.id, 'cancelled')}
-                                className="flex-1 sm:flex-none p-3 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-2xl border border-white/5 transition-all"
+                                className="flex-1 sm:flex-none px-4 py-3 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-2xl border border-white/5 transition-all flex items-center gap-2 font-bold text-sm"
                                 title="Recusar"
                               >
-                                <XCircle className="w-5 h-5" />
+                                <XCircle className="w-4 h-4" />
+                                Recusar
                               </button>
                             </>
                           ) : app.status === 'confirmed' ? (
@@ -431,14 +454,7 @@ export default function Terapeuta() {
                               <Video className="w-5 h-5" />
                               Entrar na Sala
                             </button>
-                          ) : (
-                            <span className={cn(
-                              "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest",
-                              app.status === 'completed' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                            )}>
-                              {app.status === 'completed' ? "Concluída" : "Cancelada"}
-                            </span>
-                          )}
+                          ) : null}
                         </div>
                       </motion.div>
                     )) : (
