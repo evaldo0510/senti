@@ -121,6 +121,9 @@ export interface UserProfile {
   isPremium?: boolean;
   isComunidade?: boolean; // Se o paciente é da comunidade/centro
   journeyProgress?: number; // Current day in the 21-day journey
+  // Social
+  instagram?: string;
+  website?: string;
 }
 
 export interface NewsCardProps {

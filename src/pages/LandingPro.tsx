@@ -80,6 +80,34 @@ export default function LandingPro() {
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_30%,_rgba(255,255,255,0.8)_0%,_transparent_60%)]"></div>
       </div>
 
+      {/* FLOATING INSTALL PROMPT */}
+      <AnimatePresence>
+        {isInstallable && (
+          <motion.div
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-8 left-6 right-6 md:left-auto md:right-8 md:w-[400px] z-[60]"
+          >
+            <div className="bg-white/90 backdrop-blur-2xl p-6 rounded-[32px] border border-emerald-100 shadow-2xl flex items-center gap-6">
+              <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/20">
+                <Heart className="w-8 h-8 text-white fill-current" />
+              </div>
+              <div className="flex-grow">
+                <h4 className="font-bold text-[#1a1a1a] text-lg leading-tight">SENTI no seu celular</h4>
+                <p className="text-sm text-[#4a4a4a] font-light">Acesse mais rápido e receba acolhimento em tempo real.</p>
+              </div>
+              <button 
+                onClick={handleInstall}
+                className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-bold text-sm hover:bg-emerald-700 transition-all active:scale-95 shadow-md shadow-emerald-600/10"
+              >
+                Instalar
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* NAVIGATION */}
       <nav className="fixed top-0 w-full z-50 bg-white/40 backdrop-blur-xl border-b border-black/5">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -100,7 +128,11 @@ export default function LandingPro() {
           <div className="flex items-center gap-4">
             <button 
               onClick={handleInstall}
-              className="hidden lg:flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-full text-xs font-bold transition-all text-slate-600"
+              className={`hidden lg:flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                isInstallable 
+                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 shadow-sm" 
+                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              }`}
             >
               <Smartphone className="w-4 h-4" />
               {isInstallable ? "Instalar App" : "Baixar App"}
@@ -464,6 +496,80 @@ export default function LandingPro() {
                 <p className="text-[#4a4a4a] text-lg leading-relaxed font-light">{item.desc}</p>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* APP EXPERIENCE SECTION */}
+      <section className="py-20 md:py-32 px-6 bg-[#f5f5f0] relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-emerald-900 rounded-[64px] overflow-hidden relative p-12 md:p-24">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,_rgba(5,150,105,0.4)_0%,_transparent_100%)]"></div>
+            <div className="relative z-10 grid md:grid-cols-2 gap-16 items-center">
+              <div className="space-y-8">
+                <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-800/50 text-emerald-300 text-[10px] font-bold uppercase tracking-widest border border-emerald-700">
+                  Acesso Instantâneo
+                </div>
+                <h2 className="text-4xl md:text-7xl font-serif italic text-white leading-tight">
+                  SENTI no seu <br /> <span className="text-emerald-400 font-bold not-italic">bolso.</span>
+                </h2>
+                <p className="text-xl text-emerald-100/80 font-light leading-relaxed">
+                  Instale o aplicativo SENTI para ter acesso imediato ao acolhimento emocional, mesmo sem abrir o navegador. É mais rápido, seguro e está sempre a um toque de distância.
+                </p>
+                <div className="grid grid-cols-2 gap-6">
+                  {[
+                    { icon: Zap, title: "Mais Rápido", desc: "Carregamento instantâneo" },
+                    { icon: Shield, title: "Seguro", desc: "Dados criptografados" },
+                    { icon: Activity, title: "Offline", desc: "Acesse pílulas offline" },
+                    { icon: Sparkles, title: "Nativo", desc: "Experiência fluida" }
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-800 flex items-center justify-center shrink-0">
+                        <item.icon className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div>
+                        <h4 className="text-white font-bold text-sm">{item.title}</h4>
+                        <p className="text-emerald-100/60 text-xs">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button 
+                  onClick={handleInstall}
+                  className="px-10 py-5 bg-white text-emerald-900 rounded-[32px] text-lg font-bold transition-all hover:scale-105 flex items-center justify-center gap-3 shadow-xl active:scale-95"
+                >
+                  {isInstallable ? "Instalar Agora" : "Baixar Aplicativo"}
+                  <Smartphone className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="relative hidden md:block">
+                <div className="absolute -inset-10 bg-emerald-400/20 rounded-full blur-[100px] animate-pulse"></div>
+                <div className="relative bg-slate-900 rounded-[48px] p-4 border-8 border-slate-800 shadow-2xl aspect-[9/19] max-w-[320px] mx-auto overflow-hidden">
+                  <div className="w-full h-full bg-[#f5f5f0] rounded-[32px] overflow-hidden relative">
+                    <div className="p-6 space-y-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
+                          <Heart className="w-5 h-5 text-white fill-current" />
+                        </div>
+                        <span className="font-serif italic font-bold text-emerald-900">Sentí</span>
+                      </div>
+                      <div className="h-32 bg-emerald-100 rounded-2xl animate-pulse"></div>
+                      <div className="space-y-3">
+                        <div className="h-4 bg-slate-200 rounded-full w-3/4"></div>
+                        <div className="h-4 bg-slate-200 rounded-full w-1/2"></div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="h-20 bg-white rounded-2xl border border-slate-100"></div>
+                        <div className="h-20 bg-white rounded-2xl border border-slate-100"></div>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-slate-100">
+                      <div className="h-12 bg-emerald-600 rounded-xl"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

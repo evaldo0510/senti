@@ -13,8 +13,14 @@ import webpush from "web-push";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-const firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+let firebaseConfig: any;
+try {
+  firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+} catch (error) {
+  console.error("Error reading firebase-applet-config.json:", error);
+  firebaseConfig = {}; // Fallback for build/analysis phase
+}
 
 dotenv.config();
 

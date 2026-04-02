@@ -17,7 +17,9 @@ import {
   Sparkles,
   X,
   Send,
-  Loader2
+  Loader2,
+  Instagram,
+  Globe
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
@@ -177,7 +179,12 @@ export default function TerapeutaPerfil() {
               </div>
               
               <div className="flex items-center justify-center gap-2 mb-1">
-                <h1 className="text-xl font-bold text-slate-100">{terapeuta.nome}</h1>
+                <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                  {terapeuta.nome}
+                  {terapeuta.online && (
+                    <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" title="Online agora" />
+                  )}
+                </h1>
                 {terapeuta.online && (
                   <div className="flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
                     <div className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" />
@@ -215,6 +222,34 @@ export default function TerapeutaPerfil() {
                   <Video className="w-5 h-5 text-emerald-500" />
                   Atender Agora
                 </button>
+                
+                {(terapeuta.instagram || terapeuta.website) && (
+                  <div className="flex gap-2 pt-2">
+                    {terapeuta.instagram && (
+                      <a 
+                        href={`https://instagram.com/${terapeuta.instagram.replace('@', '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
+                      >
+                        <Instagram className="w-4 h-4 text-pink-500/70" />
+                        Instagram
+                      </a>
+                    )}
+                    {terapeuta.website && (
+                      <a 
+                        href={terapeuta.website.startsWith('http') ? terapeuta.website : `https://${terapeuta.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
+                      >
+                        <Globe className="w-4 h-4 text-blue-500/70" />
+                        Site
+                      </a>
+                    )}
+                  </div>
+                )}
+
                 <button 
                   onClick={falarWhatsApp}
                   className="w-full py-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 rounded-2xl text-xs font-medium transition-all border border-white/5 flex items-center justify-center gap-2"
@@ -270,13 +305,24 @@ export default function TerapeutaPerfil() {
                 </p>
                 <div className="pt-2">
                   <button 
-                    onClick={() => navigate(`/atendimento/${terapeuta.uid}?type=chat`)}
+                    onClick={handleMensagemRapida}
                     className="px-6 py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded-2xl font-bold transition-all flex items-center gap-2 group"
                   >
                     <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     Chat Rápido
                   </button>
                 </div>
+              </section>
+
+              <section className="space-y-4 pt-4">
+                <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-emerald-500" />
+                  Horários Disponíveis
+                </h3>
+                <CalendarAvailability 
+                  therapist={terapeuta} 
+                  onSelect={handleSelect}
+                />
               </section>
 
               {terapeuta.videoUrl && (
@@ -333,16 +379,6 @@ export default function TerapeutaPerfil() {
                 </div>
               </section>
 
-              <section className="space-y-4 pt-4">
-                <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-emerald-500" />
-                  Disponibilidade
-                </h3>
-                <CalendarAvailability 
-                  therapist={terapeuta} 
-                  onSelect={handleSelect}
-                />
-              </section>
 
               <section className="space-y-4 pt-4">
                 <h3 className="text-xl font-bold text-slate-100">O que esperar das sessões</h3>

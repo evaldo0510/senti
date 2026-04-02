@@ -19,7 +19,8 @@ import {
   TrendingDown,
   DollarSign,
   PieChart,
-  Home
+  Home,
+  Share2
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
@@ -136,6 +137,27 @@ export default function Terapeuta() {
   const handleConnectEarnings = async () => {
     if (profile) {
       await userService.connectEarnings(profile.uid);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    if (!profile) return;
+    const url = `${window.location.origin}/terapeuta/${profile.uid}`;
+    const title = `Perfil Profissional - ${profile.nome}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: `Confira meu perfil profissional no SENTI.`,
+          url,
+        });
+      } catch (error) {
+        console.error("Erro ao compartilhar", error);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link do seu perfil copiado para a área de transferência!");
     }
   };
 
@@ -303,6 +325,13 @@ export default function Terapeuta() {
                   Dica: {tips[currentTip]}
                 </div>
               </div>
+              <button 
+                onClick={handleShareProfile}
+                className="p-3 bg-slate-900 rounded-2xl border border-white/5 text-slate-400 hover:text-emerald-400 transition-colors min-w-[48px] min-h-[48px] flex items-center justify-center"
+                title="Compartilhar meu perfil"
+              >
+                <Share2 className="w-6 h-6" />
+              </button>
               <button 
                 aria-label="Notificações"
                 className="p-3 bg-slate-900 rounded-2xl border border-white/5 relative min-w-[48px] min-h-[48px] flex items-center justify-center"

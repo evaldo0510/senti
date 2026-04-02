@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { User, Briefcase, DollarSign, ArrowRight, Activity, ArrowLeft } from "lucide-react";
+import { User, Briefcase, DollarSign, ArrowRight, Activity, ArrowLeft, Instagram, Globe } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 
@@ -15,6 +15,8 @@ export default function TerapeutaSetup() {
   const [intensidade, setIntensidade] = useState<number>(50);
   const [estilo, setEstilo] = useState<'acolhedor' | 'provocador' | 'analitico' | 'pratico'>("acolhedor");
   const [abordagem, setAbordagem] = useState<string>("TCC");
+  const [instagram, setInstagram] = useState("");
+  const [website, setWebsite] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -30,6 +32,8 @@ export default function TerapeutaSetup() {
           setIntensidade(profile.intensidade || 50);
           setEstilo((profile.estilo as any) || "acolhedor");
           setAbordagem(profile.abordagem || "TCC");
+          setInstagram(profile.instagram || "");
+          setWebsite(profile.website || "");
         }
       }
     };
@@ -50,6 +54,8 @@ export default function TerapeutaSetup() {
         intensidade,
         estilo,
         abordagem,
+        instagram,
+        website,
         tipo: 'terapeuta',
         online: true
       });
@@ -221,6 +227,40 @@ export default function TerapeutaSetup() {
                 <option value="Gestalt">Gestalt-terapia</option>
                 <option value="Outra">Outra</option>
               </select>
+            </div>
+
+            <h3 className="text-emerald-400 font-bold text-sm uppercase tracking-widest pt-4">Redes e Contato</h3>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Instagram (@usuario)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Instagram className="h-5 w-5 text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                  placeholder="@seuperfil"
+                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Site Profissional</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Globe className="h-5 w-5 text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://seusite.com"
+                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+              </div>
             </div>
           </div>
         </div>
