@@ -12,7 +12,7 @@ service cloud.firestore {
     //   - uid: string (required)
     //   - email: string (required, email format)
     //   - displayName: string (optional)
-    //   - role: string (required, ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'admin'])
+    //   - tipo: string (required, ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'admin'])
     //   - createdAt: string (required, date-time)
     //
     // Collection: appointments
@@ -78,14 +78,14 @@ service cloud.firestore {
            request.auth.token.email == "mentefelizterapias@gmail.com" && 
            request.auth.token.email_verified == true) ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin')
         );
     }
 
     function isTherapist() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'terapeuta';
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
     }
 
     function isValidEmail(email) {
@@ -105,10 +105,10 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return request.resource.data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+      return request.resource.data.keys().hasAll(['uid', 'email', 'tipo', 'createdAt']) &&
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
-             data.role in ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'clinica', 'hospital', 'admin'] &&
+             data.tipo in ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'clinica', 'hospital', 'admin'] &&
              isValidDateString(data.createdAt);
     }
 
@@ -157,14 +157,14 @@ service cloud.firestore {
     match /users/{userId} {
       // Users can read their own profile. 
       // Terapeutas are public for everyone to find them (but only non-sensitive fields if possible, 
-      // here we allow read if role is terapeuta).
+      // here we allow read if tipo is terapeuta).
       allow read: if (isAuthenticated() && isOwner(userId)) || 
-                     (resource.data != null && resource.data.role == 'terapeuta') || 
+                     (resource.data != null && resource.data.tipo == 'terapeuta') || 
                      isTherapist() || 
                      isAdmin();
       
-      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role != 'admin' || isAdmin());
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.role == resource.data.role || isAdmin());
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo != 'admin' || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && (request.resource.data.tipo == resource.data.tipo || isAdmin());
 
       match /pushSubscriptions/{subscriptionId} {
         allow read, write: if isOwner(userId);
