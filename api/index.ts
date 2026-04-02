@@ -7,12 +7,13 @@ import Stripe from "stripe";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
-import firebaseConfig from "../firebase-applet-config.json";
 import fs from "fs";
 import webpush from "web-push";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const firebaseConfig = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../firebase-applet-config.json"), "utf8"));
 
 dotenv.config();
 
@@ -368,23 +369,13 @@ app.post("/api/create-journey-checkout-session", async (req, res) => {
 
 async function configureVite() {
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    // In production, Vercel handles static files via vercel.json rewrites,
-    // but if running locally in production mode:
-    if (!process.env.VERCEL) {
-      const distPath = path.join(process.cwd(), 'dist');
-      app.use(express.static(distPath));
-      app.get('*', (req, res) => {
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-    }
   }
 }
 
@@ -526,16 +517,14 @@ async function sendDailyContent() {
 async function startServer() {
   await configureVite();
 
-  if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  if (!process.env.VERCEL) {
     // Only start intervals if not on Vercel (Vercel uses Cron Jobs)
-    if (!process.env.VERCEL) {
-      checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
-      sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
-      
-      // Run once on startup for demo
-      setTimeout(checkUpcomingAppointments, 10000);
-      setTimeout(sendDailyContent, 20000);
-    }
+    checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
+    sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
+    
+    // Run once on startup for demo
+    setTimeout(checkUpcomingAppointments, 10000);
+    setTimeout(sendDailyContent, 20000);
 
     const httpServer = createServer(app);
     const io = new Server(httpServer, {

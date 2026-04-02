@@ -5,6 +5,8 @@ import { Share2, Check, ExternalLink, UserPlus, Copy, Image as ImageIcon } from 
 import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { cn } from '../lib/utils';
+
 export interface NewsCardProps {
   id: string;
   title?: string;
@@ -39,9 +41,11 @@ export const NewsCard: React.FC<NewsCardProps> = ({
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const finalImageUrl = imageUrl || image;
+  const showPlaceholder = !finalImageUrl || imageError;
 
   const handleConnect = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -106,10 +110,20 @@ export const NewsCard: React.FC<NewsCardProps> = ({
 
   let formattedDate = date;
   if (date) {
-    const parsedDate = new Date(date);
-    if (isValid(parsedDate)) {
-      formattedDate = format(parsedDate, "EEE, dd MMM", { locale: ptBR });
-      formattedDate = formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+    try {
+      let parsedDate = parseISO(date);
+      if (!isValid(parsedDate)) {
+        parsedDate = new Date(date);
+      }
+      
+      if (isValid(parsedDate)) {
+        const formatted = format(parsedDate, "EEE, dd MMM", { locale: ptBR });
+        formattedDate = formatted.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+      }
+    } catch (e) {
+      // Keep original string
     }
   }
 
@@ -179,32 +193,40 @@ export const NewsCard: React.FC<NewsCardProps> = ({
         </div>
       )}
 
-      {finalImageUrl && (
-        <div className="w-full h-48 overflow-hidden relative bg-slate-200 dark:bg-slate-800">
-          {!imageLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center animate-pulse">
-              <ImageIcon className="w-10 h-10 text-slate-400 dark:text-slate-600" />
-            </div>
-          )}
-          <img 
-            src={finalImageUrl} 
-            alt={title} 
-            onLoad={() => setImageLoaded(true)}
-            className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      )}
+      <div className="w-full h-48 overflow-hidden relative bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center border-b border-slate-200 dark:border-white/5 shrink-0">
+        {showPlaceholder ? (
+          <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+            <ImageIcon className="w-10 h-10 mb-2 opacity-50" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Imagem indisponível</span>
+          </div>
+        ) : (
+          <>
+            {!imageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-slate-100 dark:bg-slate-800/50">
+                <ImageIcon className="w-10 h-10 text-slate-400 dark:text-slate-600" />
+              </div>
+            )}
+            <img 
+              src={finalImageUrl} 
+              alt={title || "Notícia"} 
+              onLoad={() => setImageLoaded(true)}
+              onError={() => setImageError(true)}
+              className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${imageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
+              referrerPolicy="no-referrer"
+            />
+          </>
+        )}
+      </div>
 
-      <div className={`p-6 flex-1 flex flex-col ${!finalImageUrl ? 'justify-center min-h-[250px]' : ''}`}>
+      <div className="p-6 flex-1 flex flex-col">
         {formattedDate && (
-          <span className={`font-bold uppercase tracking-widest text-emerald-500 mb-3 block ${!finalImageUrl ? 'text-sm' : 'text-[10px]'}`}>
+          <span className="font-bold uppercase tracking-widest text-emerald-500 mb-3 block text-[10px]">
             {formattedDate}
           </span>
         )}
         
         {title && (
-          <h3 className={`font-bold text-brand-text mb-4 leading-tight group-hover:text-emerald-400 transition-colors duration-300 ${!finalImageUrl ? 'text-2xl' : 'text-lg line-clamp-2'}`}>
+          <h3 className="font-bold text-brand-text mb-4 leading-tight group-hover:text-emerald-400 transition-colors duration-300 text-lg line-clamp-2">
             {title}
           </h3>
         )}
@@ -217,16 +239,28 @@ export const NewsCard: React.FC<NewsCardProps> = ({
                 <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-500/20 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-sm font-bold">
                   {therapistName[0]}
                 </div>
-                {isOnline && (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
-                )}
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                  {therapistName}
-                  {isOnline && <span className="text-[9px] text-emerald-500 uppercase tracking-tighter">Online</span>}
+              <div className="flex flex-col flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    {therapistName}
+                  </span>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest flex items-center gap-1.5",
+                    isOnline 
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30" 
+                      : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-700"
+                  )}>
+                    <span className={cn(
+                      "w-1.5 h-1.5 rounded-full",
+                      isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-400"
+                    )} />
+                    {isOnline ? "Online" : "Offline"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">
+                  Especialista SENTI
                 </span>
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest">Especialista SENTI</span>
               </div>
             </div>
             
@@ -255,14 +289,16 @@ export const NewsCard: React.FC<NewsCardProps> = ({
             </p>
           )}
 
-          {isTruncated && (
-            <div className="mt-4 flex items-center gap-4">
-              <button 
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-xs font-bold text-emerald-500 hover:underline flex items-center gap-1"
-              >
-                {isExpanded ? 'Ver menos' : 'Leia mais'}
-              </button>
+          <div className="mt-auto pt-4 flex items-center justify-between border-t border-slate-100 dark:border-white/5">
+            <div className="flex items-center gap-4">
+              {isTruncated && (
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-xs font-bold text-emerald-500 hover:underline flex items-center gap-1"
+                >
+                  {isExpanded ? 'Ver menos' : 'Leia mais'}
+                </button>
+              )}
               
               {url && !isExpanded && (
                 <div className="relative group/tooltip">
@@ -280,7 +316,17 @@ export const NewsCard: React.FC<NewsCardProps> = ({
                 </div>
               )}
             </div>
-          )}
+
+            {url && (
+              <button 
+                onClick={handleShare}
+                className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-emerald-500 transition-colors"
+              >
+                <Share2 size={12} />
+                Compartilhar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </motion.div>

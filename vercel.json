@@ -1,12 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/index.ts": {
-      "runtime": "@vercel/node",
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
@@ -16,7 +9,5 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }

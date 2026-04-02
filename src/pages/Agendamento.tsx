@@ -7,6 +7,7 @@ import { UserProfile } from "../types";
 import { paymentService } from "../services/paymentService";
 import { auth } from "../services/firebase";
 import CalendarAvailability from "../components/CalendarAvailability";
+import IARASchedulingAssistant from "../components/IARASchedulingAssistant";
 
 export default function Agendamento() {
   const { id } = useParams();
@@ -254,6 +255,7 @@ export default function Agendamento() {
           </motion.div>
         )}
       </div>
+      <IARASchedulingAssistant therapist={profissional} />
     </motion.div>
   );
 }

@@ -24,7 +24,7 @@ import { auth } from "../services/firebase";
 import { UserProfile, Avaliacao } from "../types";
 import { cn } from "../lib/utils";
 import CalendarAvailability from "../components/CalendarAvailability";
-import { falarComIARA, ChatMessage } from "../services/iaraService";
+import IARASchedulingAssistant from "../components/IARASchedulingAssistant";
 import { AnimatePresence } from "motion/react";
 
 export default function TerapeutaPerfil() {
@@ -33,42 +33,6 @@ export default function TerapeutaPerfil() {
   const [terapeuta, setTerapeuta] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-  const [isQuickChatOpen, setIsQuickChatOpen] = useState(false);
-  const [quickChatMessages, setQuickChatMessages] = useState<{ tipo: 'user' | 'iara', texto: string }[]>([]);
-  const [quickChatInput, setQuickChatInput] = useState("");
-  const [isIARATyping, setIsIARATyping] = useState(false);
-
-  const openQuickChat = () => {
-    setIsQuickChatOpen(true);
-    if (quickChatMessages.length === 0 && terapeuta) {
-      setQuickChatMessages([
-        { tipo: 'iara', texto: `Olá! Eu sou a IARA. Percebi que você está interessado no perfil de ${terapeuta.nome}. Tem alguma dúvida sobre como funciona o agendamento ou sobre a terapia na SENTI que eu possa te ajudar agora?` }
-      ]);
-    }
-  };
-
-  const handleSendQuickChatMessage = async () => {
-    if (!quickChatInput.trim() || isIARATyping) return;
-
-    const userMsg = quickChatInput;
-    setQuickChatInput("");
-    setQuickChatMessages(prev => [...prev, { tipo: 'user', texto: userMsg }]);
-    setIsIARATyping(true);
-
-    try {
-      const history: ChatMessage[] = quickChatMessages.map(m => ({
-        role: m.tipo === 'user' ? 'user' : 'model',
-        parts: [{ text: m.texto }]
-      }));
-
-      const response = await falarComIARA(userMsg, history);
-      setQuickChatMessages(prev => [...prev, { tipo: 'iara', texto: response.resposta }]);
-    } catch (error) {
-      console.error("Erro no chat rápido:", error);
-    } finally {
-      setIsIARATyping(false);
-    }
-  };
 
   const handleSelect = (date: Date, time: string) => {
     navigate(`/agendamento/${id}?date=${date.toISOString()}&time=${time}`);
@@ -243,13 +207,6 @@ export default function TerapeutaPerfil() {
                 >
                   <Calendar className="w-5 h-5" />
                   Agendar Horário
-                </button>
-                <button 
-                  onClick={openQuickChat}
-                  className="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-2xl text-xs font-bold transition-all border border-emerald-500/20 flex items-center justify-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Dúvidas sobre o agendamento?
                 </button>
                 <button 
                   onClick={() => navigate(`/agendamento/${terapeuta.uid}?instant=true`)}
@@ -459,94 +416,7 @@ export default function TerapeutaPerfil() {
         </div>
       </div>
 
-      {/* Quick Chat Modal */}
-      <AnimatePresence>
-        {isQuickChatOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
-            >
-              <div className="p-6 border-b border-white/5 flex items-center justify-between bg-slate-800/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/30">
-                    <Sparkles className="w-5 h-5 text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-100">Chat Rápido com IARA</h3>
-                    <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Suporte ao Agendamento</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setIsQuickChatOpen(false)}
-                  className="p-2 hover:bg-white/5 rounded-full text-slate-400 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-hide">
-                {quickChatMessages.map((msg, i) => (
-                  <div key={i} className={cn(
-                    "flex",
-                    msg.tipo === 'user' ? "justify-end" : "justify-start"
-                  )}>
-                    <div className={cn(
-                      "max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed",
-                      msg.tipo === 'user' 
-                        ? "bg-emerald-600 text-white rounded-tr-sm" 
-                        : "bg-slate-800 text-slate-200 rounded-tl-sm border border-white/5"
-                    )}>
-                      {msg.texto}
-                    </div>
-                  </div>
-                ))}
-                {isIARATyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-slate-800 p-4 rounded-2xl rounded-tl-sm border border-white/5 flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />
-                      <span className="text-xs text-slate-500">IARA está escrevendo...</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-6 border-t border-white/5 bg-slate-800/30">
-                <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    value={quickChatInput}
-                    onChange={(e) => setQuickChatInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendQuickChatMessage()}
-                    placeholder="Tire sua dúvida aqui..."
-                    className="flex-1 bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all"
-                  />
-                  <button 
-                    onClick={handleSendQuickChatMessage}
-                    disabled={!quickChatInput.trim() || isIARATyping}
-                    className="p-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 text-white rounded-xl transition-all shadow-lg shadow-emerald-900/20"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <button 
-                    onClick={() => {
-                      setIsQuickChatOpen(false);
-                      navigate(`/agendamento/${terapeuta?.uid}`);
-                    }}
-                    className="flex-1 py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border border-white/5"
-                  >
-                    Ir para Agendamento
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <IARASchedulingAssistant therapist={terapeuta} />
     </div>
   );
 }

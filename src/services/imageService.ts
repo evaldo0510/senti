@@ -15,27 +15,25 @@ function getAI() {
 }
 
 export async function generateTherapistAvatar() {
-  const response = await getAI().models.generateContent({
-    model: 'gemini-3.1-flash-image-preview',
-    contents: {
-      parts: [
-        {
-          text: 'Professional and welcoming avatar for a therapist named Dra. Ana Silva, specializing in Anxiety, Depression, and Cognitive Behavioral Therapy. Soft digital portrait with warm lighting, a neutral background, conveying peace and trust.',
-        },
-      ],
-    },
-    config: {
-      imageConfig: {
-        aspectRatio: "1:1",
-        imageSize: "1K"
-      }
-    },
-  });
+  try {
+    const response = await getAI().models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            text: 'Um avatar profissional e acolhedor para a Dra. Ana Silva, especialista em Ansiedade, Depressão e TCC, com estilo de retrato digital suave, iluminação quente e fundo neutro, transmitindo paz e confiança.',
+          },
+        ],
+      },
+    });
 
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:image/png;base64,${part.inlineData.data}`;
+      }
     }
+  } catch (error) {
+    console.error("Error generating avatar:", error);
   }
   return null;
 }

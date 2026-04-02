@@ -1,42 +1,37 @@
-import { generateImage } from "./src/services/geminiService";
 import { GoogleGenAI } from "@google/genai";
-import * as dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 
-dotenv.config();
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
-
-async function run() {
+async function generate() {
   try {
+    console.log("Generating image...");
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
-            text: `Um avatar profissional, acolhedor e moderno para uma terapeuta chamada Dra. Ana Silva, especialista em Ansiedade, Depressão e Terapia Cognitivo-Comportamental. Estilo: retrato digital suave, iluminação quente, fundo neutro, transmitindo paz e confiança.`,
+            text: 'A professional and welcoming digital portrait avatar of a female therapist named Dra. Ana Silva. Soft digital portrait style, warm lighting, neutral background, conveying peace and trust. She has a warm, empathetic smile, wearing professional yet approachable clothing. High quality, detailed.',
           },
         ],
       },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1",
-        },
-      },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
-        console.log(`data:image/png;base64,${part.inlineData.data.substring(0, 50)}...`);
-        // We'll write it to a file
-        const fs = require('fs');
-        fs.writeFileSync('avatar.txt', `data:image/png;base64,${part.inlineData.data}`);
-        console.log("Saved to avatar.txt");
-        return;
+        const base64EncodeString = part.inlineData.data;
+        const publicDir = path.join(process.cwd(), 'public');
+        if (!fs.existsSync(publicDir)) {
+          fs.mkdirSync(publicDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(publicDir, 'ana-silva.png'), Buffer.from(base64EncodeString, 'base64'));
+        console.log('Image saved to public/ana-silva.png');
       }
     }
   } catch (error) {
-    console.error(error);
+    console.error('Error generating image:', error);
   }
 }
 
-run();
+generate();

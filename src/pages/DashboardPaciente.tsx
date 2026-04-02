@@ -78,40 +78,6 @@ export default function DashboardPaciente() {
   }, []);
 
   useEffect(() => {
-    const checkAnaSilva = async () => {
-      const therapists = await userService.getFeaturedTherapists(10);
-      const hasAna = therapists.some(t => t.nome === "Dra. Ana Silva");
-      
-      if (!hasAna) {
-        const avatar = await generateTherapistAvatar();
-        // In a real app, we'd save this to Firestore. 
-        // For this demo, we'll just add her to the local state if needed.
-        if (avatar) {
-          const anaSilva: UserProfile = {
-            uid: "ana_silva_generated",
-            nome: "Dra. Ana Silva",
-            email: "ana.silva@senti.app",
-            tipo: "terapeuta",
-            fotoUrl: avatar,
-            especialidades: ["Ansiedade", "Depressão", "TCC"],
-            rating: 5.0,
-            reviewCount: 1,
-            online: true,
-            biografia: "Especialista em Terapia Cognitivo-Comportamental, focada em ajudar pacientes com ansiedade e depressão a encontrarem paz e equilíbrio.",
-            estilo: "acolhedor",
-            abordagem: "TCC",
-            intensidade: 40,
-            createdAt: new Date().toISOString()
-          };
-          setFeaturedTherapists(prev => [anaSilva, ...prev.slice(0, 2)]);
-        }
-      }
-    };
-    
-    checkAnaSilva();
-  }, []);
-
-  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && visibleNewsCount < news.length) {
@@ -146,6 +112,38 @@ export default function DashboardPaciente() {
         // Get featured therapists
         const therapists = await userService.getFeaturedTherapists(3);
         setFeaturedTherapists(therapists);
+
+        // Check for Ana Silva and generate avatar if needed
+        const anaSilva = therapists.find(t => t.nome === "Dra. Ana Silva");
+        if (!anaSilva || (anaSilva.fotoUrl && anaSilva.fotoUrl.includes('dicebear'))) {
+          const avatar = await generateTherapistAvatar();
+          if (avatar) {
+            if (anaSilva) {
+              await userService.updateProfile(anaSilva.uid, { fotoUrl: avatar });
+              setFeaturedTherapists(prev => 
+                prev.map(t => t.uid === anaSilva.uid ? { ...t, fotoUrl: avatar } : t)
+              );
+            } else {
+              const newAnaSilva: UserProfile = {
+                uid: "ana_silva_generated",
+                nome: "Dra. Ana Silva",
+                email: "ana.silva@senti.app",
+                tipo: "terapeuta",
+                fotoUrl: avatar,
+                especialidades: ["Ansiedade", "Depressão", "TCC"],
+                rating: 5.0,
+                reviewCount: 1,
+                online: true,
+                biografia: "Especialista em Terapia Cognitivo-Comportamental, focada em ajudar pacientes com ansiedade e depressão a encontrarem paz e equilíbrio.",
+                estilo: "acolhedor",
+                abordagem: "TCC",
+                intensidade: 40,
+                createdAt: new Date().toISOString()
+              };
+              setFeaturedTherapists(prev => [newAnaSilva, ...prev.slice(0, 2)]);
+            }
+          }
+        }
 
         // Mock news data
         const mockNews: NewsCardProps[] = [
