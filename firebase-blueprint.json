@@ -32,6 +32,7 @@
         "therapistId": { "type": "string", "description": "UID of the therapist" },
         "date": { "type": "string", "format": "date-time", "description": "Session date and time" },
         "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"], "description": "Appointment status" },
+        "sharedSecret": { "type": "string", "description": "Shared secret for E2EE chat" },
         "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
       },
       "required": ["patientId", "therapistId", "date", "status"]
@@ -47,7 +48,9 @@
         "timestamp": { "type": "object", "description": "Firestore server timestamp" },
         "appointmentId": { "type": "string", "description": "Optional appointment context" },
         "read": { "type": "boolean", "description": "If message has been read" },
-        "encrypted": { "type": "boolean", "description": "If message text is encrypted" }
+        "encrypted": { "type": "boolean", "description": "If message text is encrypted" },
+        "audioUrl": { "type": "string", "description": "URL of the audio message" },
+        "duration": { "type": "number", "description": "Duration of the audio message in seconds" }
       },
       "required": ["senderId", "receiverId", "text", "timestamp"]
     },

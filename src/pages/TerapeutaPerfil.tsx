@@ -30,6 +30,7 @@ import { cn } from "../lib/utils";
 import CalendarAvailability from "../components/CalendarAvailability";
 import IARASchedulingAssistant from "../components/IARASchedulingAssistant";
 import { AnimatePresence } from "motion/react";
+import { getEmbedUrl } from "../lib/videoUtils";
 
 export default function TerapeutaPerfil() {
   const { id } = useParams<{ id: string }>();
@@ -382,7 +383,7 @@ export default function TerapeutaPerfil() {
                   </h3>
                   <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-slate-900">
                     <iframe 
-                      src={terapeuta.videoUrl} 
+                      src={getEmbedUrl(terapeuta.videoUrl)} 
                       title={`Apresentação de ${terapeuta.nome}`}
                       className="absolute inset-0 w-full h-full"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

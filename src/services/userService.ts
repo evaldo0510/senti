@@ -163,10 +163,12 @@ export const userService = {
   createAppointment: async (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
     const path = 'appointments';
     try {
+      const sharedSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
       const newAppointment = {
         ...appointment,
         createdAt: new Date().toISOString(),
-        status: 'pending' as const
+        status: 'pending' as const,
+        sharedSecret
       };
       const docRef = await addDoc(collection(db, path), newAppointment);
       

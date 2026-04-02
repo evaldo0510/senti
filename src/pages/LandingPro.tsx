@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
 import { 
-  Heart, 
+  HeartPulse, 
   Shield, 
   Clock, 
   Users, 
@@ -27,7 +27,8 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
-  X
+  X,
+  Heart
 } from "lucide-react";
 
 const FAQItem = ({ question, answer }: { question: string, answer: string }) => {
@@ -91,7 +92,7 @@ export default function LandingPro() {
           >
             <div className="bg-white/90 backdrop-blur-2xl p-6 rounded-[32px] border border-emerald-100 shadow-2xl flex items-center gap-6">
               <div className="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-600/20">
-                <Heart className="w-8 h-8 text-white fill-current" />
+                <HeartPulse className="w-8 h-8 text-white" />
               </div>
               <div className="flex-grow">
                 <h4 className="font-bold text-[#1a1a1a] text-lg leading-tight">SENTI no seu celular</h4>
@@ -113,7 +114,7 @@ export default function LandingPro() {
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate("/")}>
             <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shadow-[0_10px_20px_rgba(5,150,105,0.2)] group-hover:scale-110 transition-transform">
-              <Heart className="w-6 h-6 text-white fill-current" />
+              <HeartPulse className="w-6 h-6 text-white" />
             </div>
             <span className="text-2xl font-bold tracking-tighter text-[#1a1a1a] font-serif italic">Sentí</span>
           </div>
@@ -549,7 +550,7 @@ export default function LandingPro() {
                     <div className="p-6 space-y-6">
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-                          <Heart className="w-5 h-5 text-white fill-current" />
+                          <HeartPulse className="w-5 h-5 text-white" />
                         </div>
                         <span className="font-serif italic font-bold text-emerald-900">Sentí</span>
                       </div>

@@ -14,6 +14,11 @@ service cloud.firestore {
     //   - displayName: string (optional)
     //   - tipo: string (required, ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'admin'])
     //   - createdAt: string (required, date-time)
+    //   - pillOfTheWeek: map (optional)
+    //     - dia: number (required)
+    //     - frase: string (required)
+    //     - timestamp: string (required, date-time)
+    //   - videoUrl: string (optional)
     //
     // Collection: appointments
     // Document ID: {appointmentId}
@@ -109,7 +114,16 @@ service cloud.firestore {
              data.uid == request.auth.uid &&
              isValidEmail(data.email) &&
              data.tipo in ['usuario', 'terapeuta', 'empresa', 'prefeitura', 'clinica', 'hospital', 'admin'] &&
-             isValidDateString(data.createdAt);
+             isValidDateString(data.createdAt) &&
+             (!('pillOfTheWeek' in data) || (
+               data.pillOfTheWeek is map &&
+               data.pillOfTheWeek.keys().hasAll(['dia', 'frase', 'timestamp']) &&
+               data.pillOfTheWeek.dia is number &&
+               data.pillOfTheWeek.frase is string &&
+               data.pillOfTheWeek.frase.size() <= 500 &&
+               isValidDateString(data.pillOfTheWeek.timestamp)
+             )) &&
+             (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 500));
     }
 
     function isValidAppointment(data) {
@@ -118,15 +132,21 @@ service cloud.firestore {
              data.therapistId is string &&
              isValidDateString(data.date) &&
              data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
-             isValidDateString(data.createdAt);
+             isValidDateString(data.createdAt) &&
+             (!('sharedSecret' in data) || (data.sharedSecret is string && data.sharedSecret.size() <= 100));
     }
 
     function isValidMessage(data) {
       return request.resource.data.keys().hasAll(['senderId', 'receiverId', 'text', 'timestamp']) &&
              data.senderId == request.auth.uid &&
              data.receiverId is string &&
-             data.text is string && data.text.size() <= 5000 &&
-             data.timestamp is timestamp;
+             data.text is string && data.text.size() <= 10000 &&
+             data.timestamp is timestamp &&
+             (!('appointmentId' in data) || (data.appointmentId is string || data.appointmentId == null)) &&
+             (!('encrypted' in data) || data.encrypted is bool) &&
+             (!('audioUrl' in data) || (data.audioUrl is string && data.audioUrl.size() <= 1000)) &&
+             (!('duration' in data) || data.duration is number) &&
+             (!('read' in data) || data.read is bool);
     }
 
     function isValidEmotionLog(data) {
@@ -173,7 +193,8 @@ service cloud.firestore {
       allow update: if isOwner(userId) && 
                     (request.resource.data.tipo == resource.data.tipo || isAdmin()) &&
                     // Ensure required fields are still present
-                    request.resource.data.keys().hasAll(['uid', 'email', 'tipo', 'createdAt']);
+                    request.resource.data.keys().hasAll(['uid', 'email', 'tipo', 'createdAt']) &&
+                    isValidUser(request.resource.data);
 
       match /pushSubscriptions/{subscriptionId} {
         allow read, write: if isOwner(userId);

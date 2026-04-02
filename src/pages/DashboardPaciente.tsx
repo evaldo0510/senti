@@ -41,7 +41,7 @@ import { ReviewModal } from "../components/ReviewModal";
 import { NewsCard } from "../components/NewsCard";
 import StarRating from "../components/StarRating";
 import Especialidades from "../components/Especialidades";
-import { getPillOfDay, Pill } from "../services/pillService";
+import { getPillOfDay, Pill, pillService } from "../services/pillService";
 import { addXp, updateStreak, XP_ACTIONS, getLevelByXp, getNextLevel, LEVELS } from "../services/gamificationService";
 import { Onboarding } from "../components/Onboarding";
 import { AffirmationToast } from "../components/AffirmationToast";
@@ -274,6 +274,16 @@ export default function DashboardPaciente() {
     if (!pillRead && auth.currentUser) {
       await addXp(auth.currentUser.uid, XP_ACTIONS.READ_PILL);
       setPillRead(true);
+    }
+  };
+
+  const handleSetFavoritePill = async () => {
+    if (dailyPill && auth.currentUser) {
+      const success = await pillService.setFavoritePill(dailyPill);
+      if (success) {
+        const profile = await userService.getUser(auth.currentUser.uid);
+        setUserProfile(profile);
+      }
     }
   };
 
@@ -615,6 +625,13 @@ export default function DashboardPaciente() {
                   {pillRead ? "Pílula Absorvida" : "Absorver Pílula (+3 XP)"}
                 </button>
                 <button 
+                  onClick={handleSetFavoritePill}
+                  className="flex-1 py-4 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-indigo-500/20"
+                >
+                  <Star className="w-4 h-4" />
+                  Pílula da Semana
+                </button>
+                <button 
                   onClick={() => navigate("/reset")}
                   className="flex-1 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-lg"
                 >
@@ -650,6 +667,27 @@ export default function DashboardPaciente() {
               </button>
             </div>
             <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+          </motion.div>
+        )}
+
+        {/* Pill of the Week Highlight */}
+        {userProfile?.pillOfTheWeek && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2.5rem] p-6 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden"
+          >
+            <div className="absolute -right-4 -top-4 opacity-20">
+              <Star size={80} className="text-white fill-current" />
+            </div>
+            <div className="relative z-10 space-y-3">
+              <div className="flex items-center gap-2">
+                <Star className="w-4 h-4 text-indigo-200 fill-current" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-100">Sua Pílula da Semana</span>
+              </div>
+              <h3 className="text-xl font-bold leading-tight">"{userProfile.pillOfTheWeek.frase}"</h3>
+              <p className="text-xs text-indigo-100/80">Escolhida em {new Date(userProfile.pillOfTheWeek.timestamp).toLocaleDateString('pt-BR')}</p>
+            </div>
           </motion.div>
         )}
 

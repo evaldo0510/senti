@@ -37,7 +37,7 @@ export const chatService = {
   sendMessage: async (appointmentId: string, senderId: string, receiverId: string, text: string, secret?: string) => {
     const path = 'messages';
     try {
-      const encryptedText = secret ? await cryptoService.encrypt(text, secret) : text;
+      const encryptedText = secret ? cryptoService.encrypt(text, secret) : text;
       const messageData = {
         senderId,
         receiverId,
@@ -102,7 +102,7 @@ export const chatService = {
         console.error("Transcription failed", transcribeError);
       }
 
-      const encryptedText = secret ? await cryptoService.encrypt(transcription, secret) : transcription;
+      const encryptedText = secret ? cryptoService.encrypt(transcription, secret) : transcription;
 
       const messageData = {
         senderId,
@@ -215,19 +215,19 @@ export const chatService = {
       where("appointmentId", "==", appointmentId)
     );
 
-    return onSnapshot(q, async (snapshot) => {
-      const messages = await Promise.all(snapshot.docs.map(async doc => {
+    return onSnapshot(q, (snapshot) => {
+      const messages = snapshot.docs.map(doc => {
         const data = doc.data();
         let text = data.text;
         if (data.encrypted && secret) {
-          text = await cryptoService.decrypt(text, secret);
+          text = cryptoService.decrypt(text, secret);
         }
         return {
           id: doc.id,
           ...data,
           text
         } as DirectMessage;
-      }));
+      });
       messages.sort((a: any, b: any) => {
         const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : 0;
         const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : 0;

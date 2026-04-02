@@ -22,6 +22,7 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
     especialidades: profile.especialidades || [],
     disponibilidade: profile.disponibilidade || [],
     fotoUrl: profile.fotoUrl || '',
+    videoUrl: profile.videoUrl || '',
     estilo: profile.estilo || 'acolhedor',
     abordagem: profile.abordagem || '',
     descontoComunidade: profile.descontoComunidade || 0
@@ -266,6 +267,16 @@ export const TerapeutaSettings: React.FC<TerapeutaSettingsProps> = ({ profile, o
                   onChange={(e) => setFormData({ ...formData, fotoUrl: e.target.value })}
                   className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl py-4 px-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all font-medium placeholder:text-brand-text/20"
                   placeholder="https://exemplo.com/foto.jpg"
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="block text-[10px] font-bold text-brand-text/40 uppercase tracking-widest ml-1">URL do Vídeo de Apresentação (YouTube/Vimeo)</label>
+                <input
+                  type="text"
+                  value={formData.videoUrl}
+                  onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                  className="w-full bg-brand-bg/50 border border-brand-text/5 rounded-2xl py-4 px-5 text-brand-text focus:border-brand-indigo/30 outline-none transition-all font-medium placeholder:text-brand-text/20"
+                  placeholder="https://www.youtube.com/watch?v=..."
                 />
               </div>
             </div>

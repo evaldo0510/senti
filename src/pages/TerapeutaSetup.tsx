@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { User, Briefcase, DollarSign, ArrowRight, Activity, ArrowLeft, Instagram, Globe } from "lucide-react";
+import { User, Briefcase, DollarSign, ArrowRight, Activity, ArrowLeft, Instagram, Globe, Video } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 
@@ -17,6 +17,7 @@ export default function TerapeutaSetup() {
   const [abordagem, setAbordagem] = useState<string>("TCC");
   const [instagram, setInstagram] = useState("");
   const [website, setWebsite] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -34,6 +35,7 @@ export default function TerapeutaSetup() {
           setAbordagem(profile.abordagem || "TCC");
           setInstagram(profile.instagram || "");
           setWebsite(profile.website || "");
+          setVideoUrl(profile.videoUrl || "");
         }
       }
     };
@@ -56,6 +58,7 @@ export default function TerapeutaSetup() {
         abordagem,
         instagram,
         website,
+        videoUrl,
         tipo: 'terapeuta',
         online: true
       });
@@ -258,6 +261,22 @@ export default function TerapeutaSetup() {
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://seusite.com"
+                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Vídeo de Apresentação (YouTube/Vimeo)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Video className="h-5 w-5 text-slate-500" />
+                </div>
+                <input
+                  type="text"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=..."
                   className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                 />
               </div>

@@ -394,6 +394,9 @@ export default function Atendimento() {
                 <p className="leading-relaxed whitespace-pre-wrap">{m.text}</p>
               )}
               <div className="flex items-center justify-end gap-1 mt-1">
+                {m.encrypted && (
+                  <Lock className="w-2.5 h-2.5 opacity-40 mr-1" />
+                )}
                 <p className="text-[10px] opacity-50">
                   {m.timestamp?.toDate ? m.timestamp.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ""}
                 </p>

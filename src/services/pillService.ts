@@ -1,3 +1,6 @@
+import { userService } from "./userService";
+import { auth } from "./firebase";
+
 export interface Pill {
   dia: number;
   frase: string;
@@ -72,4 +75,33 @@ const getDayOfYear = (): number => {
   const diff = (now.getTime() - start.getTime()) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
   const oneDay = 1000 * 60 * 60 * 24;
   return Math.floor(diff / oneDay);
+};
+
+export const pillService = {
+  getPilulas: () => pilulas,
+  
+  getPillOfDay: (dayOfYear?: number): Pill => {
+    const day = dayOfYear || getDayOfYear();
+    const index = (day - 1) % pilulas.length;
+    return pilulas[index];
+  },
+
+  setFavoritePill: async (pill: Pill) => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Usuário não autenticado");
+
+    try {
+      await userService.updateProfile(user.uid, {
+        pillOfTheWeek: {
+          dia: pill.dia,
+          frase: pill.frase,
+          timestamp: new Date().toISOString()
+        }
+      });
+      return true;
+    } catch (error) {
+      console.error("Erro ao salvar pílula favorita:", error);
+      return false;
+    }
+  }
 };

@@ -122,6 +122,11 @@ export interface UserProfile {
   isPremium?: boolean;
   isComunidade?: boolean; // Se o paciente é da comunidade/centro
   journeyProgress?: number; // Current day in the 21-day journey
+  pillOfTheWeek?: {
+    dia: number;
+    frase: string;
+    timestamp: string;
+  };
   // Social
   instagram?: string;
   website?: string;

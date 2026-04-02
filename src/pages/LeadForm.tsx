@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { User, Mail, ArrowRight, ShieldCheck, Heart, Sparkles } from "lucide-react";
+import { User, Mail, ArrowRight, ShieldCheck, HeartPulse, Sparkles } from "lucide-react";
 
 export default function LeadForm() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export default function LeadForm() {
       >
         <div className="flex justify-center">
           <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.4)]">
-            <Heart className="w-8 h-8 text-slate-950 fill-current" />
+            <HeartPulse className="w-8 h-8 text-slate-950" />
           </div>
         </div>
         
