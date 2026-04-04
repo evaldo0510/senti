@@ -21,7 +21,10 @@ import {
   Sparkles,
   Play,
   Square,
-  Crown
+  Crown,
+  Star,
+  MessageSquare,
+  X
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -44,6 +47,10 @@ export default function Perfil() {
   const [diaryEntries, setDiaryEntries] = useState<any[]>([]);
   const [dailyPill, setDailyPill] = useState<Pill | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   // Form state
   const [nome, setNome] = useState("");
@@ -119,6 +126,24 @@ export default function Perfil() {
       console.error("Error saving profile:", error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (feedbackRating === 0) return;
+    setSubmittingFeedback(true);
+    try {
+      const success = await userService.saveFeedback(feedbackRating, feedbackComment);
+      if (success) {
+        setShowFeedbackModal(false);
+        setFeedbackRating(0);
+        setFeedbackComment("");
+        // Could add a toast here
+      }
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -593,11 +618,88 @@ export default function Perfil() {
             <LogOut className="w-4 h-4" />
             Sair da Conta
           </button>
+
+          <button 
+            onClick={() => setShowFeedbackModal(true)}
+            className="w-full py-4 bg-slate-900 border border-white/5 text-slate-300 rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3"
+          >
+            <MessageSquare className="w-4 h-4 text-emerald-400" />
+            Enviar Feedback
+          </button>
+
           <p className="text-center text-[10px] text-slate-600 uppercase tracking-widest font-bold">
             Versão 1.0.0 (Beta)
           </p>
         </div>
       </main>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-md space-y-6 relative"
+          >
+            <button 
+              onClick={() => setShowFeedbackModal(false)}
+              className="absolute top-6 right-6 p-2 text-slate-500 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-serif italic text-white">Sua opinião importa</h3>
+              <p className="text-sm text-slate-400">Como está sendo sua experiência com o SENTI?</p>
+            </div>
+
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setFeedbackRating(star)}
+                  className="p-2 transition-transform active:scale-90"
+                >
+                  <Star 
+                    className={cn(
+                      "w-8 h-8 transition-colors",
+                      feedbackRating >= star ? "text-amber-400 fill-amber-400" : "text-slate-700"
+                    )}
+                  />
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-2">Sugestões de melhoria</label>
+              <textarea 
+                value={feedbackComment}
+                onChange={(e) => setFeedbackComment(e.target.value)}
+                rows={4}
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all resize-none"
+                placeholder="O que podemos fazer melhor?"
+              />
+            </div>
+
+            <button 
+              onClick={handleSubmitFeedback}
+              disabled={submittingFeedback || feedbackRating === 0}
+              className={cn(
+                "w-full py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2",
+                feedbackRating > 0 
+                  ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20" 
+                  : "bg-slate-800 text-slate-500 cursor-not-allowed"
+              )}
+            >
+              {submittingFeedback ? (
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                "Enviar Avaliação"
+              )}
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

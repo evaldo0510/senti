@@ -106,6 +106,18 @@
         }
       },
       "required": ["perfil", "historico"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User feedback and app evaluation",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user" },
+        "rating": { "type": "number", "description": "Rating from 1 to 5" },
+        "comment": { "type": "string", "description": "User's suggestions or comments" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Submission timestamp" }
+      },
+      "required": ["userId", "rating", "timestamp"]
     }
   },
   "firestore": {
@@ -132,6 +144,10 @@
     "diary_entries": {
       "schema": "DiaryEntry",
       "description": "Collection of user diary entries"
+    },
+    "feedbacks": {
+      "schema": "Feedback",
+      "description": "Collection of user feedbacks"
     }
   }
 }

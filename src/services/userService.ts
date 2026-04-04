@@ -108,6 +108,24 @@ export const userService = {
     });
   },
 
+  saveFeedback: async (rating: number, comment: string) => {
+    const user = auth.currentUser;
+    const userId = user?.uid || 'guest_user';
+    const path = 'feedbacks';
+    try {
+      await addDoc(collection(db, path), {
+        userId,
+        rating,
+        comment,
+        timestamp: new Date().toISOString()
+      });
+      return true;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+      return false;
+    }
+  },
+
   getUser: async (uid: string): Promise<UserProfile | null> => {
     const path = `users/${uid}`;
     try {
