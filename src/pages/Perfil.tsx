@@ -497,23 +497,31 @@ export default function Perfil() {
           {/* Notification Settings */}
           <div className="space-y-4 pt-4">
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Configurações de Notificação</label>
-            <div className="bg-slate-900/30 border border-white/5 rounded-3xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
+            <div className={cn(
+              "rounded-3xl p-6 space-y-4 transition-all border",
+              notificationPermission !== 'granted' 
+                ? "bg-emerald-500/10 border-emerald-500/20" 
+                : "bg-slate-900/30 border-white/5"
+            )}>
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
-                    <Bell className="w-4 h-4 text-emerald-400" />
+                  <div className={cn(
+                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    notificationPermission !== 'granted' ? "bg-emerald-500 text-white" : "bg-emerald-500/10 text-emerald-400"
+                  )}>
+                    <Bell className="w-4 h-4" />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-200">Notificações Push</p>
-                    <p className="text-xs text-slate-500">
-                      Status: {notificationPermission === 'granted' ? 'Ativadas' : notificationPermission === 'denied' ? 'Bloqueadas' : 'Não configuradas'}
+                    <p className="text-xs text-slate-400 leading-relaxed max-w-[200px]">
+                      Habilite para receber lembretes de sessões e dicas terapêuticas diárias.
                     </p>
                   </div>
                 </div>
                 {notificationPermission !== 'granted' ? (
                   <button 
                     onClick={requestNotificationPermission}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all"
+                    className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold text-xs transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
                   >
                     Ativar
                   </button>
