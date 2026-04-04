@@ -13,11 +13,11 @@ export default function Login() {
   const [tipoSelecionado, setTipoSelecionado] = useState<"usuario" | "terapeuta" | "empresa" | "prefeitura">("usuario");
 
   useEffect(() => {
-    if (isAuthReady && user) {
-      // Se já estiver logado, vai para o dashboard
+    if (isAuthReady && user && profile) {
+      // Se já estiver logado e tiver perfil, vai para o dashboard
       navigate("/dashboard");
     }
-  }, [user, isAuthReady, navigate]);
+  }, [user, profile, isAuthReady, navigate]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,19 +27,33 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
+    setError("");
     try {
+      console.log("Iniciando login com Google...");
       const user = await loginWithGoogle();
       if (user) {
+        console.log("Login com Google bem-sucedido, sincronizando perfil...");
         const profile = await userService.syncProfile(user, tipoSelecionado);
+        console.log("Perfil sincronizado:", profile);
         localStorage.setItem("tipo", profile?.tipo || tipoSelecionado);
         navigate("/dashboard");
       }
     } catch (err: any) {
+      console.error("Erro detalhado no login:", err);
       let message = "Erro ao fazer login com Google.";
+      
+      const currentDomain = window.location.hostname;
       
       // Handle specific Firebase Auth errors
       if (err.code === 'auth/unauthorized-domain') {
-        message = "Este domínio não está autorizado no Firebase Console. Por favor, adicione o domínio atual à lista de domínios autorizados nas configurações de Autenticação do Firebase.";
+        message = `Este domínio (${currentDomain}) não está autorizado no Firebase Console. 
+        
+        Para resolver:
+        1. Acesse o Console do Firebase (console.firebase.google.com)
+        2. Vá em Autenticação > Configurações > Domínios Autorizados
+        3. Adicione o domínio: ${currentDomain}`;
+      } else if (err.code === 'auth/popup-blocked') {
+        message = "O popup de login foi bloqueado pelo seu navegador. Por favor, permita popups para este site.";
       } else {
         try {
           const parsed = JSON.parse(err.message);
@@ -77,7 +91,11 @@ export default function Login() {
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-sm text-center font-bold">
+          <div className="p-5 bg-red-50 border border-red-100 rounded-3xl text-red-600 text-sm font-medium whitespace-pre-line">
+            <div className="flex items-center gap-2 mb-2 font-bold uppercase tracking-widest text-[10px]">
+              <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              Erro de Configuração
+            </div>
             {error}
           </div>
         )}
@@ -132,11 +150,20 @@ export default function Login() {
           </div>
         </div>
 
-        <div className="text-center mt-8">
+        <div className="text-center mt-8 space-y-4">
           <p className="text-sm text-[#6a6a6a]">
             Ao entrar, você concorda com nossos <br />
             <span className="text-emerald-600 font-bold cursor-pointer hover:underline">Termos de Uso</span> e <span className="text-emerald-600 font-bold cursor-pointer hover:underline">Privacidade</span>.
           </p>
+          
+          <div className="pt-4 border-t border-black/5">
+            <button 
+              onClick={() => navigate("/contato")}
+              className="text-xs text-[#9a9a9a] hover:text-emerald-600 transition-colors"
+            >
+              Problemas com o login? Entre em contato com o suporte.
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>

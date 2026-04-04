@@ -47,13 +47,8 @@ export default function Terapeuta() {
 
   useEffect(() => {
     if (isAuthReady && !loading) {
-      if (!profile || (profile.tipo !== 'terapeuta' && profile.tipo !== 'admin')) {
-        navigate("/login");
-        return;
-      }
-
       // Auto-subscribe to push notifications if not already subscribed
-      if (pushPermission === 'default' && !isSubscribed) {
+      if (pushPermission === 'default' && !isSubscribed && profile) {
         subscribe();
       }
 

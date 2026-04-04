@@ -19,6 +19,7 @@ export default function TerapeutaSetup() {
   const [website, setWebsite] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -42,8 +43,31 @@ export default function TerapeutaSetup() {
     fetchProfile();
   }, []);
 
+  const validar = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!nome.trim()) {
+      newErrors.nome = "O nome é obrigatório";
+    }
+    
+    if (!especialidade.trim()) {
+      newErrors.especialidade = "A especialidade é obrigatória";
+    }
+    
+    const precoNum = parseFloat(preco);
+    if (!preco || isNaN(precoNum)) {
+      newErrors.preco = "O preço é obrigatório e deve ser um número";
+    } else if (precoNum <= 0) {
+      newErrors.preco = "O preço deve ser um valor positivo";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const salvar = async () => {
-    if (!nome || !especialidade || !auth.currentUser) return;
+    if (!auth.currentUser) return;
+    if (!validar()) return;
     
     setIsLoading(true);
     try {
@@ -107,11 +131,15 @@ export default function TerapeutaSetup() {
                 <input
                   type="text"
                   value={nome}
-                  onChange={(e) => setNome(e.target.value)}
+                  onChange={(e) => {
+                    setNome(e.target.value);
+                    if (errors.nome) setErrors(prev => ({ ...prev, nome: "" }));
+                  }}
                   placeholder="Dr. João Silva"
-                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  className={`w-full bg-slate-950 border ${errors.nome ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50`}
                 />
               </div>
+              {errors.nome && <p className="text-xs text-red-500 ml-1">{errors.nome}</p>}
             </div>
 
             <div className="space-y-2">
@@ -123,11 +151,15 @@ export default function TerapeutaSetup() {
                 <input
                   type="text"
                   value={especialidade}
-                  onChange={(e) => setEspecialidade(e.target.value)}
+                  onChange={(e) => {
+                    setEspecialidade(e.target.value);
+                    if (errors.especialidade) setErrors(prev => ({ ...prev, especialidade: "" }));
+                  }}
                   placeholder="Psicólogo Clínico, TCC..."
-                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  className={`w-full bg-slate-950 border ${errors.especialidade ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50`}
                 />
               </div>
+              {errors.especialidade && <p className="text-xs text-red-500 ml-1">{errors.especialidade}</p>}
             </div>
 
             <div className="space-y-2">
@@ -139,11 +171,15 @@ export default function TerapeutaSetup() {
                 <input
                   type="number"
                   value={preco}
-                  onChange={(e) => setPreco(e.target.value)}
+                  onChange={(e) => {
+                    setPreco(e.target.value);
+                    if (errors.preco) setErrors(prev => ({ ...prev, preco: "" }));
+                  }}
                   placeholder="150"
-                  className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  className={`w-full bg-slate-950 border ${errors.preco ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50`}
                 />
               </div>
+              {errors.preco && <p className="text-xs text-red-500 ml-1">{errors.preco}</p>}
             </div>
 
             <div className="space-y-2">
@@ -287,7 +323,7 @@ export default function TerapeutaSetup() {
         <div className="pt-4">
           <button 
             onClick={salvar}
-            disabled={!nome || !especialidade || isLoading}
+            disabled={isLoading}
             className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
           >
             {isLoading ? "Salvando..." : "Finalizar Configuração"}

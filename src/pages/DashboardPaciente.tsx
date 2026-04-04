@@ -101,13 +101,9 @@ export default function DashboardPaciente() {
 
     const loadData = async () => {
       const user = auth.currentUser;
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
+      
       try {
-        const profile = await userService.getUser(user.uid);
+        const profile = user ? await userService.getUser(user.uid) : null;
         setUserProfile(profile);
 
         // Get featured therapists

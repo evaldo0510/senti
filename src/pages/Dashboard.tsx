@@ -1,11 +1,18 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../components/AuthProvider";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { profile, isAuthReady, user } = useAuth();
 
   useEffect(() => {
-    const tipo = localStorage.getItem("tipo");
+    if (!isAuthReady) return;
+
+    const tipo = profile?.tipo || localStorage.getItem("tipo") || "usuario";
+
+    // Garantir que o tipo está no localStorage para usos futuros
+    localStorage.setItem("tipo", tipo);
 
     switch (tipo) {
       case "usuario":
@@ -30,7 +37,7 @@ export default function Dashboard() {
       default:
         navigate("/login");
     }
-  }, [navigate]);
+  }, [navigate, profile, isAuthReady, user]);
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400">

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
@@ -17,7 +17,11 @@ export enum OperationType {
 
 // Initialize Firebase SDK safely
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const firestore = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId);
+
+// Use initializeFirestore with experimentalForceLongPolling to resolve "offline" errors in the preview environment
+const firestore = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, (firebaseConfig as any).firestoreDatabaseId);
 
 export const db = firestore;
 export const auth = getAuth(app);
@@ -86,7 +90,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  // Not throwing to avoid crashing the app, as requested by user to "remove authentication"
+  return errInfo;
 }
 
 // Test connection

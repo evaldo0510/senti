@@ -20,12 +20,13 @@ import {
 export const userService = {
   saveMood: async (value: number, intensity: number, note?: string) => {
     const user = auth.currentUser;
-    if (!user) throw new Error("User not authenticated");
+    const userId = user?.uid || 'guest_user';
+    const userName = user?.displayName || user?.email || 'Anônimo';
 
     const path = 'emotion_logs';
     try {
       const newEntry = {
-        userId: user.uid,
+        userId,
         emotion: note || 'Registro de humor',
         value,
         intensity,
@@ -45,7 +46,7 @@ export const userService = {
             },
             body: JSON.stringify({
               data: new Date().toLocaleDateString('pt-BR'),
-              usuario: user.displayName || user.email || 'Anônimo',
+              usuario: userName,
               humor: value,
               risco: value <= 3 ? 'alto' : value <= 6 ? 'moderado' : 'leve',
               atendimento: 'nao',
@@ -65,12 +66,12 @@ export const userService = {
 
   getMoodHistory: (callback: (history: any[]) => void) => {
     const user = auth.currentUser;
-    if (!user) return () => {};
+    const userId = user?.uid || 'guest_user';
 
     const path = 'emotion_logs';
     const q = query(
       collection(db, path),
-      where("userId", "==", user.uid)
+      where("userId", "==", userId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -87,12 +88,12 @@ export const userService = {
 
   getDiaryEntries: (callback: (entries: any[]) => void) => {
     const user = auth.currentUser;
-    if (!user) return () => {};
+    const userId = user?.uid || 'guest_user';
 
     const path = 'diary_entries';
     const q = query(
       collection(db, path),
-      where("userId", "==", user.uid)
+      where("userId", "==", userId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -242,14 +243,14 @@ export const userService = {
 
   getMyAppointments: (callback: (appointments: Appointment[]) => void, role: UserType = 'usuario') => {
     const user = auth.currentUser;
-    if (!user) return () => {};
+    const userId = user?.uid || 'guest_user';
     
     const path = 'appointments';
     const field = role === 'terapeuta' ? 'therapistId' : 'patientId';
     
     const q = query(
       collection(db, path),
-      where(field, "==", user.uid)
+      where(field, "==", userId)
     );
 
     return onSnapshot(q, (snapshot) => {
@@ -330,7 +331,8 @@ export const userService = {
 
   submitReview: async (appointmentId: string, therapistId: string, nota: number, comentario?: string) => {
     const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    const userId = user?.uid || 'guest_user';
+    const userName = user?.displayName || "Paciente";
 
     const path = `appointments/${appointmentId}`;
     try {
@@ -346,8 +348,8 @@ export const userService = {
         const avaliacoes = therapistData.avaliacoes || [];
         
         const newReview = {
-          userId: user.uid,
-          userName: user.displayName || "Paciente",
+          userId,
+          userName,
           nota,
           comentario,
           data: new Date().toISOString()
@@ -381,15 +383,16 @@ export const userService = {
 
   createManualEvolution: async (patientId: string, patientNome: string, notes: string, riskLevel: Appointment['riskLevel']) => {
     const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
+    const userId = user?.uid || 'guest_therapist';
+    const userName = user?.displayName || "Terapeuta";
 
     const path = 'appointments';
     try {
       const newEvolution = {
         patientId,
         patientNome,
-        therapistId: user.uid,
-        therapistNome: user.displayName || "Terapeuta",
+        therapistId: userId,
+        therapistNome: userName,
         date: new Date().toISOString(),
         status: 'completed' as const,
         notes,
@@ -455,6 +458,7 @@ export const userService = {
   },
 
   syncProfile: async (user: any, type: UserType = 'usuario') => {
+    if (!user) return null;
     const path = `users/${user.uid}`;
     try {
       const docSnap = await getDoc(doc(db, 'users', user.uid));
@@ -473,6 +477,7 @@ export const userService = {
       return docSnap.data() as UserProfile;
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
+      return null;
     }
   },
 
