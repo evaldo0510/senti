@@ -1,10 +1,161 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Making the database public as explicitly requested by the user 
-    // to resolve persistent "Missing or insufficient permissions" errors.
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, displayName, email, photoURL, tipo, especialidade, cidade, preco, rating, reviews, online, presencial, biografia, videoUrl, createdAt
+    //
+    // Collection: appointments
+    // Fields: patientId, therapistId, date, status, sharedSecret, createdAt
+    //
+    // Collection: messages
+    // Fields: senderId, receiverId, text, timestamp, appointmentId, read, encrypted, audioUrl, duration
+    //
+    // Collection: emotion_logs
+    // Fields: userId, emotion, intensity, timestamp
+    //
+    // Collection: memoria_iara
+    // Fields: perfil, historico
+    //
+    // Collection: diary_entries
+    // Fields: userId, title, content, timestamp
+    //
+    // Collection: feedbacks
+    // Fields: userId, rating, comment, timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+         (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Users collection
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.keys().hasAll(['uid', 'email', 'tipo']) &&
+               data.uid == userId &&
+               isValidEmail(data.email) &&
+               data.tipo in ["usuario", "terapeuta", "empresa", "prefeitura", "clinica", "hospital", "admin"] &&
+               (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
+               (!('videoUrl' in data) || isValidUrl(data.videoUrl));
+      }
+
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                      (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                      (isOwner(userId) || isAdmin()) &&
+                      request.resource.data.uid == resource.data.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Appointments collection
+    match /appointments/{appointmentId} {
+      function isValidAppointment(data) {
+        return data.keys().hasAll(['patientId', 'therapistId', 'date', 'status']) &&
+               data.status in ["pending", "confirmed", "cancelled", "completed"] &&
+               isValidDateString(data.date);
+      }
+
+      allow read: if isAuthenticated() && 
+                    (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin());
+      allow create: if isAuthenticated() && isValidAppointment(request.resource.data) && 
+                      (isOwner(request.resource.data.patientId) || isAdmin());
+      allow update: if isAuthenticated() && isValidAppointment(request.resource.data) && 
+                      (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Messages collection
+    match /messages/{messageId} {
+      function isValidMessage(data) {
+        return data.keys().hasAll(['senderId', 'receiverId', 'text', 'timestamp']) &&
+               data.senderId == request.auth.uid;
+      }
+
+      allow read: if isAuthenticated() && 
+                    (isOwner(resource.data.senderId) || isOwner(resource.data.receiverId) || isAdmin());
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(resource.data.receiverId) && 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAdmin();
+    }
+
+    // Emotion Logs collection
+    match /emotion_logs/{logId} {
+      function isValidEmotionLog(data) {
+        return data.keys().hasAll(['userId', 'emotion', 'intensity', 'timestamp']) &&
+               data.userId == request.auth.uid &&
+               data.intensity is number && data.intensity >= 1 && data.intensity <= 10;
+      }
+
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidEmotionLog(request.resource.data);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // Memoria Iara collection
+    match /memoria_iara/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+
+    // Diary Entries collection
+    match /diary_entries/{entryId} {
+      function isValidDiaryEntry(data) {
+        return data.keys().hasAll(['userId', 'content', 'timestamp']) &&
+               data.userId == request.auth.uid;
+      }
+
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && isValidDiaryEntry(request.resource.data);
+      allow update: if isAuthenticated() && isOwner(resource.data.userId) && isValidDiaryEntry(request.resource.data);
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+
+    // Feedbacks collection
+    match /feedbacks/{feedbackId} {
+      function isValidFeedback(data) {
+        return data.keys().hasAll(['userId', 'rating', 'timestamp']) &&
+               data.rating is number && data.rating >= 1 && data.rating <= 5;
+      }
+
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
     }
   }
 }
