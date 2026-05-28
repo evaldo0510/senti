@@ -43,7 +43,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin') ||
          (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
     }
 
@@ -59,6 +60,14 @@ service cloud.firestore {
       return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
     }
 
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
     // ===============================================================
     // Collection Rules
     // ===============================================================
@@ -68,18 +77,25 @@ service cloud.firestore {
       function isValidUser(data) {
         return data.keys().hasAll(['uid', 'email', 'tipo']) &&
                data.uid == userId &&
+               data.uid.size() < 128 &&
                isValidEmail(data.email) &&
+               data.email.size() < 128 &&
                data.tipo in ["usuario", "terapeuta", "empresa", "prefeitura", "clinica", "hospital", "admin"] &&
-               (!('photoURL' in data) || isValidUrl(data.photoURL)) &&
-               (!('videoUrl' in data) || isValidUrl(data.videoUrl));
+               (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+               (!('photoURL' in data) || (isValidUrl(data.photoURL) && data.photoURL.size() < 512)) &&
+               (!('videoUrl' in data) || (isValidUrl(data.videoUrl) && data.videoUrl.size() < 512)) &&
+               (!('biografia' in data) || (data.biografia is string && data.biografia.size() < 2000));
       }
 
-      allow read: if isAuthenticated();
+      // CRITICAL: Restricting read to owner only to protect PII (email).
+      // To allow public profiles, split the data into public/private collections.
+      allow get: if isOwner(userId) || isAdmin() || resource.data.tipo == 'terapeuta';
+      allow list: if resource.data.tipo == 'terapeuta' || isAdmin();
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
                       (isOwner(userId) || isAdmin());
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
                       (isOwner(userId) || isAdmin()) &&
-                      request.resource.data.uid == resource.data.uid;
+                      areImmutableFieldsUnchanged(['uid', 'email', 'createdAt']);
       allow delete: if isAdmin();
     }
 
@@ -88,7 +104,8 @@ service cloud.firestore {
       function isValidAppointment(data) {
         return data.keys().hasAll(['patientId', 'therapistId', 'date', 'status']) &&
                data.status in ["pending", "confirmed", "cancelled", "completed"] &&
-               isValidDateString(data.date);
+               isValidDateString(data.date) &&
+               (!('notes' in data) || (data.notes is string && data.notes.size() < 5000));
       }
 
       allow read: if isAuthenticated() && 
@@ -96,7 +113,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidAppointment(request.resource.data) && 
                       (isOwner(request.resource.data.patientId) || isAdmin());
       allow update: if isAuthenticated() && isValidAppointment(request.resource.data) && 
-                      (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin());
+                      (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin()) &&
+                      areImmutableFieldsUnchanged(['patientId', 'therapistId', 'createdAt']);
       allow delete: if isAdmin();
     }
 
@@ -104,7 +122,8 @@ service cloud.firestore {
     match /messages/{messageId} {
       function isValidMessage(data) {
         return data.keys().hasAll(['senderId', 'receiverId', 'text', 'timestamp']) &&
-               data.senderId == request.auth.uid;
+               data.senderId == request.auth.uid &&
+               data.text is string && data.text.size() < 10000;
       }
 
       allow read: if isAuthenticated() && 
@@ -120,6 +139,7 @@ service cloud.firestore {
       function isValidEmotionLog(data) {
         return data.keys().hasAll(['userId', 'emotion', 'intensity', 'timestamp']) &&
                data.userId == request.auth.uid &&
+               data.emotion is string && data.emotion.size() < 200 &&
                data.intensity is number && data.intensity >= 1 && data.intensity <= 10;
       }
 
@@ -130,15 +150,16 @@ service cloud.firestore {
 
     // Memoria Iara collection
     match /memoria_iara/{userId} {
-      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
     }
 
     // Diary Entries collection
     match /diary_entries/{entryId} {
       function isValidDiaryEntry(data) {
         return data.keys().hasAll(['userId', 'content', 'timestamp']) &&
-               data.userId == request.auth.uid;
+               data.userId == request.auth.uid &&
+               data.content is string && data.content.size() < 50000;
       }
 
       allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
@@ -151,7 +172,8 @@ service cloud.firestore {
     match /feedbacks/{feedbackId} {
       function isValidFeedback(data) {
         return data.keys().hasAll(['userId', 'rating', 'timestamp']) &&
-               data.rating is number && data.rating >= 1 && data.rating <= 5;
+               data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+               (!('comment' in data) || (data.comment is string && data.comment.size() < 2000));
       }
 
       allow read: if isAdmin();

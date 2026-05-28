@@ -41,12 +41,15 @@ import Contact from "./pages/Contact";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 function App() {
   return (
-    <ThemeProvider>
-      <PWAProvider>
-        <Router>
-          <Routes>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <PWAProvider>
+          <Router>
+            <Routes>
             <Route path="/" element={<LandingPro />} />
             <Route path="/home" element={<DashboardPaciente />} />
             <Route path="/assinatura" element={<Subscription />} />
@@ -89,6 +92,7 @@ function App() {
         </Router>
       </PWAProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

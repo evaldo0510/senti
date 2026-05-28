@@ -23,6 +23,8 @@ import { cn } from "../lib/utils";
 import { useAuth } from "../components/AuthProvider";
 import { userService } from "../services/userService";
 
+import { paymentService } from "../services/paymentService";
+
 export default function Subscription() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -53,12 +55,13 @@ export default function Subscription() {
     }
     setLoading(true);
     try {
-      // Simulate subscription process
-      await userService.updateProfile(user.uid, { isPremium: true });
-      alert("Parabéns! Você agora tem a Licença Completa.");
-      navigate("/home");
+      const data = await paymentService.createSubscriptionCheckoutSession(user.uid, user.email || "");
+      if (data.url) {
+        window.location.href = data.url;
+      }
     } catch (error) {
       console.error("Erro ao assinar:", error);
+      alert("Ocorreu um erro ao processar sua assinatura. Tente novamente.");
     } finally {
       setLoading(false);
     }

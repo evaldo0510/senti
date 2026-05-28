@@ -90,8 +90,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  // Not throwing to avoid crashing the app, as requested by user to "remove authentication"
-  return errInfo;
+  // Throwing to help the AIS Agent diagnose rule issues
+  throw new Error(JSON.stringify(errInfo));
 }
 
 // Test connection

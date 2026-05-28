@@ -53,12 +53,7 @@ try {
     db = getFirestore();
   }
   
-  // Try to get service account email for debugging (silent)
-  admin.auth().listUsers(1).catch(() => {
-    // This is expected to fail if not using a service account with admin privileges
-  });
-
-  console.log(`Firebase Admin initialized successfully. Project: ${firebaseConfig.projectId}, Database: ${databaseId || "(default)"}`);
+  console.log(`Firebase Admin initialized. Project: ${firebaseConfig.projectId}`);
 } catch (error) {
   console.error("CRITICAL: Error initializing Firebase Admin:", error);
   // @ts-ignore
@@ -188,7 +183,7 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, 
       }
     }
 
-    if (productType === "journey_21_days" && userId) {
+    if ((productType === "journey_21_days" || productType === "subscription_monthly") && userId) {
       console.log(`Activating premium for user: ${userId}`);
       try {
         await db.collection("users").doc(userId).update({
@@ -416,6 +411,64 @@ app.post("/api/create-journey-checkout-session", async (req, res) => {
     res.json({ url: session.url });
   } catch (error: any) {
     console.error("Stripe journey error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/create-subscription-checkout-session", async (req, res) => {
+  const { userId, userEmail } = req.body;
+
+  if (!stripe) {
+    console.log("Stripe not configured, using mock success for subscription");
+    if (userId) {
+      try {
+        await db.collection("users").doc(userId).update({
+          isPremium: true,
+          premiumSince: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error("Error updating mock user premium:", error);
+      }
+    }
+    return res.json({ 
+      url: `${process.env.APP_URL || 'http://localhost:3000'}/home?success=true`,
+      mock: true 
+    });
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card", "pix"],
+      customer_email: userEmail,
+      line_items: [
+        {
+          price_data: {
+            currency: "brl",
+            product_data: {
+              name: "Licença Completa SENTI",
+              description: "Acesso total e ilimitado a todas as ferramentas da sede SENTI.",
+              images: ["https://ais-dev-ut4rkwmwg2rhaa2m3b3zm7-16381127341.us-west2.run.app/logo192.png"],
+            },
+            unit_amount: 4990, // R$ 49,90
+            recurring: {
+              interval: "month"
+            }
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "subscription",
+      success_url: `${process.env.APP_URL || 'http://localhost:3000'}/home?success=true`,
+      cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/assinatura`,
+      metadata: {
+        userId,
+        productType: "subscription_monthly"
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Stripe subscription error:", error);
     res.status(500).json({ error: error.message });
   }
 });

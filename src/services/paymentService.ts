@@ -55,5 +55,30 @@ export const paymentService = {
       console.error("Erro ao criar sessão de pagamento para jornada:", error);
       throw error;
     }
+  },
+
+  createSubscriptionCheckoutSession: async (userId: string, userEmail: string) => {
+    try {
+      const response = await fetch('/api/create-subscription-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          userEmail
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        return { url: data.url };
+      } else {
+        throw new Error(data.error || "Erro ao criar sessão de pagamento para assinatura");
+      }
+    } catch (error) {
+      console.error("Erro ao criar sessão de pagamento para assinatura:", error);
+      throw error;
+    }
   }
 };

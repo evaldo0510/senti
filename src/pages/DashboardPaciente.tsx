@@ -973,52 +973,49 @@ export default function DashboardPaciente() {
                 key={prof.uid}
                 whileHover={{ x: 4 }}
                 onClick={() => navigate(`/terapeuta-perfil/${prof.uid}`)}
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-emerald-500/30 transition-all shadow-sm group"
+                className="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex items-center gap-5 cursor-pointer hover:border-emerald-500/30 transition-all shadow-xl shadow-black/10 group relative overflow-hidden"
               >
-                <div className="relative">
+                <div className="relative shrink-0">
                   <img 
                     src={prof.fotoUrl || `https://picsum.photos/seed/${prof.uid}/200/200`} 
                     alt={prof.nome} 
-                    className="w-16 h-16 rounded-xl object-cover"
+                    className="w-20 h-20 rounded-2xl object-cover border-2 border-slate-800 shadow-inner"
                     referrerPolicy="no-referrer"
                   />
                   {prof.online && (
-                    <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 animate-pulse" />
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-slate-900 animate-pulse shadow-lg shadow-emerald-500/20" />
                   )}
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-slate-800 dark:text-slate-200">{prof.nome}</h4>
-                    <StarRating rating={prof.rating || 4.8} count={prof.reviewCount || 124} />
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-black text-slate-100 group-hover:text-emerald-400 transition-colors tracking-tight">{prof.nome}</h4>
+                    <div className="bg-slate-800/50 px-2 py-1 rounded-lg border border-white/5">
+                      <StarRating rating={prof.rating || 4.8} count={prof.reviewCount || 124} size={12} />
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{prof.especialidades?.join(", ") || "Psicólogo"}</p>
+                  <p className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest line-clamp-1">{prof.especialidades?.join(" • ") || "Psicólogo"}</p>
                   
                   {/* DNA Tags */}
-                  <div className="flex flex-wrap gap-1.5 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-1">
                     {prof.estilo && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md border border-blue-500/10">
+                      <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-md border border-blue-500/10">
                         {prof.estilo}
                       </span>
                     )}
                     {prof.abordagem && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-md border border-purple-500/10">
+                      <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-purple-500/10 text-purple-400 rounded-md border border-purple-500/10">
                         {prof.abordagem}
-                      </span>
-                    )}
-                    {prof.intensidade !== undefined && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 bg-orange-500/10 text-orange-600 dark:text-orange-400 rounded-md border border-orange-500/10">
-                        {prof.intensidade}% Intensidade
                       </span>
                     )}
                   </div>
                   
-                  <div className="mt-3 flex gap-2">
+                  <div className="mt-4 flex gap-2">
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/agendamento/${prof.uid}`);
                       }}
-                      className="flex-1 py-1.5 bg-emerald-600 dark:bg-emerald-500 text-white text-[10px] font-bold rounded-lg uppercase tracking-wider hover:bg-emerald-500 transition-colors"
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 text-[10px] font-black rounded-xl uppercase tracking-widest transition-all shadow-lg shadow-emerald-500/10 active:scale-95"
                     >
                       Agendar
                     </button>
@@ -1029,13 +1026,13 @@ export default function DashboardPaciente() {
                         const mensagem = encodeURIComponent(`Olá, vi seu perfil no ReSet PCH e gostaria de tirar uma dúvida.`);
                         window.open(`https://wa.me/${numero}?text=${mensagem}`, "_blank");
                       }}
-                      className="flex-1 py-1.5 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 text-[10px] font-bold rounded-lg uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-white/5"
+                      className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-black rounded-xl uppercase tracking-widest transition-all border border-white/5 active:scale-95"
                     >
-                      Falar Direto
+                      Dúvida
                     </button>
                   </div>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-slate-950 transition-all border border-white/5">
                   <ArrowRight className="w-4 h-4" />
                 </div>
               </motion.div>
