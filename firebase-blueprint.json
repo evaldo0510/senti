@@ -118,6 +118,19 @@
         "timestamp": { "type": "string", "format": "date-time", "description": "Submission timestamp" }
       },
       "required": ["userId", "rating", "timestamp"]
+    },
+    "PrivateNote": {
+      "title": "PrivateNote",
+      "description": "Encrypted clinical session notes stored privately by therapists for specific patients",
+      "type": "object",
+      "properties": {
+        "therapistId": { "type": "string", "description": "UID of the therapist who wrote the note" },
+        "patientId": { "type": "string", "description": "UID of the patient" },
+        "encryptedContent": { "type": "string", "description": "AES-encrypted content of the session note" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["therapistId", "patientId", "encryptedContent", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -148,6 +161,10 @@
     "feedbacks": {
       "schema": "Feedback",
       "description": "Collection of user feedbacks"
+    },
+    "private_notes": {
+      "schema": "PrivateNote",
+      "description": "Collection of encrypted private therapist notes on patients"
     }
   }
 }

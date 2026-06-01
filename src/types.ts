@@ -144,3 +144,13 @@ export interface NewsCardProps {
   therapistId?: string;
   isOnline?: boolean;
 }
+
+export interface PrivateNote {
+  id: string;
+  therapistId: string;
+  patientId: string;
+  encryptedContent: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

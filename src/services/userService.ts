@@ -1,4 +1,4 @@
-import { MoodEntry, Appointment, UserProfile, UserType } from '../types';
+import { MoodEntry, Appointment, UserProfile, UserType, PrivateNote } from '../types';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { 
   collection, 
@@ -14,7 +14,8 @@ import {
   arrayUnion,
   arrayRemove,
   Timestamp,
-  addDoc
+  addDoc,
+  deleteDoc
 } from 'firebase/firestore';
 
 export const userService = {
@@ -590,6 +591,70 @@ export const userService = {
       });
     } catch (error) {
       console.error("Error saving push subscription:", error);
+    }
+  },
+
+  getPrivateNotes: async (patientId: string, therapistId: string): Promise<PrivateNote[]> => {
+    const path = 'private_notes';
+    try {
+      const q = query(
+        collection(db, path),
+        where("patientId", "==", patientId),
+        where("therapistId", "==", therapistId)
+      );
+      const snapshot = await getDocs(q);
+      const notes = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as PrivateNote[];
+      notes.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return notes;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  savePrivateNote: async (patientId: string, therapistId: string, encryptedContent: string, noteId?: string): Promise<PrivateNote> => {
+    const path = 'private_notes';
+    try {
+      const timestamp = new Date().toISOString();
+      const noteData = {
+        therapistId,
+        patientId,
+        encryptedContent,
+        updatedAt: timestamp
+      };
+
+      if (noteId) {
+        const noteRef = doc(db, path, noteId);
+        await updateDoc(noteRef, {
+          encryptedContent,
+          updatedAt: timestamp
+        });
+        const fullDoc = await getDoc(noteRef);
+        return { id: noteId, ...fullDoc.data() } as PrivateNote;
+      } else {
+        const fullData = {
+          ...noteData,
+          createdAt: timestamp
+        };
+        const docRef = await addDoc(collection(db, path), fullData);
+        return { id: docRef.id, ...fullData } as PrivateNote;
+      }
+    } catch (error) {
+      handleFirestoreError(error, noteId ? OperationType.UPDATE : OperationType.CREATE, path);
+      throw error;
+    }
+  },
+
+  deletePrivateNote: async (noteId: string): Promise<void> => {
+    const path = `private_notes/${noteId}`;
+    try {
+      await deleteDoc(doc(db, 'private_notes', noteId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+      throw error;
     }
   },
 

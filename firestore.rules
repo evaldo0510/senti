@@ -87,10 +87,19 @@ service cloud.firestore {
                (!('biografia' in data) || (data.biografia is string && data.biografia.size() < 2000));
       }
 
-      // CRITICAL: Restricting read to owner only to protect PII (email).
-      // To allow public profiles, split the data into public/private collections.
-      allow get: if isOwner(userId) || isAdmin() || resource.data.tipo == 'terapeuta';
-      allow list: if resource.data.tipo == 'terapeuta' || isAdmin();
+      // Allow getting a single profile if: public therapist, owning the profile, admin, or authenticated therapist viewing patient
+      allow get: if (
+        resource == null ||
+        resource.data.tipo == 'terapeuta' || 
+        isOwner(userId) || 
+        isAdmin() ||
+        (isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta')
+      );
+
+      // Force listing queries on users collection to filter for therapists only (protects patient PII and isolates details of candidates)
+      allow list: if resource.data.tipo == 'terapeuta';
+
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
                       (isOwner(userId) || isAdmin());
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
@@ -109,7 +118,7 @@ service cloud.firestore {
       }
 
       allow read: if isAuthenticated() && 
-                    (isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin());
+                    (resource == null || isOwner(resource.data.patientId) || isOwner(resource.data.therapistId) || isAdmin());
       allow create: if isAuthenticated() && isValidAppointment(request.resource.data) && 
                       (isOwner(request.resource.data.patientId) || isAdmin());
       allow update: if isAuthenticated() && isValidAppointment(request.resource.data) && 
@@ -127,7 +136,7 @@ service cloud.firestore {
       }
 
       allow read: if isAuthenticated() && 
-                    (isOwner(resource.data.senderId) || isOwner(resource.data.receiverId) || isAdmin());
+                    (resource == null || isOwner(resource.data.senderId) || isOwner(resource.data.receiverId) || isAdmin());
       allow create: if isAuthenticated() && isValidMessage(request.resource.data);
       allow update: if isAuthenticated() && isOwner(resource.data.receiverId) && 
                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
@@ -143,7 +152,7 @@ service cloud.firestore {
                data.intensity is number && data.intensity >= 1 && data.intensity <= 10;
       }
 
-      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow read: if isAuthenticated() && (resource == null || isOwner(resource.data.userId) || isAdmin());
       allow create: if isAuthenticated() && isValidEmotionLog(request.resource.data);
       allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
     }
@@ -162,7 +171,7 @@ service cloud.firestore {
                data.content is string && data.content.size() < 50000;
       }
 
-      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow read: if isAuthenticated() && (resource == null || isOwner(resource.data.userId) || isAdmin());
       allow create: if isAuthenticated() && isValidDiaryEntry(request.resource.data);
       allow update: if isAuthenticated() && isOwner(resource.data.userId) && isValidDiaryEntry(request.resource.data);
       allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
@@ -178,6 +187,22 @@ service cloud.firestore {
 
       allow read: if isAdmin();
       allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+    }
+
+    // Private Notes collection
+    match /private_notes/{noteId} {
+      function isValidPrivateNote(data) {
+        return data.keys().hasAll(['therapistId', 'patientId', 'encryptedContent', 'createdAt', 'updatedAt']) &&
+               data.therapistId == request.auth.uid &&
+               data.patientId is string && data.patientId.size() < 128 &&
+               data.encryptedContent is string && data.encryptedContent.size() < 100000;
+      }
+
+      allow read: if isAuthenticated() && (resource == null || resource.data.therapistId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidPrivateNote(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.therapistId == request.auth.uid && isValidPrivateNote(request.resource.data) &&
+                      areImmutableFieldsUnchanged(['therapistId', 'patientId', 'createdAt']);
+      allow delete: if isAuthenticated() && (resource.data.therapistId == request.auth.uid || isAdmin());
     }
   }
 }

@@ -102,19 +102,11 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY) 
   : null;
 
-// Configure web-push
+// Configure web-push (Deactivated)
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails(
-    "mailto:suporte@senti.com.br",
-    vapidPublicKey,
-    vapidPrivateKey
-  );
-} else {
-  console.warn("VAPID keys not found in environment variables. Push notifications will not work.");
-}
+console.log("Notificações Push / Sistema VAPID desativado temporariamente por solicitação.");
 
 export const app = express();
 
@@ -211,62 +203,17 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Push Notification Endpoints
+// Push Notification Endpoints (Bypassed)
 app.get("/api/push/public-key", (req, res) => {
-  res.json({ publicKey: vapidPublicKey });
+  res.json({ publicKey: "" });
 });
 
 app.post("/api/push/subscribe", async (req, res) => {
-  const { userId, subscription } = req.body;
-  if (!userId || !subscription) {
-    return res.status(400).json({ error: "userId and subscription are required" });
-  }
-
-  try {
-    // Store subscription in Firestore under the user's document
-    // We use the endpoint as the document ID (base64 encoded to avoid invalid characters)
-    const docId = Buffer.from(subscription.endpoint).toString('base64').replace(/\//g, '_');
-    await db.collection("users").doc(userId).collection("pushSubscriptions").doc(docId).set(subscription);
-    res.status(201).json({ success: true });
-  } catch (error) {
-    console.error("Error saving subscription:", error);
-    res.status(500).json({ error: "Failed to save subscription" });
-  }
+  res.status(201).json({ success: true, message: "Push integration bypassed." });
 });
 
 app.post("/api/push/send", async (req, res) => {
-  const { userId, title, body, url } = req.body;
-  if (!userId || !title) {
-    return res.status(400).json({ error: "userId and title are required" });
-  }
-
-  try {
-    const subscriptionsSnapshot = await db.collection("users").doc(userId).collection("pushSubscriptions").get();
-    if (subscriptionsSnapshot.empty) {
-      return res.status(404).json({ error: "No subscriptions found for user" });
-    }
-
-    const payload = JSON.stringify({ title, body, url });
-    const sendPromises = subscriptionsSnapshot.docs.map(async (doc) => {
-      const subscription = doc.data() as webpush.PushSubscription;
-      try {
-        await webpush.sendNotification(subscription, payload);
-      } catch (error: any) {
-        if (error.statusCode === 410 || error.statusCode === 404) {
-          // Subscription has expired or is no longer valid
-          await doc.ref.delete();
-        } else {
-          console.error("Error sending push notification:", error);
-        }
-      }
-    });
-
-    await Promise.all(sendPromises);
-    res.status(200).json({ success: true });
-  } catch (error) {
-    console.error("Error sending push notifications:", error);
-    res.status(500).json({ error: "Failed to send notifications" });
-  }
+  res.status(200).json({ success: true, message: "Push integration bypassed." });
 });
 
 app.post("/api/create-checkout-session", async (req, res) => {
@@ -491,27 +438,9 @@ async function configureVite() {
   }
 }
 
-// Helper to send push notification
+// Helper to send push notification (Bypassed)
 async function sendPushNotification(userId: string, title: string, body: string, url?: string) {
-  try {
-    const subscriptionsSnapshot = await db.collection("users").doc(userId).collection("pushSubscriptions").get();
-    if (subscriptionsSnapshot.empty) return;
-
-    const payload = JSON.stringify({ title, body, url });
-    const sendPromises = subscriptionsSnapshot.docs.map(async (doc) => {
-      const subscription = doc.data() as webpush.PushSubscription;
-      try {
-        await webpush.sendNotification(subscription, payload);
-      } catch (error: any) {
-        if (error.statusCode === 410 || error.statusCode === 404) {
-          await doc.ref.delete();
-        }
-      }
-    });
-    await Promise.all(sendPromises);
-  } catch (error) {
-    console.error(`Error sending push to ${userId}:`, error);
-  }
+  console.log(`Push notification bypassed for user ${userId}: Title="${title}"`);
 }
 
 // Scheduled tasks

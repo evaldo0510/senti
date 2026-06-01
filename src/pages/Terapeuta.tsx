@@ -21,11 +21,17 @@ import {
   PieChart,
   Home,
   Share2,
-  Lock
+  Lock,
+  Cloud,
+  MessageSquare,
+  Send,
+  RefreshCw,
+  HeartPulse
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
 import { userService } from "../services/userService";
+import { googleWorkspaceService } from "../services/googleWorkspaceService";
 import { Appointment } from "../types";
 import { cn } from "../lib/utils";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -44,6 +50,123 @@ export default function Terapeuta() {
     completionRate: 0,
     averageRating: 0
   });
+
+  const [isGoogleConnected, setIsGoogleConnected] = useState(googleWorkspaceService.isAuthorized());
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
+  const [chatSpaces, setChatSpaces] = useState<any[]>([]);
+  const [isLoadingSpaces, setIsLoadingSpaces] = useState(false);
+  const [selectedSpace, setSelectedSpace] = useState<string>("");
+  const [chatMessageText, setChatMessageText] = useState<string>("");
+  const [isSendingChatMessage, setIsSendingChatMessage] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<Record<string, boolean>>({});
+  const [selectedApptIdForAlert, setSelectedApptIdForAlert] = useState<string>("");
+
+  const generateAlertMessage = (apptId: string) => {
+    const appt = appointments.find(a => a.id === apptId);
+    if (!appt) return;
+
+    const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+    const timeStr = appt.time || "12:00";
+    const statusMap: Record<string, string> = {
+      pending: 'Pendente de Confirmação',
+      confirmed: 'Confirmado',
+      completed: 'Finalizado',
+      cancelled: 'Cancelado'
+    };
+    const statusText = statusMap[appt.status] || appt.status;
+    const typeLabel = appt.type === 'video' ? 'Vídeo Chamada' : appt.type === 'chat' ? 'Chat Criptografado' : 'Presencial';
+
+    setChatMessageText(
+      `🚨 *[Alerta de Consulta - Pronto-Socorro Emocional]*\n\n` +
+      `Uma nova consulta foi registrada/atualizada no sistema:\n` +
+      `👤 *Paciente:* ${appt.patientNome}\n` +
+      `📅 *Data:* ${dateStr}\n` +
+      `🕒 *Horário:* ${timeStr}\n` +
+      `💻 *Tipo:* ${typeLabel}\n` +
+      `📌 *Status:* ${statusText}\n\n` +
+      `Acesse o painel para gerenciar o atendimento.`
+    );
+  };
+
+  const fetchChatSpaces = async () => {
+    setIsLoadingSpaces(true);
+    try {
+      const spaces = await googleWorkspaceService.listChatSpaces();
+      setChatSpaces(spaces);
+      if (spaces.length > 0) {
+        setSelectedSpace(spaces[0].name);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar Google Chat Spaces:", err);
+    } finally {
+      setIsLoadingSpaces(false);
+    }
+  };
+
+  const handleGoogleAuth = async () => {
+    setIsConnectingGoogle(true);
+    try {
+      const token = await googleWorkspaceService.authorize();
+      if (token) {
+        setIsGoogleConnected(true);
+        if (profile) {
+          await userService.connectGoogleCalendar(profile.uid);
+        }
+        await fetchChatSpaces();
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao conectar Google Workspace: " + err.message);
+    } finally {
+      setIsConnectingGoogle(false);
+    }
+  };
+
+  const handleDisconnectGoogle = () => {
+    googleWorkspaceService.disconnect();
+    setIsGoogleConnected(false);
+    setChatSpaces([]);
+    setSelectedSpace("");
+  };
+
+  const handleSyncToCalendar = async (appointment: Appointment) => {
+    const confirmSync = window.confirm(
+      `Deseja sincronizar e agendar esta consulta com ${appointment.patientNome} no seu Google Calendar?`
+    );
+    if (!confirmSync) return;
+
+    try {
+      await googleWorkspaceService.createCalendarEvent(appointment);
+      setSyncStatus(prev => ({ ...prev, [appointment.id]: true }));
+      alert("Sucesso! A consulta foi inserida com sucesso no Google Calendar.");
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao criar evento: " + err.message);
+    }
+  };
+
+  const handleSendChatAlert = async () => {
+    if (!selectedSpace) {
+      alert("Por favor, selecione uma sala do Google Chat.");
+      return;
+    }
+    if (!chatMessageText.trim()) {
+      alert("Por favor, digite a mensagem de alerta.");
+      return;
+    }
+
+    setIsSendingChatMessage(true);
+    try {
+      await googleWorkspaceService.sendChatMessage(selectedSpace, chatMessageText);
+      alert("Alerta enviado com sucesso para o Google Chat!");
+      setChatMessageText("");
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao enviar mensagem: " + err.message);
+    } finally {
+      setIsSendingChatMessage(false);
+    }
+  };
 
   useEffect(() => {
     if (isAuthReady && !loading) {
@@ -162,9 +285,9 @@ export default function Terapeuta() {
       {/* Sidebar - Desktop only */}
       <aside className="w-64 bg-slate-900 border-r border-white/5 flex flex-col hidden lg:flex sticky top-0 h-screen">
         <div className="p-8">
-          <h1 className="text-2xl font-bold text-emerald-400 flex items-center gap-2">
-            <Activity className="w-8 h-8" />
-            ReSet PCH <span className="text-slate-100 font-light">Pro</span>
+          <h1 className="text-2xl font-bold text-emerald-400 flex items-center gap-2 cursor-pointer" onClick={() => navigate("/")}>
+            <HeartPulse className="w-8 h-8 text-emerald-500" />
+            Sentí <span className="text-slate-100 font-light">Pro</span>
           </h1>
         </div>
         
@@ -229,6 +352,16 @@ export default function Terapeuta() {
             <Settings className="w-5 h-5" />
             Meu Perfil
           </button>
+          <button 
+            onClick={() => setActiveTab("google_workspace")}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all",
+              activeTab === 'google_workspace' ? "bg-blue-900/20 text-blue-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            )}
+          >
+            <Cloud className="w-5 h-5" />
+            Visualização Google
+          </button>
         </nav>
 
         <div className="p-6 border-t border-white/5 space-y-4">
@@ -288,6 +421,7 @@ export default function Terapeuta() {
                 {activeTab === 'pacientes' && 'Meus Pacientes'}
                 {activeTab === 'financeiro' && 'Gestão Financeira'}
                 {activeTab === 'perfil' && 'Meu Perfil'}
+                {activeTab === 'google_workspace' && 'Google Workspace Hub'}
               </h2>
               <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-lg">
                 {activeTab === 'dashboard' && `Você tem ${stats.pending} agendamentos pendentes.`}
@@ -295,6 +429,7 @@ export default function Terapeuta() {
                 {activeTab === 'pacientes' && 'Acompanhe o progresso de quem você cuida.'}
                 {activeTab === 'financeiro' && 'Acompanhe seus ganhos e taxas.'}
                 {activeTab === 'perfil' && 'Mantenha suas informações atualizadas.'}
+                {activeTab === 'google_workspace' && 'Conecte seus compromissos com o Google Calendar e notificações com o Google Chat.'}
               </p>
             </div>
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-end items-center">
@@ -422,7 +557,22 @@ export default function Terapeuta() {
                           </div>
                         </div>
 
-                        <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
+                          {/* Sincronizar Lembrete no Google Calendar */}
+                          <button
+                            onClick={() => isGoogleConnected ? handleSyncToCalendar(app) : handleGoogleAuth()}
+                            className={cn(
+                              "flex-1 sm:flex-none px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border whitespace-nowrap active:scale-95",
+                              syncStatus[app.id]
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                : "bg-blue-600/10 text-blue-400 border-blue-500/20 hover:bg-blue-600/20 hover:text-blue-300"
+                            )}
+                            title="Sincronizar Lembrete no Google Agenda"
+                          >
+                            <Calendar className="w-4 h-4" />
+                            {syncStatus[app.id] ? "Sincronizado" : "Sincronizar Lembrete"}
+                          </button>
+
                           {app.status === 'pending' ? (
                             <>
                               <button 
@@ -445,7 +595,7 @@ export default function Terapeuta() {
                           ) : app.status === 'confirmed' ? (
                             <button 
                               onClick={() => navigate(`/atendimento/${app.id}`)}
-                              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2"
+                              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-2"
                             >
                               <Video className="w-5 h-5" />
                               Entrar na Sala
@@ -916,6 +1066,282 @@ export default function Terapeuta() {
                 <button className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5">
                   Visualizar como Paciente
                 </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'google_workspace' && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* Google Workspace Connection Status Card */}
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 bg-blue-500/10 rounded-2xl">
+                      <Cloud className="w-8 h-8 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-100">Google Workspace Cloud Account</h3>
+                      <p className="text-slate-400 text-sm mt-1">
+                        Sincronize sua agenda no Google Calendar e integre notificações instantâneas no Google Chat.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={isGoogleConnected ? handleDisconnectGoogle : handleGoogleAuth}
+                    disabled={isConnectingGoogle}
+                    className={cn(
+                      "group relative px-6 py-3 rounded-2xl font-bold transition-all flex items-center gap-2 overflow-hidden",
+                      isGoogleConnected
+                        ? "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20"
+                        : "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/30 active:scale-95"
+                    )}
+                  >
+                    {isConnectingGoogle ? (
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    ) : isGoogleConnected ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                        Desconectar Google
+                      </>
+                    ) : (
+                      <>
+                        <Cloud className="w-5 h-5" />
+                        Conectar Conta Google
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {isGoogleConnected && (
+                  <div className="mt-6 pt-6 border-t border-white/5 text-xs text-emerald-400 flex items-center gap-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                    Autenticado com sucesso. Agenda Google Calendar e Google Chat ativos.
+                  </div>
+                )}
+              </div>
+
+              {/* Grid for Calendar Sync and Chat Rooms */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                {/* 1. Google Calendar Segment */}
+                <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl space-y-6">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-6 h-6 text-blue-400" />
+                      <h4 className="text-lg font-bold text-slate-200">Google Calendar Sync</h4>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 bg-blue-500/10 text-blue-400 font-medium rounded-full">
+                      API Ativa
+                    </span>
+                  </div>
+
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    Sincronize as consultas com o Google Agenda do terapeuta ou paciente com um único clique.
+                  </p>
+
+                  <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                    {appointments.length === 0 ? (
+                      <div className="text-center py-8 text-slate-500 text-sm">
+                        Nenhum atendimento agendado para sincronizar.
+                      </div>
+                    ) : (
+                      appointments.map((appt) => {
+                        const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+                        const isSynced = syncStatus[appt.id];
+
+                        return (
+                          <div 
+                            key={appt.id} 
+                            className="bg-slate-950/70 border border-white/5 p-4 rounded-2xl flex items-center justify-between gap-4 hover:border-white/10 transition-colors"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-slate-200 truncate">{appt.patientNome}</p>
+                              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-slate-600" />
+                                {dateStr} às {appt.time || "12:00"} ({appt.type})
+                              </p>
+                            </div>
+
+                            <button
+                              onClick={() => isGoogleConnected ? handleSyncToCalendar(appt) : handleGoogleAuth()}
+                              className={cn(
+                                "px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95",
+                                isSynced
+                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                  : "bg-blue-600/10 text-blue-400 border border-blue-500/20 hover:bg-blue-600/20"
+                              )}
+                            >
+                              {isSynced ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Sincronizado
+                                </>
+                              ) : (
+                                <>
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                  Sync
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Google Chat Space / News Dispatcher */}
+                <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl space-y-6">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className="w-6 h-6 text-blue-400" />
+                      <h4 className="text-lg font-bold text-slate-200">Google Chat Notification Engine</h4>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 font-medium rounded-full">
+                      Google Chat
+                    </span>
+                  </div>
+
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    Envie alertas imediatos, relatórios de suporte clínico ou notas de sessões diretamente para os seus canais do Google Chat.
+                  </p>
+
+                  {!isGoogleConnected ? (
+                    <div className="bg-slate-950 border border-white/5 rounded-2xl p-6 text-center text-slate-500 space-y-3">
+                      <Lock className="w-8 h-8 mx-auto text-slate-700" />
+                      <p className="text-xs">Faça login com sua conta do Google para carregar e listar suas salas do Google Chat Spaces ativos.</p>
+                      <button
+                        onClick={handleGoogleAuth}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition-all active:scale-95"
+                      >
+                        Autorizar Acesso
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Space Selector */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Salas do Google Chat Disponíveis</label>
+                        {isLoadingSpaces ? (
+                          <div className="p-4 flex justify-center">
+                            <RefreshCw className="w-5 h-5 animate-spin text-blue-400" />
+                          </div>
+                        ) : chatSpaces.length === 0 ? (
+                          <div className="bg-slate-950 p-4 border border-white/5 rounded-2xl flex justify-between items-center text-sm text-slate-400">
+                            <span>Nenhuma sala do Chat encontrada.</span>
+                            <button
+                              onClick={fetchChatSpaces}
+                              className="p-1 hover:text-white transition-colors"
+                              title="Recarregar"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <select
+                              value={selectedSpace}
+                              onChange={(e) => setSelectedSpace(e.target.value)}
+                              className="flex-1 bg-slate-950 p-3 rounded-2xl border border-white/5 text-slate-200 text-sm focus:outline-none focus:border-blue-500/50"
+                            >
+                              {chatSpaces.map((space) => (
+                                <option key={space.name} value={space.name}>
+                                  {space.displayName || space.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={fetchChatSpaces}
+                              className="p-3 bg-slate-950 hover:bg-slate-800 rounded-2xl border border-white/5 text-slate-400 hover:text-white transition-colors"
+                              title="Recarregar salas"
+                            >
+                              <RefreshCw className="w-5 h-5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Appointment Selector for Alerts */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Selecionar Consulta para Alerta</label>
+                        {appointments.length === 0 ? (
+                          <div className="bg-slate-950 p-3 rounded-2xl border border-white/5 text-xs text-slate-500">
+                            Nenhuma consulta cadastrada no sistema.
+                          </div>
+                        ) : (
+                          <select
+                            value={selectedApptIdForAlert}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setSelectedApptIdForAlert(val);
+                              if (val) {
+                                generateAlertMessage(val);
+                              }
+                            }}
+                            className="w-full bg-slate-950 p-3 rounded-2xl border border-white/5 text-slate-200 text-sm focus:outline-none focus:border-blue-500/50"
+                          >
+                            <option value="">-- Escolha uma consulta para notificar --</option>
+                            {appointments.map((appt) => {
+                              const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
+                              return (
+                                <option key={appt.id} value={appt.id}>
+                                  {appt.patientNome} - {dateStr} às {appt.time || "12:00"} ({appt.status === 'pending' ? 'Pendente' : appt.status === 'confirmed' ? 'Confirmado' : appt.status})
+                                </option>
+                              );
+                            })}
+                          </select>
+                        )}
+                      </div>
+
+                      {/* Message Dispatcher Form */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Conteúdo da Mensagem / Alerta</label>
+                        <textarea
+                          rows={4}
+                          value={chatMessageText}
+                          onChange={(e) => setChatMessageText(e.target.value)}
+                          placeholder="Ex: [Alerta de Atendimento] Novo paciente incluído no prontuário ou SOS acionado..."
+                          className="w-full bg-slate-950 p-4 rounded-2xl border border-white/5 text-slate-200 text-sm focus:outline-none focus:border-blue-500/50 placeholder:text-slate-600 resize-none font-sans"
+                        />
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            if (selectedApptIdForAlert) {
+                              generateAlertMessage(selectedApptIdForAlert);
+                            } else if (appointments.length > 0) {
+                              const recent = appointments[0];
+                              setSelectedApptIdForAlert(recent.id);
+                              generateAlertMessage(recent.id);
+                            } else {
+                              setChatMessageText("📋 [Relatório Diário] Nenhum atendimento pendente para hoje.");
+                            }
+                          }}
+                          className="px-4 py-3 bg-slate-950 hover:bg-slate-800 text-xs font-bold text-slate-400 hover:text-white rounded-2xl border border-white/5 transition-all text-center flex items-center justify-center whitespace-nowrap"
+                        >
+                          Gerar Template
+                        </button>
+
+                        <button
+                          onClick={handleSendChatAlert}
+                          disabled={isSendingChatMessage || !selectedSpace}
+                          className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800/50 disabled:text-slate-500 disabled:opacity-50 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
+                        >
+                          {isSendingChatMessage ? (
+                            <RefreshCw className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4" />
+                              Enviar Google Chat
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

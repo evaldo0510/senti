@@ -405,7 +405,7 @@ export default function DashboardPaciente() {
 
       {/* Header */}
       <header id="onboarding-welcome" className="px-4 py-4 sm:px-6 sm:py-6 flex justify-between items-center sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-20 border-b border-slate-200 dark:border-white/5">
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none active:scale-95 transition-transform" onClick={() => navigate("/")}>
           <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center border border-emerald-200 dark:border-emerald-500/20">
             <HeartPulse className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 dark:text-emerald-400" />
           </div>
@@ -1023,7 +1023,7 @@ export default function DashboardPaciente() {
                       onClick={(e) => {
                         e.stopPropagation();
                         const numero = "5511999999999";
-                        const mensagem = encodeURIComponent(`Olá, vi seu perfil no ReSet PCH e gostaria de tirar uma dúvida.`);
+                        const mensagem = encodeURIComponent(`Olá, vi seu perfil no Sentí e gostaria de tirar uma dúvida.`);
                         window.open(`https://wa.me/${numero}?text=${mensagem}`, "_blank");
                       }}
                       className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-black rounded-xl uppercase tracking-widest transition-all border border-white/5 active:scale-95"
