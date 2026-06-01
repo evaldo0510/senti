@@ -387,29 +387,63 @@ export const userService = {
     }
   },
 
-  updateAppointmentNotes: async (id: string, notes: string, riskLevel: Appointment['riskLevel']) => {
+  updateAppointmentNotes: async (
+    id: string, 
+    notes: string, 
+    riskLevel: Appointment['riskLevel'],
+    extraData?: {
+      compliance?: boolean;
+      moodStability?: boolean;
+      crisisRisk?: boolean;
+      structuredSummary?: string;
+    }
+  ) => {
     const path = `appointments/${id}`;
     try {
       await updateDoc(doc(db, 'appointments', id), { 
         notes, 
         riskLevel,
-        status: 'completed' 
+        status: 'completed',
+        ...(extraData || {})
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);
     }
   },
 
-  createManualEvolution: async (patientId: string, patientNome: string, notes: string, riskLevel: Appointment['riskLevel']) => {
+  createManualEvolution: async (
+    patientId: string, 
+    patientNome: string, 
+    notes: string, 
+    riskLevel: Appointment['riskLevel'],
+    extraData?: {
+      compliance?: boolean;
+      moodStability?: boolean;
+      crisisRisk?: boolean;
+      structuredSummary?: string;
+    }
+  ) => {
     const user = auth.currentUser;
     const userId = user?.uid || 'guest_therapist';
     const userName = user?.displayName || "Terapeuta";
 
     const path = 'appointments';
     try {
+      // Try to fetch patient details to include optional email
+      let patientEmail = "";
+      try {
+        const patientProfile = await userService.getUser(patientId);
+        if (patientProfile) {
+          patientEmail = patientProfile.email || "";
+        }
+      } catch (err) {
+        console.warn("Could not retrieve patient email for manual evolution:", err);
+      }
+
       const newEvolution = {
         patientId,
         patientNome,
+        patientEmail,
         therapistId: userId,
         therapistNome: userName,
         date: new Date().toISOString(),
@@ -418,7 +452,8 @@ export const userService = {
         riskLevel,
         createdAt: new Date().toISOString(),
         price: 0, // Manual entries might not have a price
-        reviewed: false
+        reviewed: false,
+        ...(extraData || {})
       };
       const docRef = await addDoc(collection(db, path), newEvolution);
 

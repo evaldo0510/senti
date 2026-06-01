@@ -13,6 +13,10 @@ export default function Registro() {
   
   const [nota, setNota] = useState("");
   const [risco, setRisco] = useState<Appointment['riskLevel']>("baixo");
+  const [structuredSummary, setStructuredSummary] = useState("");
+  const [compliance, setCompliance] = useState(false);
+  const [moodStability, setMoodStability] = useState(false);
+  const [crisisRisk, setCrisisRisk] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [patient, setPatient] = useState<UserProfile | null>(null);
@@ -26,6 +30,10 @@ export default function Registro() {
           setAppointment(app);
           setNota(app.notes || `Paciente: ${app.patientNome}\n\n`);
           setRisco(app.riskLevel || "baixo");
+          setStructuredSummary(app.structuredSummary || "");
+          setCompliance(app.compliance || false);
+          setMoodStability(app.moodStability || false);
+          setCrisisRisk(app.crisisRisk || false);
         }
       } else if (patientId) {
         const p = await userService.getUser(patientId);
@@ -45,10 +53,16 @@ export default function Registro() {
     
     setIsLoading(true);
     try {
+      const extraData = {
+        compliance,
+        moodStability,
+        crisisRisk,
+        structuredSummary
+      };
       if (appointmentId && appointmentId !== 'new') {
-        await userService.updateAppointmentNotes(appointmentId, nota, risco);
+        await userService.updateAppointmentNotes(appointmentId, nota, risco, extraData);
       } else if (patientId && patient) {
-        await userService.createManualEvolution(patientId, patient.nome || "Paciente", nota, risco);
+        await userService.createManualEvolution(patientId, patient.nome || "Paciente", nota, risco, extraData);
       }
       
       setIsSaved(true);
@@ -110,8 +124,61 @@ export default function Registro() {
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               placeholder="Descreva os pontos principais da sessão, intervenções realizadas e plano para as próximas sessões..."
-              className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+              className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none font-sans"
             />
+          </div>
+
+          {/* Structured Clinical Summary and Checklist */}
+          <div className="border-t border-white/5 pt-6 space-y-6">
+            <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <FileText className="w-4 h-4 text-emerald-400" />
+              Parâmetros Clínicos Estruturados
+            </h3>
+
+            {/* Checkboxes */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-950/40 p-4 rounded-2xl border border-white/5">
+              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/5 rounded-xl transition-colors">
+                <input
+                  type="checkbox"
+                  checked={compliance}
+                  onChange={(e) => setCompliance(e.target.checked)}
+                  className="w-5 h-5 rounded border-white/10 text-emerald-600 focus:ring-emerald-500/50 focus:ring-opacity-50 bg-slate-900"
+                />
+                <span className="text-sm font-medium text-slate-300">Compliance / Adesão</span>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/5 rounded-xl transition-colors">
+                <input
+                  type="checkbox"
+                  checked={moodStability}
+                  onChange={(e) => setMoodStability(e.target.checked)}
+                  className="w-5 h-5 rounded border-white/10 text-emerald-600 focus:ring-emerald-500/50 focus:ring-opacity-50 bg-slate-900"
+                />
+                <span className="text-sm font-medium text-slate-300">Estabilidade de Humor</span>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white/5 rounded-xl transition-colors">
+                <input
+                  type="checkbox"
+                  checked={crisisRisk}
+                  onChange={(e) => setCrisisRisk(e.target.checked)}
+                  className="w-5 h-5 rounded border-white/10 text-emerald-600 focus:ring-emerald-500/50 focus:ring-opacity-50 bg-slate-900"
+                />
+                <span className="text-sm font-medium text-slate-300">Risco de Crise</span>
+              </label>
+            </div>
+
+            {/* Structured Summary Textarea */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Sumário Estruturado</label>
+              <textarea
+                rows={4}
+                value={structuredSummary}
+                onChange={(e) => setStructuredSummary(e.target.value)}
+                placeholder="Insira o sumário dos achados clínicos, objetivos terapêuticos e monitoramento comportamental..."
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none text-sm font-sans"
+              />
+            </div>
           </div>
 
           <div className="bg-blue-900/20 border border-blue-500/20 p-4 rounded-xl flex items-start gap-3">

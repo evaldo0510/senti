@@ -22,9 +22,11 @@ import {
   Edit,
   Save,
   Check,
-  Shield
+  Shield,
+  Download
 } from "lucide-react";
 import CryptoJS from "crypto-js";
+import { jsPDF } from "jspdf";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 import { UserProfile, Appointment, MoodEntry, PrivateNote } from "../types";
@@ -193,6 +195,162 @@ export default function ProntuarioPaciente() {
     }
   };
 
+  const exportToPDF = () => {
+    if (!paciente) return;
+    const doc = new jsPDF();
+    
+    // Header Banner
+    doc.setFillColor(15, 23, 42); // slate-900 background
+    doc.rect(0, 0, 210, 40, "F");
+    
+    // Brand Logo in PDF
+    doc.setTextColor(16, 185, 129); // emerald-500
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.text("Sentí", 15, 20);
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text("PRONTUÁRIO E EVOLUÇÃO CLÍNICA", 15, 30);
+    
+    // Patient Metadata Section
+    doc.setTextColor(51, 65, 85); // slate-700
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("DADOS DO PACIENTE", 15, 52);
+    
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.line(15, 55, 195, 55);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105); // slate-600
+    doc.text(`Nome: ${paciente.nome || ""}`, 15, 63);
+    doc.text(`Email: ${paciente.email || "Não informado"}`, 15, 69);
+    doc.text(`Início do Tratamento: ${paciente.createdAt ? new Date(paciente.createdAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}`, 15, 75);
+    doc.text(`Sessões Realizadas: ${appointments.filter(a => a.status === 'completed').length}`, 15, 81);
+    
+    // Session History Section
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(51, 65, 85);
+    doc.text("HISTÓRICO DE EVOLUÇÕES CLÍNICAS", 15, 95);
+    doc.line(15, 98, 195, 98);
+    
+    let y = 106;
+    const completedApps = appointments.filter(a => a.status === 'completed');
+    
+    if (completedApps.length === 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(10);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Nenhuma evolução clínica registrada até o momento.", 15, y);
+    } else {
+      completedApps.forEach((app, i) => {
+        // Page break if y exceeds capacity
+        if (y > 240) {
+          doc.addPage();
+          y = 20;
+        }
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(15, 23, 42); // slate-900
+        const dateStr = new Date(app.date).toLocaleDateString('pt-BR') + ' às ' + new Date(app.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        doc.text(`Sessão #${completedApps.length - i} - ${dateStr}`, 15, y);
+        
+        // Risk level label
+        const rLevel = app.riskLevel ? app.riskLevel.toUpperCase() : "BAIXO";
+        doc.setFontSize(8);
+        doc.setTextColor(16, 185, 129); // emerald-500 default
+        if (app.riskLevel === 'alto') {
+          doc.setTextColor(239, 68, 68); // red
+        } else if (app.riskLevel === 'moderado') {
+          doc.setTextColor(245, 158, 11); // amber
+        }
+        doc.text(`RISCO: ${rLevel}`, 155, y);
+        
+        y += 5;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(71, 85, 105);
+        
+        // Word wrap for notes
+        const notesStr = app.notes || "Nenhuma nota registrada.";
+        const splitNotes = doc.splitTextToSize(notesStr, 180);
+        
+        splitNotes.forEach((line: string) => {
+          if (y > 275) {
+            doc.addPage();
+            y = 20;
+          }
+          doc.text(line, 15, y);
+          y += 5;
+        });
+        
+        // Structured extra info if available (Compliance, Mood Stability, Crisis Risk)
+        if (app.compliance !== undefined || app.moodStability !== undefined || app.crisisRisk !== undefined || app.structuredSummary) {
+          y += 2;
+          if (y > 270) { doc.addPage(); y = 20; }
+          
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.setTextColor(15, 23, 42);
+          doc.text("Adesão:", 15, y);
+          doc.setFont("helvetica", "normal");
+          doc.text(app.compliance ? "Sim" : "Não", 35, y);
+          
+          doc.setFont("helvetica", "bold");
+          doc.text("Estabilidade:", 55, y);
+          doc.setFont("helvetica", "normal");
+          doc.text(app.moodStability ? "Sim" : "Não", 80, y);
+          
+          doc.setFont("helvetica", "bold");
+          doc.text("Risco de Crise:", 100, y);
+          doc.setFont("helvetica", "normal");
+          doc.text(app.crisisRisk ? "Sim" : "Não", 128, y);
+          y += 5;
+          
+          if (app.structuredSummary) {
+            if (y > 270) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica", "bold");
+            doc.text("Sumário Clínico e Observações Adicionais:", 15, y);
+            y += 4;
+            doc.setFont("helvetica", "normal");
+            const splitSummary = doc.splitTextToSize(app.structuredSummary, 180);
+            splitSummary.forEach((line: string) => {
+              if (y > 275) {
+                doc.addPage();
+                y = 20;
+              }
+              doc.text(line, 15, y);
+              y += 5;
+            });
+          }
+        }
+        
+        y += 3; // spacing between sessions
+        // Draw separation line
+        doc.setDrawColor(241, 245, 249); // slate-100
+        doc.line(15, y, 195, y);
+        y += 8;
+      });
+    }
+    
+    // Add professional disclaimer in footer
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      doc.text("Documento confidencial gerado eletronicamente em conformidade com as normas profissionais vigentes de sigilo clínico.", 15, 292);
+      doc.text(`Página ${i} de ${totalPages}`, 180, 292);
+    }
+    
+    doc.save(`prontuario_${paciente.nome?.replace(/\s+/g, '_').toLowerCase()}.pdf`);
+  };
+
   const chartData = moodHistory.map(m => ({
     date: new Date(m.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     value: m.value,
@@ -213,13 +371,23 @@ export default function ProntuarioPaciente() {
               <p className="text-slate-500">Acompanhamento clínico e evolução terapêutica</p>
             </div>
           </div>
-          <button 
-            onClick={() => navigate(`/registro/new?patientId=${id}`)}
-            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/20"
-          >
-            <Plus className="w-5 h-5" />
-            Nova Evolução
-          </button>
+          <div className="flex gap-3">
+            <button 
+              onClick={exportToPDF}
+              className="px-5 py-3 bg-slate-900 border border-white/5 hover:bg-slate-800 text-slate-300 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-md shadow-black/30 cursor-pointer text-sm"
+              title="Gerar PDF do histórico de evoluções deste paciente"
+            >
+              <Download className="w-5 h-5 text-emerald-400" />
+              Exportar PDF
+            </button>
+            <button 
+              onClick={() => navigate(`/registro/new?patientId=${id}`)}
+              className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/20 cursor-pointer text-sm"
+            >
+              <Plus className="w-5 h-5" />
+              Nova Evolução
+            </button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -402,14 +570,56 @@ export default function ProntuarioPaciente() {
                           </span>
                         </div>
                         
-                        <div className="bg-slate-950 p-4 rounded-2xl border border-white/5">
-                          <p className="text-sm text-slate-400 leading-relaxed italic">
+                        <div className="bg-slate-950 p-4 rounded-2xl border border-white/5 space-y-4">
+                          <p className="text-sm text-slate-300 leading-relaxed font-sans whitespace-pre-line">
                             {app.notes || "Nenhuma nota registrada para esta sessão."}
                           </p>
+                          
+                          {(app.compliance !== undefined || app.moodStability !== undefined || app.crisisRisk !== undefined || app.structuredSummary) && (
+                            <div className="pt-3 border-t border-white/5 space-y-3">
+                              {/* Clinical metrics */}
+                              <div className="flex flex-wrap gap-2 text-[10px]">
+                                {app.compliance !== undefined && (
+                                  <span className={cn(
+                                    "px-2.5 py-1 rounded-full font-bold",
+                                    app.compliance ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red- 400"
+                                  )}>
+                                    Compliance: {app.compliance ? "Sim" : "Não"}
+                                  </span>
+                                )}
+                                {app.moodStability !== undefined && (
+                                  <span className={cn(
+                                    "px-2.5 py-1 rounded-full font-bold",
+                                    app.moodStability ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-500"
+                                  )}>
+                                    Estabilidade de Humor: {app.moodStability ? "Sim" : "Não"}
+                                  </span>
+                                )}
+                                {app.crisisRisk !== undefined && (
+                                  <span className={cn(
+                                    "px-2.5 py-1 rounded-full font-bold",
+                                    app.crisisRisk ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"
+                                  )}>
+                                    Risco de Crise: {app.crisisRisk ? "Sim" : "Não"}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              {app.structuredSummary && (
+                                <div className="space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sumário Estruturado</p>
+                                  <p className="text-xs text-slate-350 font-sans whitespace-pre-line leading-relaxed">{app.structuredSummary}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex justify-end">
-                          <button className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest hover:underline">
+                          <button 
+                            onClick={() => navigate(`/registro/${app.id}`)}
+                            className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest hover:underline cursor-pointer"
+                          >
                             Editar Evolução
                           </button>
                         </div>

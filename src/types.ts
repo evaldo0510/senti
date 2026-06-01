@@ -41,6 +41,11 @@ export interface Appointment {
   price: number;
   notes?: string;
   riskLevel?: 'baixo' | 'moderado' | 'alto';
+  compliance?: boolean;
+  moodStability?: boolean;
+  crisisRisk?: boolean;
+  structuredSummary?: string;
+  patientEmail?: string;
   createdAt: string;
   reviewed?: boolean;
   reminded?: boolean;

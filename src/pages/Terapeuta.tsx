@@ -26,7 +26,8 @@ import {
   MessageSquare,
   Send,
   RefreshCw,
-  HeartPulse
+  HeartPulse,
+  Search
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
@@ -42,6 +43,7 @@ export default function Terapeuta() {
   const { profile, loading, isAuthReady } = useAuth();
   const { isSubscribed, permission: pushPermission, subscribe } = usePushNotifications(profile?.uid);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -709,78 +711,140 @@ export default function Terapeuta() {
             </div>
           )}
 
-          {activeTab === 'pacientes' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-slate-200">Seus Pacientes Ativos</h3>
-                <div className="text-sm text-slate-500">Total: {Array.from(new Set(appointments.map(a => a.patientId))).length}</div>
-              </div>
+          {activeTab === 'pacientes' && (() => {
+            const uniquePatientIds = Array.from(new Set(appointments.map(a => a.patientId)));
+            const patientsData = uniquePatientIds.map(patientId => {
+              const patientApps = appointments.filter(a => a.patientId === patientId);
+              const sortedApps = [...patientApps].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+              const lastApp = sortedApps[0] || patientApps[0];
+              const lastConsultationDate = lastApp ? new Date(lastApp.date) : null;
+              const completedCount = patientApps.filter(a => a.status === 'completed').length;
+              
+              return {
+                patientId,
+                name: lastApp?.patientNome || "",
+                email: lastApp?.patientEmail || "",
+                lastApp,
+                lastConsultationDate,
+                completedCount,
+                patientApps
+              };
+            });
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Array.from(new Set(appointments.map(a => a.patientId))).map(patientId => {
-                  const patientApps = appointments.filter(a => a.patientId === patientId);
-                  const lastApp = patientApps[0];
-                  const completedCount = patientApps.filter(a => a.status === 'completed').length;
-                  
-                  return (
-                    <motion.div 
-                      key={patientId}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-all"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-xl font-bold text-emerald-400 border border-white/5">
-                          {lastApp.patientNome?.charAt(0) || "P"}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-bold text-slate-100">{lastApp.patientNome}</h4>
-                          <p className="text-xs text-slate-500">{completedCount} sessões realizadas</p>
-                        </div>
-                        <button className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-                          <MessageCircle className="w-5 h-5 text-slate-400" />
-                        </button>
-                      </div>
-                      
-                      <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                        <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Status</div>
-                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold rounded-full uppercase">Em Tratamento</span>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => navigate(`/terapeuta/paciente/${patientId}`)}
-                          className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all"
-                        >
-                          Ver Prontuário
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            if (profile) {
-                              const success = await userService.notifyTherapist(profile.uid, lastApp.patientNome || "Novo Paciente");
-                              if (success) {
-                                alert("Notificação enviada com sucesso!");
-                              }
-                            }
-                          }}
-                          className="px-4 py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 rounded-xl text-xs font-bold transition-all border border-emerald-500/20 flex items-center gap-2"
-                        >
-                          <Bell className="w-4 h-4" />
-                          Notificar
-                        </button>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-                {appointments.length === 0 && (
-                  <div className="col-span-full bg-slate-900/50 border border-dashed border-white/10 p-12 rounded-3xl text-center">
-                    <Users className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-                    <p className="text-slate-500">Você ainda não tem pacientes vinculados.</p>
+            const filteredPatients = patientsData.filter(p => {
+              if (!patientSearchQuery.trim()) return true;
+              const q = patientSearchQuery.toLowerCase();
+              const nameMatch = p.name.toLowerCase().includes(q);
+              const emailMatch = p.email.toLowerCase().includes(q);
+              
+              let dateMatch = false;
+              if (p.lastConsultationDate) {
+                const formattedDate = p.lastConsultationDate.toLocaleDateString('pt-BR');
+                dateMatch = formattedDate.includes(q);
+              }
+              return nameMatch || emailMatch || dateMatch;
+            });
+
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-200">Seus Pacientes Ativos</h3>
+                    <p className="text-xs text-slate-500">Filtrando {filteredPatients.length} de {patientsData.length} pacientes</p>
                   </div>
-                )}
+                  <div className="text-sm text-slate-500 font-bold bg-slate-900 border border-white/5 py-1 px-3 rounded-full">
+                    Total: {patientsData.length}
+                  </div>
+                </div>
+
+                {/* Patient filter search bar */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                    <Search className="w-5 h-5 text-slate-500" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Filtrar por nome, email ou data de consulta (ex: 20/05/2026)..."
+                    value={patientSearchQuery}
+                    onChange={(e) => setPatientSearchQuery(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/5 pl-11 pr-4 py-3.5 rounded-2xl text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all font-sans"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredPatients.map(p => {
+                    const { patientId, name, lastApp, completedCount, lastConsultationDate } = p;
+                    if (!lastApp) return null;
+                    
+                    return (
+                      <motion.div 
+                        key={patientId}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4 hover:border-emerald-500/30 transition-all"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-xl font-bold text-emerald-400 border border-white/5">
+                            {name?.charAt(0) || "P"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-bold text-slate-100 truncate">{name}</h4>
+                            <p className="text-xs text-slate-500 truncate">{p.email || "Sem email registrado"}</p>
+                            <p className="text-xs text-slate-500">{completedCount} sessões realizadas</p>
+                          </div>
+                          <button className="p-2 hover:bg-white/5 rounded-xl transition-colors">
+                            <MessageCircle className="w-5 h-5 text-slate-400" />
+                          </button>
+                        </div>
+                        
+                        <div className="pt-4 border-t border-white/5 flex flex-col gap-1.5 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Status:</span>
+                            <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-bold rounded-full uppercase">Em Tratamento</span>
+                          </div>
+                          {lastConsultationDate && (
+                            <div className="flex justify-between items-center text-slate-400">
+                              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Última Consulta:</span>
+                              <span className="font-mono text-[11px]">{lastConsultationDate.toLocaleDateString('pt-BR')}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => navigate(`/terapeuta/paciente/${patientId}`)}
+                            className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                          >
+                            Ver Prontuário
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              if (profile) {
+                                const success = await userService.notifyTherapist(profile.uid, name || "Novo Paciente");
+                                if (success) {
+                                  alert("Notificação enviada com sucesso!");
+                                }
+                              }
+                            }}
+                            className="px-4 py-3 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 rounded-xl text-xs font-bold transition-all border border-emerald-500/20 flex items-center gap-2 cursor-pointer"
+                          >
+                            <Bell className="w-4 h-4" />
+                            Notificar
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                  {filteredPatients.length === 0 && (
+                    <div className="col-span-full bg-slate-900/50 border border-dashed border-white/10 p-12 rounded-3xl text-center">
+                      <Users className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+                      <p className="text-slate-500">Nenhum paciente atende aos critérios de busca.</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {activeTab === 'historico' && (
             <div className="space-y-6">
