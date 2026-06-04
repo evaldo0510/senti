@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X, Mic, Square, Play, Pause, Paperclip, Lock } from "lucide-react";
+import { Send, ArrowLeft, Video, Phone, MoreVertical, FileText, Check, CheckCheck, X, Mic, Square, Play, Pause, Paperclip, Lock, Unlock } from "lucide-react";
 import { chatService } from "../services/chatService";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -116,7 +116,8 @@ export default function Atendimento() {
             ? appointment.therapistId 
             : appointment.patientId;
           
-          await chatService.sendAudioMessage(appointmentId, auth.currentUser.uid, receiverId, audioBlob, recordingDuration, appointment.sharedSecret);
+          const isE2EEnabled = appointment.e2eeEnabled !== false;
+          await chatService.sendAudioMessage(appointmentId, auth.currentUser.uid, receiverId, audioBlob, recordingDuration, isE2EEnabled ? appointment.sharedSecret : undefined);
         }
         setRecordingDuration(0);
         stream.getTracks().forEach(track => track.stop());
@@ -165,9 +166,8 @@ export default function Atendimento() {
         ? appointment.therapistId 
         : appointment.patientId;
       
-      // We don't know the duration for uploaded files easily without loading them
-      // but we can estimate or just leave it 0
-      await chatService.sendAudioMessage(appointmentId, auth.currentUser.uid, receiverId, file, 0, appointment.sharedSecret);
+      const isE2EEnabled = appointment.e2eeEnabled !== false;
+      await chatService.sendAudioMessage(appointmentId, auth.currentUser.uid, receiverId, file, 0, isE2EEnabled ? appointment.sharedSecret : undefined);
     } else {
       alert("Por favor, selecione um arquivo de áudio.");
     }
@@ -181,7 +181,8 @@ export default function Atendimento() {
       : appointment.patientId;
 
     try {
-      await chatService.sendMessage(appointmentId, auth.currentUser.uid, receiverId, mensagem, appointment.sharedSecret);
+      const isE2EEnabled = appointment.e2eeEnabled !== false;
+      await chatService.sendMessage(appointmentId, auth.currentUser.uid, receiverId, mensagem, isE2EEnabled ? appointment.sharedSecret : undefined);
       // Stop typing immediately on send
       handleTyping(false);
       
@@ -249,6 +250,19 @@ export default function Atendimento() {
     window.open(url, '_blank');
   };
 
+  const isE2EEnabled = appointment?.e2eeEnabled !== false;
+
+  const toggleE2EE = async () => {
+    if (!appointmentId || !appointment) return;
+    const nextVal = !isE2EEnabled;
+    try {
+      await userService.updateAppointment(appointmentId, { e2eeEnabled: nextVal });
+      setAppointment(prev => prev ? { ...prev, e2eeEnabled: nextVal } : null);
+    } catch (e) {
+      console.error("Error toggling E2EE:", e);
+    }
+  };
+
   const startCall = () => {
     if (!appointmentId || !appointment || !auth.currentUser) return;
     startWhatsAppCall('video');
@@ -300,15 +314,27 @@ export default function Atendimento() {
                   {otherUser?.online ? "Online agora" : "Offline"}
                 </p>
                 <span className="text-slate-700 text-[10px]">•</span>
-                <div className="flex items-center gap-1 text-[10px] text-emerald-500/60 font-medium uppercase tracking-wider">
-                  <Lock className="w-2.5 h-2.5" />
-                  <span>E2EE Ativo</span>
+                <div className={`flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider ${isE2EEnabled ? "text-emerald-500/60" : "text-amber-500/60"}`}>
+                  {isE2EEnabled ? <Lock className="w-2.5 h-2.5" /> : <Unlock className="w-2.5 h-2.5" />}
+                  <span>{isE2EEnabled ? "E2EE Ativo" : "E2EE Inativo"}</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-slate-950/40 p-1.5 rounded-full border border-white/5">
+          <button 
+            onClick={toggleE2EE}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all text-xs font-bold active:scale-95 cursor-pointer ${
+              isE2EEnabled 
+                ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20" 
+                : "bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20"
+            }`}
+            title={isE2EEnabled ? "Desativar Criptografia de Ponta-a-Ponta" : "Ativar Criptografia de Ponta-a-Ponta"}
+          >
+            {isE2EEnabled ? <Lock className="w-3.5 h-3.5 animate-pulse" /> : <Unlock className="w-3.5 h-3.5" />}
+            <span className="hidden xs:inline">{isE2EEnabled ? "E2E Seguro" : "E2E Desativado"}</span>
+          </button>
           <button 
             onClick={startCall}
             className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300"

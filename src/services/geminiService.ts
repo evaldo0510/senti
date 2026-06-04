@@ -96,7 +96,7 @@ Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansieda
     }
 
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: [
         ...history, 
         { role: 'user', parts: [{ text: message }] }
@@ -137,7 +137,7 @@ Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansieda
 export async function generateSpeech(text: string) {
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: "gemini-3.1-flash-tts-preview",
       contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
@@ -197,7 +197,7 @@ Abordagem: ${abordagem || 'não especificada'}
 A biografia deve ser escrita em primeira pessoa, ser acolhedora, profissional e transmitir confiança. Foque em como o terapeuta ajuda seus pacientes. Não use placeholders como [Nome].`;
 
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3.5-flash",
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       config: {
         temperature: 0.8,

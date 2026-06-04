@@ -88,17 +88,22 @@ service cloud.firestore {
       }
 
       // Allow getting a single profile if: public therapist, owning the profile, admin, or authenticated therapist viewing patient
-      allow get: if (
-        resource == null ||
-        resource.data.tipo == 'terapeuta' || 
-        isOwner(userId) || 
+      allow get: if resource == null || resource.data.tipo == 'terapeuta';
+      allow get: if isOwner(userId);
+      allow get: if isAdmin();
+      allow get: if isAuthenticated() && 
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+
+      // Force listing queries on users collection to filter for therapists only, or allow patients, or own document, or admin
+      allow list: if resource.data.tipo == 'terapeuta';
+      allow list: if isAuthenticated() && (
+        resource.data.uid == request.auth.uid ||
+        resource.data.tipo == 'usuario' ||
         isAdmin() ||
-        (isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta')
       );
-
-      // Force listing queries on users collection to filter for therapists only (protects patient PII and isolates details of candidates)
-      allow list: if resource.data.tipo == 'terapeuta';
 
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
                       (isOwner(userId) || isAdmin());
@@ -106,6 +111,11 @@ service cloud.firestore {
                       (isOwner(userId) || isAdmin()) &&
                       areImmutableFieldsUnchanged(['uid', 'email', 'createdAt']);
       allow delete: if isAdmin();
+    }
+
+    // Test connection collection
+    match /test/{id} {
+      allow read: if true;
     }
 
     // Appointments collection

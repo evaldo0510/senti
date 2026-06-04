@@ -582,6 +582,15 @@ export const userService = {
     }
   },
 
+  disconnectGoogleCalendar: async (uid: string) => {
+    const path = `users/${uid}`;
+    try {
+      await updateDoc(doc(db, 'users', uid), { googleCalendarConnected: false });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
   connectEarnings: async (uid: string) => {
     const path = `users/${uid}`;
     try {
@@ -663,10 +672,18 @@ export const userService = {
 
       if (noteId) {
         const noteRef = doc(db, path, noteId);
-        await updateDoc(noteRef, {
-          encryptedContent,
-          updatedAt: timestamp
-        });
+        const docSnap = await getDoc(noteRef);
+        if (docSnap.exists()) {
+          await updateDoc(noteRef, {
+            encryptedContent,
+            updatedAt: timestamp
+          });
+        } else {
+          await setDoc(noteRef, {
+            ...noteData,
+            createdAt: timestamp
+          });
+        }
         const fullDoc = await getDoc(noteRef);
         return { id: noteId, ...fullDoc.data() } as PrivateNote;
       } else {

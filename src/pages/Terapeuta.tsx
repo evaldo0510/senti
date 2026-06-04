@@ -63,6 +63,12 @@ export default function Terapeuta() {
   const [syncStatus, setSyncStatus] = useState<Record<string, boolean>>({});
   const [selectedApptIdForAlert, setSelectedApptIdForAlert] = useState<string>("");
 
+  useEffect(() => {
+    if (profile) {
+      setIsGoogleConnected(!!profile.googleCalendarConnected);
+    }
+  }, [profile?.googleCalendarConnected]);
+
   const generateAlertMessage = (apptId: string) => {
     const appt = appointments.find(a => a.id === apptId);
     if (!appt) return;
@@ -124,11 +130,14 @@ export default function Terapeuta() {
     }
   };
 
-  const handleDisconnectGoogle = () => {
+  const handleDisconnectGoogle = async () => {
     googleWorkspaceService.disconnect();
     setIsGoogleConnected(false);
     setChatSpaces([]);
     setSelectedSpace("");
+    if (profile) {
+      await userService.disconnectGoogleCalendar(profile.uid);
+    }
   };
 
   const handleSyncToCalendar = async (appointment: Appointment) => {
@@ -140,6 +149,7 @@ export default function Terapeuta() {
     try {
       await googleWorkspaceService.createCalendarEvent(appointment);
       setSyncStatus(prev => ({ ...prev, [appointment.id]: true }));
+      await userService.updateAppointment(appointment.id, { googleSynced: true });
       alert("Sucesso! A consulta foi inserida com sucesso no Google Calendar.");
     } catch (err: any) {
       console.error(err);
@@ -434,12 +444,26 @@ export default function Terapeuta() {
                 {activeTab === 'google_workspace' && 'Conecte seus compromissos com o Google Calendar e notificações com o Google Chat.'}
               </p>
             </div>
-            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-end items-center">
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-end items-center flex-wrap sm:flex-nowrap">
+              {/* Google Calendar Sync Status Badge */}
+              <div className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-[10px] sm:text-xs transition-all border",
+                isGoogleConnected 
+                  ? "bg-blue-500/10 border-blue-500/50 text-blue-400 shadow-sm shadow-blue-500/5" 
+                  : "bg-slate-900 border-white/5 text-slate-500/80"
+              )}>
+                <div className={cn(
+                  "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full",
+                  isGoogleConnected ? "bg-blue-400 animate-pulse" : "bg-slate-700"
+                )} />
+                <span>CALENDAR: {isGoogleConnected ? "SINC_ATIVO" : "DESCONECTADO"}</span>
+              </div>
+
               {/* Uber-like Online Toggle */}
               <button 
                 onClick={toggleOnlineStatus}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all border",
+                  "flex items-center gap-2 px-4 py-2 rounded-full font-bold text-[10px] sm:text-xs transition-all border",
                   profile?.online 
                     ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-400" 
                     : "bg-slate-800 border-white/10 text-slate-500"
@@ -565,14 +589,14 @@ export default function Terapeuta() {
                             onClick={() => isGoogleConnected ? handleSyncToCalendar(app) : handleGoogleAuth()}
                             className={cn(
                               "flex-1 sm:flex-none px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border whitespace-nowrap active:scale-95",
-                              syncStatus[app.id]
+                              (app.googleSynced || syncStatus[app.id])
                                 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                 : "bg-blue-600/10 text-blue-400 border-blue-500/20 hover:bg-blue-600/20 hover:text-blue-300"
                             )}
                             title="Sincronizar Lembrete no Google Agenda"
                           >
                             <Calendar className="w-4 h-4" />
-                            {syncStatus[app.id] ? "Sincronizado" : "Sincronizar Lembrete"}
+                            {(app.googleSynced || syncStatus[app.id]) ? "Sincronizado" : "Sincronizar Lembrete"}
                           </button>
 
                           {app.status === 'pending' ? (
@@ -1212,7 +1236,7 @@ export default function Terapeuta() {
                     ) : (
                       appointments.map((appt) => {
                         const dateStr = new Date(appt.date).toLocaleDateString('pt-BR');
-                        const isSynced = syncStatus[appt.id];
+                        const isSynced = appt.googleSynced || syncStatus[appt.id];
 
                         return (
                           <div 

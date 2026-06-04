@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { userService } from '../services/userService';
 import { UserProfile } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LoadingScreen } from './LoadingScreen';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface AuthContextType {
   user: User | null;
@@ -28,15 +29,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      // Clear previous subscription if any
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       if (currentUser) {
         try {
+          // Preload profile immediately
           const userProfile = await userService.getUser(currentUser.uid);
           setProfile(userProfile);
           if (userProfile) {
             localStorage.setItem("tipo", userProfile.tipo);
           }
+
+          // Register real-time database listener
+          unsubscribeProfile = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+            if (docSnap.exists()) {
+              const updatedProfile = docSnap.data() as UserProfile;
+              setProfile(updatedProfile);
+              localStorage.setItem("tipo", updatedProfile.tipo);
+            }
+          });
         } catch (error) {
           console.error("Error fetching user profile:", error);
         }
@@ -51,7 +71,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Seed mock data if needed
     userService.seedMockData().catch(console.error);
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+    };
   }, []);
 
   if (loading) {

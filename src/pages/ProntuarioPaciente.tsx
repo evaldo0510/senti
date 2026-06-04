@@ -60,6 +60,11 @@ export default function ProntuarioPaciente() {
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
+  // Quick Notes State
+  const [quickNoteText, setQuickNoteText] = useState("");
+  const [savingQuickNote, setSavingQuickNote] = useState(false);
+  const [quickNoteSuccess, setQuickNoteSuccess] = useState(false);
+
   const getCipherKey = () => {
     if (useCustomKey) {
       return customKey || "default_fallback_key_123_abc";
@@ -87,11 +92,46 @@ export default function ProntuarioPaciente() {
     setLoadingNotes(true);
     try {
       const notes = await userService.getPrivateNotes(id, auth.currentUser.uid);
-      setPrivateNotes(notes);
+      
+      const quickNoteDocId = `quick_${id}_${auth.currentUser.uid}`;
+      const foundQuick = notes.find(n => n.id === quickNoteDocId);
+      if (foundQuick) {
+        // Quick note is decrypted with standard therapist uid key so it works transparently
+        const standardKey = auth.currentUser.uid;
+        try {
+          const bytes = CryptoJS.AES.decrypt(foundQuick.encryptedContent, standardKey);
+          const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+          if (decrypted) {
+            setQuickNoteText(decrypted);
+          }
+        } catch (e) {
+          console.error("Error decrypting quick note:", e);
+        }
+      }
+
+      const filteredNotes = notes.filter(n => n.id !== quickNoteDocId);
+      setPrivateNotes(filteredNotes);
     } catch (e) {
       console.error("Error loading secure notes:", e);
     } finally {
       setLoadingNotes(false);
+    }
+  };
+
+  const handleSaveQuickNote = async () => {
+    if (!id || !auth.currentUser) return;
+    setSavingQuickNote(true);
+    try {
+      const docId = `quick_${id}_${auth.currentUser.uid}`;
+      const standardKey = auth.currentUser.uid;
+      const ciphertext = CryptoJS.AES.encrypt(quickNoteText, standardKey).toString();
+      await userService.savePrivateNote(id, auth.currentUser.uid, ciphertext, docId);
+      setQuickNoteSuccess(true);
+      setTimeout(() => setQuickNoteSuccess(false), 2500);
+    } catch (e) {
+      console.error("Error saving quick note:", e);
+    } finally {
+      setSavingQuickNote(false);
     }
   };
 
@@ -444,6 +484,38 @@ export default function ProntuarioPaciente() {
                 </p>
                 <p className="text-xs opacity-70 mt-1">Baseado na última sessão realizada em {new Date(appointments[0]?.date || Date.now()).toLocaleDateString('pt-BR')}.</p>
               </div>
+            </div>
+
+            {/* Quick Notes Card */}
+            <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-sm uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-400" />
+                  Anotações Rápidas
+                </h3>
+                {quickNoteSuccess && (
+                  <span className="text-xs text-emerald-400 animate-pulse font-medium">Salvo!</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500">Rascunho de lembretes e observações rápidas para esta sessão.</p>
+              <textarea
+                value={quickNoteText}
+                onChange={(e) => setQuickNoteText(e.target.value)}
+                placeholder="Digite aqui anotações rápidas e temporárias sobre o paciente..."
+                className="w-full h-36 bg-slate-950 border border-white/5 rounded-2xl p-4 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+              />
+              <button
+                onClick={handleSaveQuickNote}
+                disabled={savingQuickNote}
+                className="w-full py-2.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border border-emerald-500/20 active:scale-95 disabled:opacity-50"
+              >
+                {savingQuickNote ? (
+                  <div className="w-4 h-4 border-2 border-emerald-400/20 border-t-emerald-400 rounded-full animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                <span>{savingQuickNote ? "Salvando..." : "Salvar Rascunho"}</span>
+              </button>
             </div>
           </div>
 
