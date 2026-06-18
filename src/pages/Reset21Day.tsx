@@ -109,7 +109,36 @@ export default function Reset21Day() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex flex-col items-center">
-          <span className="font-bold tracking-widest uppercase text-[10px] text-emerald-400">Dia {dayData.day} • {dayData.phase}</span>
+          <span className="font-bold tracking-widest uppercase text-[10px] text-emerald-400 mb-1">Dia {dayData.day} • {dayData.phase}</span>
+          
+          {/* Subtle micro progress indicator segments for 21-day timeline */}
+          <div className="flex gap-1 justify-center items-center h-1.5 mb-1.5">
+            {Array.from({ length: 21 }).map((_, i) => {
+              const currentDayNum = i + 1;
+              const isCompletedJourney = currentDayNum < dayData.day;
+              const isCurrentJourney = currentDayNum === dayData.day;
+              return (
+                <motion.div
+                  key={i}
+                  className={cn(
+                    "h-1 rounded-full",
+                    isCompletedJourney ? "bg-emerald-500 w-1.5" :
+                    isCurrentJourney ? "bg-teal-400 w-3.5 shadow-[0_0_6px_rgba(45,212,191,0.6)]" :
+                    "bg-white/15 w-1"
+                  )}
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ 
+                    delay: i * 0.02, 
+                    type: "spring", 
+                    stiffness: 100, 
+                    damping: 15 
+                  }}
+                />
+              );
+            })}
+          </div>
+
           <h1 className="text-sm font-black tracking-tighter text-white">{dayData.title}</h1>
         </div>
         <div className="w-11" />
@@ -138,29 +167,63 @@ export default function Reset21Day() {
           
           <div className="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-[32px] p-6 space-y-6">
             <div className="flex items-center gap-6">
-              <button 
-                onClick={togglePlay}
-                className="w-16 h-16 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
-              >
-                {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
-              </button>
+              {/* Play Button with breathing glow indicator */}
+              <div className="relative flex-shrink-0">
+                {isPlaying && (
+                  <motion.div
+                    className="absolute inset-0 bg-emerald-500/30 rounded-full -z-10"
+                    animate={{ scale: [1, 1.35, 1], opacity: [0.6, 0, 0.6] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  />
+                )}
+                <button 
+                  onClick={togglePlay}
+                  className="w-16 h-16 bg-emerald-500 hover:bg-emerald-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20 transition-all active:scale-95 relative z-10"
+                >
+                  {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
+                </button>
+              </div>
               
               <div className="flex-1 space-y-2">
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                {/* Advanced audio progress timeline with glowing handle dot and smooth progress transitions */}
+                <div className="h-2 bg-white/10 rounded-full relative overflow-visible">
                   <motion.div 
-                    className="h-full bg-emerald-500"
-                    style={{ width: `${progress}%` }}
+                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full"
+                    animate={{ width: `${progress}%` }}
+                    transition={{ type: "tween", ease: "linear", duration: 0.2 }}
                   />
+                  {progress > 0 && (
+                    <motion.div
+                      className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full shadow-[0_0_10px_#10b981] -ml-1.5 pointer-events-none"
+                      animate={{ 
+                        left: `${progress}%`,
+                        scale: isPlaying ? [1, 1.2, 1] : 1
+                      }}
+                      transition={{ 
+                        left: { type: "tween", ease: "linear", duration: 0.2 },
+                        scale: { repeat: isPlaying ? Infinity : 0, duration: 1.5, ease: "easeInOut" }
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   <span>Início</span>
-                  <span>IARA Conduzindo</span>
+                  <span className="flex items-center gap-1">
+                    {isPlaying && (
+                      <span className="flex gap-0.5 items-center mr-1">
+                        <motion.span animate={{ height: [3, 8, 3] }} transition={{ repeat: Infinity, duration: 0.6, ease: "easeInOut" }} className="w-0.5 h-2 bg-emerald-400" />
+                        <motion.span animate={{ height: [6, 2, 6] }} transition={{ repeat: Infinity, duration: 0.5, ease: "easeInOut", delay: 0.15 }} className="w-0.5 h-2 bg-emerald-400" />
+                        <motion.span animate={{ height: [2, 7, 2] }} transition={{ repeat: Infinity, duration: 0.7, ease: "easeInOut", delay: 0.3 }} className="w-0.5 h-2 bg-emerald-400" />
+                      </span>
+                    )}
+                    IARA Conduzindo
+                  </span>
                 </div>
               </div>
 
               <button 
                 onClick={() => setIsMuted(!isMuted)}
-                className="p-3 bg-white/5 rounded-xl text-slate-400"
+                className="p-3 bg-white/5 rounded-xl text-slate-400 transition-colors hover:bg-white/10"
               >
                 {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
               </button>

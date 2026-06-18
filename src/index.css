@@ -42,8 +42,17 @@
   --brand-text: #F4F4F5;
 }
 
+/* Restringir rolagem no body para evitar comportamento de rebote desajeitado */
+html, body {
+  height: 100%;
+  height: -webkit-fill-available;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   @apply bg-brand-bg text-brand-text font-sans antialiased transition-colors duration-300;
+  overflow-x: hidden;
 }
 
 h1, h2, h3, h4 {
@@ -113,5 +122,35 @@ h1, h2, h3, h4 {
     content: '';
     @apply absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-20;
   }
+}
+
+/* Otimizações Nativas para App Móvel */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+  outline: none !important;
+}
+
+/* Prevenir seleção rápida de texto ao clicar repetidamente em elementos de interface */
+button, nav, a, .native-no-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Forçar visualização nativa para controles deslizantes e toques rápidos */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* Evitar zoom automático do iOS Safari ao focar em inputs com fonte menor que 16px */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Melhora a rolagem inercial nativa no iOS */
+.scroll-touch-momentum {
+  -webkit-overflow-scrolling: touch;
 }
 

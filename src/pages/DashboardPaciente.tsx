@@ -1115,46 +1115,52 @@ export default function DashboardPaciente() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/5 px-2 pb-safe pt-2 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-        <button 
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-white/5 px-2 pb-safe pt-2 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] dark:shadow-none">
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
           onClick={() => navigate("/home")}
           className="flex flex-col items-center gap-1 py-2 px-4 text-emerald-600 dark:text-emerald-400 min-w-[64px]"
         >
-          <Zap className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Início</span>
-        </button>
-        <button 
+          <Zap className="w-5 h-5" />
+          <span className="text-[9px] font-extrabold uppercase tracking-widest">Início</span>
+        </motion.button>
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
           onClick={() => navigate("/profissionais")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
         >
-          <Search className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Buscar</span>
-        </button>
+          <Search className="w-5 h-5" />
+          <span className="text-[9px] font-extrabold uppercase tracking-widest">Buscar</span>
+        </motion.button>
         
         <div className="relative -mt-10">
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => navigate("/live-iara")}
             aria-label="Sessão IARA Live"
-            className="w-16 h-16 bg-emerald-600 dark:bg-emerald-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-600/40 dark:shadow-emerald-900/60 border-4 border-white dark:border-slate-950 active:scale-90 transition-all hover:scale-105"
+            className="w-16 h-16 bg-emerald-600 dark:bg-emerald-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-600/40 dark:shadow-emerald-900/60 border-4 border-white dark:border-slate-950 transition-all"
           >
-            <Video className="w-8 h-8 text-white" />
-          </button>
+            <Video className="w-7 h-7 text-white" />
+          </motion.button>
         </div>
 
-        <button 
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
           onClick={() => navigate("/diario")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
         >
-          <BookOpen className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Diário</span>
-        </button>
-        <button 
+          <BookOpen className="w-5 h-5" />
+          <span className="text-[9px] font-extrabold uppercase tracking-widest">Diário</span>
+        </motion.button>
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
           onClick={() => navigate("/perfil")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
+          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
         >
-          <User className="w-6 h-6" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Perfil</span>
-        </button>
+          <User className="w-5 h-5" />
+          <span className="text-[9px] font-extrabold uppercase tracking-widest">Perfil</span>
+        </motion.button>
       </nav>
     </div>
   );

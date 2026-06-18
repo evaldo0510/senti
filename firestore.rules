@@ -87,23 +87,20 @@ service cloud.firestore {
                (!('biografia' in data) || (data.biografia is string && data.biografia.size() < 2000));
       }
 
-      // Allow getting a single profile if: public therapist, owning the profile, admin, or authenticated therapist viewing patient
+      // Allow get/list for therapists (publicly accessible)
       allow get: if resource == null || resource.data.tipo == 'terapeuta';
-      allow get: if isOwner(userId);
-      allow get: if isAdmin();
-      allow get: if isAuthenticated() && 
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
-
-      // Force listing queries on users collection to filter for therapists only, or allow patients, or own document, or admin
       allow list: if resource.data.tipo == 'terapeuta';
-      allow list: if isAuthenticated() && (
-        resource.data.uid == request.auth.uid ||
-        resource.data.tipo == 'usuario' ||
-        isAdmin() ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta')
-      );
+
+      // Allow get/list for own document
+      allow get, list: if isOwner(userId);
+
+      // Allow get/list if caller is an authenticated therapist
+      allow get, list: if isAuthenticated() && 
+                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+
+      // Allow get/list for admin
+      allow get, list: if isAdmin();
 
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
                       (isOwner(userId) || isAdmin());
