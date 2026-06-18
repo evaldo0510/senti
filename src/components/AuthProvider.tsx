@@ -60,6 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
           console.error("Error fetching user profile:", error);
         }
+        
+        // Seed mock data if needed
+        userService.seedMockData().catch(console.error);
       } else {
         setProfile(null);
         localStorage.removeItem("tipo");
@@ -67,9 +70,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
       setIsAuthReady(true);
     });
-
-    // Seed mock data if needed
-    userService.seedMockData().catch(console.error);
 
     return () => {
       unsubscribe();
