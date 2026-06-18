@@ -12,7 +12,8 @@ import {
   RefreshCw,
   Zap,
   ArrowRight,
-  Volume2
+  Volume2,
+  Award
 } from "lucide-react";
 import { auth } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -26,6 +27,15 @@ export default function Reset21() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [conquistas, setConquistas] = useState<string[]>([]);
+
+  const SET_BADGES = [
+    { id: "reset_1", title: "Pé na Estrada", description: "Completou o 1º dia.", day: 1 },
+    { id: "reset_3", title: "Foco Triplo", description: "Completou 3 dias de reset.", day: 3 },
+    { id: "reset_7", title: "Hábito Formado", description: "Completou 7 dias de reprogramação.", day: 7 },
+    { id: "reset_14", title: "Consciência Plena", description: "Completou 14 dias.", day: 14 },
+    { id: "reset_21", title: "Mestre do ReSet", description: "Completou a jornada de 21 dias!", day: 21 },
+  ];
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -42,6 +52,7 @@ export default function Reset21() {
         if (profile) {
           setProgresso(profile.journeyProgress || 0);
           setIsPremium(profile.isPremium || false);
+          setConquistas(profile.achievements || []);
         }
       }
       setLoading(false);
@@ -128,9 +139,9 @@ export default function Reset21() {
               </div>
               <div className="h-2 bg-white/20 rounded-full overflow-hidden">
                 <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(progresso / 21) * 100}%` }}
-                  className="h-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]"
+                   initial={{ width: 0 }}
+                   animate={{ width: `${(progresso / 21) * 100}%` }}
+                   className="h-full bg-white shadow-[0_0_15px_rgba(255,255,255,0.5)]"
                 />
               </div>
             </div>
@@ -142,6 +153,55 @@ export default function Reset21() {
               <PlayCircle className="w-6 h-6" />
               Continuar ReSet
             </button>
+          </div>
+        </section>
+
+        {/* Conquistas (Achievements/Badges) Section */}
+        <section className="space-y-4">
+          <h3 className="text-lg font-bold text-slate-300 px-2 flex items-center gap-2">
+            <Award className="w-5 h-5 text-amber-500" />
+            Conquistas Desbloqueadas ({SET_BADGES.filter(b => conquistas.includes(b.id)).length}/5)
+          </h3>
+          
+          <div className="grid grid-cols-2 xs:grid-cols-2 md:grid-cols-5 gap-3">
+            {SET_BADGES.map((badge) => {
+              const isUnlocked = conquistas.includes(badge.id) || (progresso >= badge.day);
+              return (
+                <div 
+                  key={badge.id}
+                  className={cn(
+                    "p-4 rounded-2xl border flex flex-col items-center text-center transition-all",
+                    isUnlocked 
+                      ? "bg-gradient-to-b from-amber-500/10 to-amber-500/0 border-amber-500/30 text-white shadow-lg"
+                      : "bg-slate-900/30 border-white/5 text-slate-500 opacity-50"
+                  )}
+                >
+                  <div className={cn(
+                    "w-12 h-12 rounded-full flex items-center justify-center mb-2.5",
+                    isUnlocked 
+                      ? "bg-amber-500 text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
+                      : "bg-slate-800 text-slate-600"
+                  )}>
+                    <Award className="w-6 h-6" />
+                  </div>
+                  <h4 className={cn(
+                    "text-xs font-black tracking-tight",
+                    isUnlocked ? "text-amber-400" : "text-slate-400"
+                  )}>
+                    {badge.title}
+                  </h4>
+                  <p className="text-[9px] text-slate-500 font-medium leading-none mt-1">
+                    {badge.description}
+                  </p>
+                  <span className={cn(
+                    "text-[8px] font-black uppercase mt-2 px-1.5 py-0.5 rounded",
+                    isUnlocked ? "bg-amber-500/20 text-amber-400 border border-amber-500/20" : "bg-slate-800 text-slate-500"
+                  )}>
+                    {isUnlocked ? "Desbloqueada" : `Dia ${badge.day}`}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </section>
 

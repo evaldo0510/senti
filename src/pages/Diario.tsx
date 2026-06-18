@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight, Zap } from "lucide-react";
+import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight, Zap, TrendingUp } from "lucide-react";
 import { userService } from "../services/userService";
 import { MoodEntry } from "../types";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 
 export default function Diario() {
   const navigate = useNavigate();
@@ -177,6 +178,133 @@ export default function Diario() {
             )}
           </button>
         </motion.section>
+
+        {/* Mood Evolution Chart Card */}
+        {historico.length >= 2 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4"
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-white/5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 animate-pulse">
+                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Evolução do seu Humor</h3>
+                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Desempenho ao longo de suas semanas</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-500/10">
+                Gráfico Ativo
+              </span>
+            </div>
+
+            <div className="h-60 w-full pt-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={[...historico]
+                    .reverse()
+                    .slice(-10) // Display last 10 entries for optimal clarity
+                    .map(entry => {
+                      const d = new Date(entry.timestamp);
+                      return {
+                        data: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                        dataCompleta: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+                        humor: entry.value,
+                        intensidade: entry.intensity || 0
+                      };
+                    })}
+                  margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorHumor" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorIntensidade" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis 
+                    dataKey="data" 
+                    stroke="#475569" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false}
+                    dy={5}
+                  />
+                  <YAxis 
+                    stroke="#475569" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false}
+                    domain={[0, 10]}
+                    tickCount={6}
+                    dx={-5}
+                  />
+                  <Tooltip
+                    content={({ active, payload }: any) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-slate-950 border border-white/10 p-3.5 rounded-2xl shadow-2xl relative z-50">
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest leading-none mb-2">
+                              {payload[0].payload.dataCompleta}
+                            </p>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                <span className="text-white text-xs font-bold">Humor: <span className="font-extrabold text-white text-sm">{payload[0].value}</span>/10</span>
+                              </div>
+                              {payload[1] && (
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                                  <span className="text-slate-300 text-xs font-bold">Intensidade: {payload[1].value}/10</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="humor" 
+                    stroke="#10b981" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorHumor)" 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="intensidade" 
+                    stroke="#3b82f6" 
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    fillOpacity={1} 
+                    fill="url(#colorIntensidade)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="flex gap-4 justify-center items-center text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <span>Nível de Humor</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                <span>Intensidade Emocional</span>
+              </div>
+            </div>
+          </motion.section>
+        )}
 
         {/* History Section */}
         <motion.section 

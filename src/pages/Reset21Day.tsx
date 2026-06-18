@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Volume2,
   VolumeX,
-  Lock
+  Lock,
+  Award
 } from "lucide-react";
 import { getDayData, JourneyDay } from "../data/journey21";
 import { userService } from "../services/userService";
@@ -30,6 +31,15 @@ export default function Reset21Day() {
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [user, setUser] = useState<any>(null);
+  const [unlockedBadge, setUnlockedBadge] = useState<any | null>(null);
+
+  const SET_BADGES = [
+    { id: "reset_1", title: "Pé na Estrada", description: "Completou o 1º dia de reprogramação emocional.", day: 1, xpReward: 50 },
+    { id: "reset_3", title: "Foco Triplo", description: "Concluiu 3 dias acumulados e iniciou a fixação de novos caminhos neurais.", day: 3, xpReward: 100 },
+    { id: "reset_7", title: "Hábito Formado", description: "Superou 7 dias. Primeira semana de transformação concluída!", day: 7, xpReward: 200 },
+    { id: "reset_14", title: "Consciência Plena", description: "Duas semanas consecutivas de reeducação persistente.", day: 14, xpReward: 350 },
+    { id: "reset_21", title: "Mestre do ReSet", description: "Completou toda a jornada de 21 dias! Mente totalmente reprogramada.", day: 21, xpReward: 500 },
+  ];
 
   useEffect(() => {
     const day = parseInt(dayId || "1");
@@ -74,21 +84,47 @@ export default function Reset21Day() {
     
     setIsCompleted(true);
     
-    // Update user progress in Firebase
     const currentDay = parseInt(dayId || "1");
-    if (user && (user.journeyProgress || 0) < currentDay) {
-      await userService.updateProfile(auth.currentUser.uid, {
-        journeyProgress: currentDay
-      });
+    let freshlyUnlocked: any = null;
+
+    if (user) {
+      // 1. Calculate achievements
+      const userAchievements = [...(user.achievements || [])];
       
-      // Award XP
-      await addXp(auth.currentUser.uid, XP_ACTIONS.COMPLETE_DAY);
+      // Look for any badge representing currentDay milestone that isn't earned yet
+      const matchedBadge = SET_BADGES.find(b => b.day === currentDay);
+      if (matchedBadge && !userAchievements.includes(matchedBadge.id)) {
+        userAchievements.push(matchedBadge.id);
+        freshlyUnlocked = matchedBadge;
+        setUnlockedBadge(matchedBadge);
+        
+        // Reward badge XP
+        await addXp(auth.currentUser.uid, matchedBadge.xpReward);
+      }
+
+      // 2. Update user progress & badges list in Firebase
+      const updateData: any = {};
+      if (user.journeyProgress === undefined || user.journeyProgress < currentDay) {
+        updateData.journeyProgress = currentDay;
+      }
+      if (freshlyUnlocked) {
+        updateData.achievements = userAchievements;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await userService.updateProfile(auth.currentUser.uid, updateData);
+      }
+
+      // Always award daily exercise XP
+      if (!user.journeyProgress || user.journeyProgress < currentDay) {
+        await addXp(auth.currentUser.uid, XP_ACTIONS.COMPLETE_DAY);
+      }
     }
 
-    // Small delay before going back
+    // Delay before going back, letting user appreciate the victory or badge unlock
     setTimeout(() => {
       navigate("/reset-21");
-    }, 2000);
+    }, freshlyUnlocked ? 5000 : 2500);
   };
 
   if (!dayData) return null;
@@ -297,23 +333,65 @@ export default function Reset21Day() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 bg-emerald-500 flex flex-col items-center justify-center text-white p-8 text-center"
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-emerald-950 flex flex-col items-center justify-center text-white p-8 text-center"
           >
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", damping: 12 }}
-            >
-              <CheckCircle2 className="w-32 h-32 mb-6" />
-            </motion.div>
-            <h2 className="text-4xl font-black tracking-tighter mb-4">Excelente!</h2>
-            <p className="text-emerald-100 text-lg font-medium max-w-xs">
-              Você deu mais um passo importante na sua reprogramação emocional.
-            </p>
-            <div className="mt-8 flex items-center gap-2 bg-white/20 px-6 py-3 rounded-full font-bold">
-              <Zap className="w-5 h-5 text-yellow-300" />
-              +20 XP Conquistados
-            </div>
+            {unlockedBadge ? (
+              <motion.div
+                initial={{ scale: 0.8, rotate: -5, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: "spring", damping: 10 }}
+                className="max-w-md bg-slate-900 border border-emerald-500/30 p-8 rounded-[40px] space-y-6 shadow-2xl relative overflow-hidden"
+              >
+                <div className="absolute -top-12 -left-12 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl" />
+                <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-teal-500/10 rounded-full blur-2xl" />
+
+                <div className="w-24 h-24 bg-gradient-to-tr from-yellow-400 to-amber-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_40px_rgba(245,158,11,0.4)] animate-bounce">
+                  <Award className="w-12 h-12 text-slate-950" />
+                </div>
+                
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400">Nova Conquista Desbloqueada!</span>
+                  <h3 className="text-3xl font-black tracking-tight text-white">{unlockedBadge.title}</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed">
+                    {unlockedBadge.description}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 justify-center items-center py-2">
+                  <div className="px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-xs font-black text-amber-400 flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+                    <Zap className="w-4 h-4" />
+                    +{unlockedBadge.xpReward} XP Recompensa
+                  </div>
+                  <div className="px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs font-black text-emerald-400 flex items-center gap-1.5 border-dashed">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Dia {unlockedBadge.day} Concluído
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 italic">Sua mente está se reprogramando a cada escolha consciente.</p>
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="space-y-6"
+              >
+                <div className="w-32 h-32 bg-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(16,185,129,0.35)] animate-pulse">
+                  <CheckCircle2 className="w-16 h-16 text-slate-950" />
+                </div>
+                <div>
+                  <h2 className="text-4xl font-black tracking-tighter mb-2 text-white">Excelente!</h2>
+                  <p className="text-emerald-200 text-lg font-light max-w-xs mx-auto">
+                    Você deu mais um passo importante na sua reprogramação emocional.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2 bg-white/10 px-6 py-3 rounded-full font-bold text-emerald-300 border border-white/10">
+                  <Zap className="w-5 h-5 text-yellow-300" />
+                  +20 XP Conquistados
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

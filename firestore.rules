@@ -38,14 +38,26 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function checkIsAdmin(uid) {
+      return (exists(/databases/$(database)/documents/users/$(uid)) && 
+              get(/databases/$(database)/documents/users/$(uid)).data.tipo == 'admin') ||
+             (request.auth != null && 
+              'token' in request.auth && 
+              'email' in request.auth.token && 
+              request.auth.token.email == "mentefelizterapias@gmail.com" && 
+              request.auth.token.email_verified == true);
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
-        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin') ||
-         (request.auth.token.email == "mentefelizterapias@gmail.com" && request.auth.token.email_verified == true));
+      return request.auth != null && checkIsAdmin(request.auth.uid);
+    }
+
+    function isTherapist(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) && 
+             get(/databases/$(database)/documents/users/$(uid)).data.tipo == 'terapeuta';
     }
 
     function isValidEmail(email) {
@@ -88,16 +100,14 @@ service cloud.firestore {
       }
 
       // Allow get/list for therapists (publicly accessible)
-      allow get: if resource == null || resource.data.tipo == 'terapeuta';
-      allow list: if resource.data.tipo == 'terapeuta';
+      allow get: if resource == null || resource.data.get('tipo', '') == 'terapeuta';
+      allow list: if resource != null && resource.data.get('tipo', '') == 'terapeuta';
 
       // Allow get/list for own document
       allow get, list: if isOwner(userId);
 
       // Allow get/list if caller is an authenticated therapist
-      allow get, list: if isAuthenticated() && 
-                       exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+      allow get, list: if request.auth != null && isTherapist(request.auth.uid);
 
       // Allow get/list for admin
       allow get, list: if isAdmin();

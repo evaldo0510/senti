@@ -37,6 +37,18 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // Sincroniza inscrição de push quando o status de autenticação muda ou o aplicativo inicia
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) {
+          subscribeToPush();
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, []);
+
   const handleInstall = async () => {
     if (!installPrompt) {
       console.log('PWA install prompt not available');
@@ -89,8 +101,52 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const subscribeToPush = async () => {
-    console.log('Sistema de Notificações Push (VAPID) desativado temporariamente.');
-    return;
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.warn('Push notifications are not supported by the browser.');
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      
+      // Get public key from backend
+      const response = await fetch('/api/push/public-key');
+      const { publicKey } = await response.json();
+      
+      if (!publicKey) {
+        console.warn('No active public key returned from VAPID configuration on server');
+        return;
+      }
+      
+      const convertedVapidKey = urlBase64ToUint8Array(publicKey);
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+
+      const userId = auth.currentUser?.uid || 'guest';
+
+      // Send subscription to backend
+      const subscribeResponse = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          subscription
+        }),
+      });
+
+      if (subscribeResponse.ok) {
+        console.log('Push subscription fully registered successfully on backend!');
+      } else {
+        console.error('Failed to register subscription on backend:', await subscribeResponse.text());
+      }
+    } catch (error) {
+      console.error('Error subscribing to push notifications in PWAContext:', error);
+    }
   };
 
   return (

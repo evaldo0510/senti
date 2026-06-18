@@ -102,11 +102,24 @@ const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY) 
   : null;
 
-// Configure web-push (Deactivated)
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+// Configure web-push with VAPID details
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BGlKxO68fwIFc_DCMSkAKMsaEnY5IV5mjp8A4KDMlYdcUCK7brY2qG3zVXBO-esLIqUa9Dh2-QQX4J3xl3lP-Uw";
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "uYaBVvFyVTSfCU3oB4j4o4J-wCJplzY5U1SsOotAHt0";
 
-console.log("Notificações Push / Sistema VAPID desativado temporariamente por solicitação.");
+if (vapidPublicKey && vapidPrivateKey) {
+  try {
+    webpush.setVapidDetails(
+      "mailto:mentefelizterapias@gmail.com",
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+    console.log("Notificações Push / Sistema VAPID ativado com chaves configuradas.");
+  } catch (error) {
+    console.error("Erro ao configurar VAPID detalhes para web-push:", error);
+  }
+} else {
+  console.log("Sistema VAPID desativado: chaves não encontradas no ambiente.");
+}
 
 export const app = express();
 
@@ -203,17 +216,47 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// Push Notification Endpoints (Bypassed)
+// Push Notification Endpoints
 app.get("/api/push/public-key", (req, res) => {
-  res.json({ publicKey: "" });
+  res.json({ publicKey: vapidPublicKey || "" });
 });
 
 app.post("/api/push/subscribe", async (req, res) => {
-  res.status(201).json({ success: true, message: "Push integration bypassed." });
+  const { userId, subscription } = req.body;
+  if (!userId || !subscription) {
+    return res.status(400).json({ error: "Faltando userId ou subscription no corpo da requisição." });
+  }
+
+  try {
+    if (!db) {
+      return res.status(500).json({ error: "Firestore não inicializado no servidor." });
+    }
+    // Save to firestore under users/{userId}
+    await db.collection("users").doc(userId).set({
+      pushSubscription: subscription
+    }, { merge: true });
+
+    console.log(`Saved push subscription for user ${userId}`);
+    res.status(201).json({ success: true, message: "Inscrição de push salva com sucesso." });
+  } catch (error: any) {
+    console.error(`Erro ao salvar inscrição para o usuário ${userId}:`, error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post("/api/push/send", async (req, res) => {
-  res.status(200).json({ success: true, message: "Push integration bypassed." });
+  const { userId, title, body, url } = req.body;
+  if (!userId || !title || !body) {
+    return res.status(400).json({ error: "Faltando campos obrigatórios: userId, title, body." });
+  }
+
+  try {
+    await sendPushNotification(userId, title, body, url);
+    res.status(200).json({ success: true, message: "Notificação enviada com sucesso." });
+  } catch (error: any) {
+    console.error(`Erro ao enviar notificação de teste para ${userId}:`, error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post("/api/create-checkout-session", async (req, res) => {
@@ -438,9 +481,48 @@ async function configureVite() {
   }
 }
 
-// Helper to send push notification (Bypassed)
+// Helper to send push notification
 async function sendPushNotification(userId: string, title: string, body: string, url?: string) {
-  console.log(`Push notification bypassed for user ${userId}: Title="${title}"`);
+  try {
+    if (!db) {
+      console.log(`Firestore não inicializado, impossível de enviar push para usuário ${userId}`);
+      return;
+    }
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      console.log(`Nenhum documento de usuário correspondente ao ID ${userId} para enviar notificação`);
+      return;
+    }
+    
+    const userData = userDoc.data();
+    if (!userData || !userData.pushSubscription) {
+      console.log(`O usuário ${userId} não possui pushSubscription registrada`);
+      return;
+    }
+
+    const payload = JSON.stringify({
+      title,
+      body,
+      url: url || "/"
+    });
+
+    console.log(`Enviando push real para ${userId}: "${title}" - "${body}"`);
+    await webpush.sendNotification(userData.pushSubscription, payload);
+    console.log(`Notificação push enviada com sucesso para ${userId}`);
+  } catch (error: any) {
+    console.error(`Erro ao enviar push notification para o usuário ${userId}:`, error);
+    // If the subscription is no longer valid (status code 410 or 404), clear it out
+    if (error.statusCode === 410 || error.statusCode === 404) {
+      console.log(`Inscrição expirada ou inválida para o usuário ${userId}. Removendo do Firestore.`);
+      try {
+        await db.collection("users").doc(userId).update({
+          pushSubscription: admin.firestore.FieldValue.delete()
+        });
+      } catch (cleanError) {
+        console.error(`Falha ao remover inscrição expirada de ${userId}:`, cleanError);
+      }
+    }
+  }
 }
 
 // Scheduled tasks
@@ -524,6 +606,7 @@ async function sendDailyContent() {
     const usersSnapshot = await db.collection("users").get();
     for (const doc of usersSnapshot.docs) {
       const userId = doc.id;
+      const userData = doc.data();
       
       // Randomly pick a tip and a pill
       const tip = WELLBEING_TIPS[Math.floor(Math.random() * WELLBEING_TIPS.length)];
@@ -536,6 +619,22 @@ async function sendDailyContent() {
       setTimeout(() => {
         sendPushNotification(userId, "Pílula Terapêutica 💊", pill, "/respiracao");
       }, 5000);
+
+      // Envia alerta de check-in diário de consistência para a jornada de 21 Dias (ReSet)
+      if (userData) {
+        const completedDays = userData.journeyProgress || 0;
+        if (completedDays < 21) {
+          const nextDay = completedDays + 1;
+          setTimeout(() => {
+            sendPushNotification(
+              userId,
+              "🧘 ReSet 21 Dias - Check-in Diário",
+              `Sua consistência é sua força! Complete o Dia ${nextDay} de reprogramação emocional e mantenha seu progresso.`,
+              `/reset-21`
+            );
+          }, 10000);
+        }
+      }
     }
   } catch (error: any) {
     if (error?.message?.includes('PERMISSION_DENIED') || error?.code === 7) {

@@ -17,6 +17,7 @@ import {
   addDoc,
   deleteDoc
 } from 'firebase/firestore';
+import { offlineStorage } from './offlineStorage';
 
 export const userService = {
   saveMood: async (value: number, intensity: number, note?: string) => {
@@ -25,15 +26,27 @@ export const userService = {
     const userName = user?.displayName || user?.email || 'Anônimo';
 
     const path = 'emotion_logs';
+    const newEntry = {
+      userId,
+      emotion: note || 'Registro de humor',
+      value,
+      intensity,
+      timestamp: new Date().toISOString()
+    };
+
     try {
-      const newEntry = {
-        userId,
-        emotion: note || 'Registro de humor',
-        value,
-        intensity,
-        timestamp: new Date().toISOString()
-      };
-      await addDoc(collection(db, path), newEntry);
+      // 1. Always attempt to save to Firestore
+      const docRef = await addDoc(collection(db, path), newEntry);
+      
+      // Save locally to IndexedDB as synced
+      try {
+        await offlineStorage.saveMoodOffline({
+          ...newEntry,
+          synced: true
+        });
+      } catch (localErr) {
+        console.warn("Erro ao salvar no cache local IndexedDB", localErr);
+      }
 
       // Webhook para Google Sheets (Looker Studio)
       try {
@@ -59,9 +72,21 @@ export const userService = {
         console.error("Erro ao enviar para webhook", e);
       }
 
-      return newEntry;
+      return { id: docRef.id, ...newEntry };
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, path);
+      console.warn("Firestore indisponível ou erro de permissão. Salvando em modo offline.", error);
+      
+      // Save locally to IndexedDB as UNSYNCED so it can be uploaded when connection recovers
+      try {
+        await offlineStorage.saveMoodOffline({
+          ...newEntry,
+          synced: false
+        });
+      } catch (localErr) {
+        console.error("Falha catastrófica ao gravar no IndexedDB local", localErr);
+      }
+      
+      return { id: `offline_${Date.now()}`, ...newEntry };
     }
   },
 
@@ -70,20 +95,58 @@ export const userService = {
     const userId = user?.uid || 'guest_user';
 
     const path = 'emotion_logs';
+    
+    // Immediately seed with offline data so UI is instantly responsive even without internet
+    offlineStorage.getMoodsOffline(userId).then(offlineList => {
+      if (offlineList && offlineList.length > 0) {
+        // Map keys format to match UI expected fields
+        const mappedList = offlineList.map(entry => ({
+          id: entry.id ? String(entry.id) : `offline_${Date.now()}`,
+          value: entry.value,
+          intensity: entry.intensity,
+          note: entry.emotion,
+          timestamp: entry.timestamp,
+        }));
+        callback(mappedList);
+      }
+    }).catch(err => {
+      console.warn("Erro ao buscar logs offline Inicial", err);
+    });
+
     const q = query(
       collection(db, path),
       where("userId", "==", userId)
     );
 
     return onSnapshot(q, (snapshot) => {
-      const history = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const history = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          value: data.value,
+          intensity: data.intensity,
+          note: data.emotion || data.note || 'Registro de humor',
+          timestamp: data.timestamp
+        };
+      });
       history.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Cache the synced entries locally
+      for (const entry of history) {
+        offlineStorage.saveMoodOffline({
+          userId,
+          value: entry.value,
+          intensity: entry.intensity,
+          emotion: entry.note,
+          timestamp: entry.timestamp,
+          synced: true
+        }).catch(() => {}); // ignore duplicates/errors on local storage write
+      }
+
       callback(history);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path);
+      console.warn("Snapshot Firestore de historico falhou (pode estar offline ou sem permissão). Usando local cache.", error);
+      // Fail gracefully: callback is already seeded with offline cache from IndexedDB
     });
   },
 
