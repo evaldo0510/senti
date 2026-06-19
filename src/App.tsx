@@ -41,6 +41,7 @@ import Security from "./pages/Security";
 import Contact from "./pages/Contact";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
+import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -52,9 +53,9 @@ function App() {
           <Router>
             <Routes>
             <Route path="/" element={<LandingPro />} />
-            <Route path="/home" element={<DashboardPaciente />} />
+            <Route path="/home" element={<MobileDeviceWrapper><DashboardPaciente /></MobileDeviceWrapper>} />
             <Route path="/assinatura" element={<Subscription />} />
-            <Route path="/reset" element={<Reset />} />
+            <Route path="/reset" element={<MobileDeviceWrapper><Reset /></MobileDeviceWrapper>} />
             <Route path="/reset21" element={<Reset21 />} />
             <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />
             <Route path="/reset-21/sales" element={<Reset21Sales />} />
@@ -64,25 +65,25 @@ function App() {
             <Route path="/contato" element={<Contact />} />
             <Route path="/lead" element={<LeadForm />} />
             <Route path="/vendas-empresa" element={<VendasEmpresa />} />
-            <Route path="/triagem" element={<Triagem />} />
-            <Route path="/respiracao" element={<Respiracao />} />
-            <Route path="/chat" element={<ChatIARA />} />
+            <Route path="/triagem" element={<MobileDeviceWrapper><Triagem /></MobileDeviceWrapper>} />
+            <Route path="/respiracao" element={<MobileDeviceWrapper><Respiracao /></MobileDeviceWrapper>} />
+            <Route path="/chat" element={<MobileDeviceWrapper><ChatIARA /></MobileDeviceWrapper>} />
             <Route path="/direcionamento" element={<Direcionamento />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/terapeuta" element={<Terapeuta />} />
             <Route path="/empresa" element={<Empresa />} />
             <Route path="/prefeitura" element={<Prefeitura />} />
-            <Route path="/profissionais" element={<Profissionais />} />
+            <Route path="/profissionais" element={<MobileDeviceWrapper><Profissionais /></MobileDeviceWrapper>} />
             <Route path="/agendamento/:id" element={<Agendamento />} />
             <Route path="/terapeuta-perfil/:id" element={<TerapeutaPerfil />} />
-            <Route path="/diario" element={<Diario />} />
-            <Route path="/perfil" element={<Perfil />} />
+            <Route path="/diario" element={<MobileDeviceWrapper><Diario /></MobileDeviceWrapper>} />
+            <Route path="/perfil" element={<MobileDeviceWrapper><Perfil /></MobileDeviceWrapper>} />
             <Route path="/gerenciar-dados" element={<GerenciamentoDados />} />
-            <Route path="/emergencia" element={<Emergencia />} />
-            <Route path="/pronto-atendimento" element={<ProntoAtendimento />} />
+            <Route path="/emergencia" element={<MobileDeviceWrapper><Emergencia /></MobileDeviceWrapper>} />
+            <Route path="/pronto-atendimento" element={<MobileDeviceWrapper><ProntoAtendimento /></MobileDeviceWrapper>} />
             <Route path="/terapeuta-setup" element={<TerapeutaSetup />} />
-            <Route path="/live-iara" element={<LiveIARA />} />
+            <Route path="/live-iara" element={<MobileDeviceWrapper><LiveIARA /></MobileDeviceWrapper>} />
             <Route path="/clinica" element={<Clinica />} />
             <Route path="/hospital" element={<Hospital />} />
             <Route path="/atendimento/:appointmentId" element={<Atendimento />} />

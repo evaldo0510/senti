@@ -17,6 +17,115 @@ export default function Respiracao() {
   const [fase, setFase] = useState<"preparar" | "inspira" | "sustemPreso" | "solta" | "sustemVazio" | "finalizado">("preparar");
   const [ciclos, setCiclos] = useState(0);
   const [timeLeftInPhase, setTimeLeftInPhase] = useState(0);
+  const [smoothProgress, setSmoothProgress] = useState(0);
+
+  // Smooth frame timing track
+  useEffect(() => {
+    if (!isPlaying || fase === "preparar" || fase === "finalizado") {
+      setSmoothProgress(0);
+      return;
+    }
+
+    let duration = 4;
+    if (fase === "inspira") duration = selectedTech?.inhale || 4;
+    else if (fase === "sustemPreso") duration = selectedTech?.holdIn || 0;
+    else if (fase === "solta") duration = selectedTech?.exhale || 4;
+    else if (fase === "sustemVazio") duration = selectedTech?.holdOut || 0;
+
+    if (duration <= 0) return;
+
+    const startTime = Date.now();
+    const totalMs = duration * 1000;
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / totalMs);
+      setSmoothProgress(progress);
+
+      if (progress >= 1) {
+        clearInterval(timer);
+      }
+    }, 16); // 60fps tracking
+
+    return () => clearInterval(timer);
+  }, [fase, isPlaying, selectedTech]);
+
+  const getBeadCoords = () => {
+    if (!selectedTech) return { x: 120, y: 120 };
+
+    const hasHoldIn = !!(selectedTech.holdIn && selectedTech.holdIn > 0);
+    const hasHoldOut = !!(selectedTech.holdOut && selectedTech.holdOut > 0);
+
+    const L = 30;
+    const T = 30;
+    const R = 210;
+    const B = 210;
+    const W = 180;
+    const H = 180;
+
+    if (hasHoldIn && hasHoldOut) {
+      // 4-phase BOX Breathing (Square Path)
+      switch (fase) {
+        case "inspira":
+          // Inhale: Go from Bottom-Left(L, B) up to Top-Left(L, T)
+          return { x: L, y: B - (H * smoothProgress) };
+        case "sustemPreso":
+          // Hold full: Go from Top-Left(L, T) to Top-Right(R, T)
+          return { x: L + (W * smoothProgress), y: T };
+        case "solta":
+          // Exhale: Go from Top-Right(R, T) down to Bottom-Right(R, B)
+          return { x: R, y: T + (H * smoothProgress) };
+        case "sustemVazio":
+          // Hold empty: Go from Bottom-Right(R, B) back to Bottom-Left(L, B)
+          return { x: R - (W * smoothProgress), y: B };
+        default:
+          return { x: L, y: B };
+      }
+    } else if (hasHoldIn) {
+      // 3-phase TRIANGLE Breathing (Triangle Path)
+      const TM = 120;
+      switch (fase) {
+        case "inspira":
+          // Inhale: Bottom-Left (L, B) to Top-Middle (TM, T)
+          return { 
+            x: L + ((TM - L) * smoothProgress), 
+            y: B - ((B - T) * smoothProgress) 
+          };
+        case "sustemPreso":
+          // Hold: Top-Middle (TM, T) to Bottom-Right (R, B)
+          return { 
+            x: TM + ((R - TM) * smoothProgress), 
+            y: T + ((B - T) * smoothProgress) 
+          };
+        case "solta":
+          // Exhale: Bottom-Right (R, B) back to Bottom-Left (L, B)
+          return { 
+            x: R - (W * smoothProgress), 
+            y: B 
+          };
+        default:
+          return { x: L, y: B };
+      }
+    } else {
+      // 2-phase COHERENCE Wave/Circle Breathing
+      const center = 120;
+      const radius = 90;
+
+      if (fase === "inspira") {
+        const angle = Math.PI / 2 - Math.PI * smoothProgress;
+        return {
+          x: center + radius * Math.cos(angle),
+          y: center + radius * Math.sin(angle)
+        };
+      } else {
+        const angle = -Math.PI / 2 - Math.PI * smoothProgress;
+        return {
+          x: center + radius * Math.cos(angle),
+          y: center + radius * Math.sin(angle)
+        };
+      }
+    }
+  };
   
   // Timer references for precise cycle pacing
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -259,7 +368,7 @@ export default function Respiracao() {
           /* Active breathing session layer */
           <div className="flex flex-col items-center justify-center space-y-12 py-8">
             
-            {/* Visual breathing bellows circle */}
+            {/* Visual breathing bellows circle & geometric layout */}
             <div className="relative w-72 h-72 flex items-center justify-center">
               
               {/* Outer pulsing ring */}
@@ -269,41 +378,120 @@ export default function Respiracao() {
                   className={`absolute rounded-full -z-10 ${getPhaseColorGlow()}`}
                   initial={{ scale: 0.8, opacity: 0.1 }}
                   animate={{ 
-                    scale: fase === "inspira" ? 1.9 : 
-                           fase === "sustemPreso" ? 1.9 : 
+                    scale: fase === "inspira" ? 1.45 : 
+                           fase === "sustemPreso" ? 1.45 : 
                            fase === "solta" ? 0.95 : 0.95,
-                    opacity: [0.15, 0.4, 0.15]
+                    opacity: [0.15, 0.35, 0.15]
                   }}
                   transition={{ 
                     duration: timeLeftInPhase > 0 ? timeLeftInPhase : 1, 
                     ease: "easeInOut" 
                   }}
-                  style={{ width: "220px", height: "220px" }}
+                  style={{ width: "240px", height: "240px" }}
                 />
               </AnimatePresence>
 
-              {/* Core interactive bubble */}
+              {/* Dynamic SVG Guide paths for tracking box / triangle / wave */}
+              <svg className="absolute inset-0 w-full h-full p-2 z-0 overflow-visible" viewBox="0 0 240 240">
+                <defs>
+                  <linearGradient id="activeInhale" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" stopColor="rgba(16, 185, 129, 0.25)" />
+                    <stop offset="100%" stopColor="rgba(16, 185, 129, 1)" />
+                  </linearGradient>
+                  <linearGradient id="activeHoldIn" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="rgba(6, 182, 212, 0.25)" />
+                    <stop offset="100%" stopColor="rgba(6, 182, 212, 1)" />
+                  </linearGradient>
+                  <linearGradient id="activeExhale" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="rgba(59, 130, 246, 0.25)" />
+                    <stop offset="100%" stopColor="rgba(59, 130, 246, 1)" />
+                  </linearGradient>
+                  <linearGradient id="activeHoldOut" x1="100%" y1="0%" x2="0%" y2="0%">
+                    <stop offset="0%" stopColor="rgba(99, 102, 241, 0.25)" />
+                    <stop offset="100%" stopColor="rgba(99, 102, 241, 1)" />
+                  </linearGradient>
+                </defs>
+
+                {(() => {
+                  const hasHoldIn = !!(selectedTech?.holdIn && selectedTech.holdIn > 0);
+                  const hasHoldOut = !!(selectedTech?.holdOut && selectedTech.holdOut > 0);
+                  
+                  if (hasHoldIn && hasHoldOut) {
+                    return (
+                      <>
+                        {/* Box Breathing (Square Track) */}
+                        <rect x="30" y="30" width="180" height="180" rx="36" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+                        {fase === "inspira" && <path d="M30 210 V30" fill="none" stroke="url(#activeInhale)" strokeWidth="6" strokeLinecap="round" />}
+                        {fase === "sustemPreso" && <path d="M30 30 H210" fill="none" stroke="url(#activeHoldIn)" strokeWidth="6" strokeLinecap="round" />}
+                        {fase === "solta" && <path d="M210 30 V210" fill="none" stroke="url(#activeExhale)" strokeWidth="6" strokeLinecap="round" />}
+                        {fase === "sustemVazio" && <path d="M210 210 H30" fill="none" stroke="url(#activeHoldOut)" strokeWidth="6" strokeLinecap="round" />}
+                      </>
+                    );
+                  } else if (hasHoldIn) {
+                    return (
+                      <>
+                        {/* Relaxing Breathing (Triangle Track) */}
+                        <polygon points="30,210 120,30 210,210" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                        {fase === "inspira" && <path d="M30 210 L120 30" fill="none" stroke="url(#activeInhale)" strokeWidth="6" strokeLinecap="round" />}
+                        {fase === "sustemPreso" && <path d="M120 30 L210 210" fill="none" stroke="url(#activeHoldIn)" strokeWidth="6" strokeLinecap="round" />}
+                        {fase === "solta" && <path d="M210 210 L30 210" fill="none" stroke="url(#activeExhale)" strokeWidth="6" strokeLinecap="round" />}
+                      </>
+                    );
+                  } else {
+                    return (
+                      <>
+                        {/* Coherence Breathing (Circular Track) */}
+                        <circle cx="120" cy="120" r="90" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+                        {fase === "inspira" && <path d="M120 210 A 90 90 0 0 0 120 30" fill="none" stroke="url(#activeInhale)" strokeWidth="6" strokeLinecap="round" />}
+                        {fase === "solta" && <path d="M120 30 A 90 90 0 0 0 120 210" fill="none" stroke="url(#activeExhale)" strokeWidth="6" strokeLinecap="round" />}
+                      </>
+                    );
+                  }
+                })()}
+
+                {/* Glowing fluid tracing bead at 60fps */}
+                {(() => {
+                  const bead = getBeadCoords();
+                  let beadColor = "#10b981"; // Inhale
+                  if (fase === "sustemPreso") beadColor = "#06b6d4";
+                  if (fase === "solta") beadColor = "#3b82f6";
+                  if (fase === "sustemVazio") beadColor = "#6366f1";
+                  
+                  return (
+                    <g>
+                      <circle cx={bead.x} cy={bead.y} r="15" fill={beadColor} opacity="0.25" className="animate-ping" style={{ transformOrigin: `${bead.x}px ${bead.y}px` }} />
+                      <circle cx={bead.x} cy={bead.y} r="8" fill={beadColor} className="shadow-2xl" />
+                      <circle cx={bead.x} cy={bead.y} r="3" fill="#ffffff" />
+                    </g>
+                  );
+                })()}
+              </svg>
+
+              {/* Core interactive bubble nested neatly inside the paths */}
               <motion.div
-                className={`w-48 h-48 rounded-full border-4 border-white/20 flex flex-col items-center justify-center text-white z-10 select-none shadow-inner relative`}
+                className={`w-36 h-36 rounded-full border border-white/10 flex flex-col items-center justify-center text-white z-10 select-none shadow-2xl relative`}
                 animate={{
-                  scale: fase === "inspira" ? 1.4 : 
-                         fase === "sustemPreso" ? 1.4 : 
-                         fase === "solta" ? 1.0 : 1.0,
-                  borderColor: fase === "inspira" ? "rgba(16,185,129,0.5)" : "rgba(59,130,246,0.3)"
+                  scale: fase === "inspira" ? 1.15 : 
+                         fase === "sustemPreso" ? 1.15 : 
+                         fase === "solta" ? 0.95 : 0.95,
+                  borderColor: fase === "inspira" ? "rgba(16,185,129,0.3)" : 
+                               fase === "sustemPreso" ? "rgba(6,182,212,0.3)" : 
+                               "rgba(59,130,246,0.2)"
                 }}
                 transition={{ 
-                  duration: timeLeftInPhase > 0 ? timeLeftInPhase : 1, 
-                  ease: "easeInOut" 
+                  type: "spring",
+                  stiffness: 120,
+                  damping: 16
                 }}
-                style={{ backgroundColor: "rgba(15,10,8,0.85)" }}
+                style={{ backgroundColor: "rgba(10, 5, 4, 0.85)", backdropFilter: "blur(12px)" }}
               >
-                <div className="text-center space-y-1">
-                  <span className="text-4xl font-serif font-black tracking-wide">
+                <div className="text-center space-y-1 select-none">
+                  <span className="text-4xl font-serif font-black tracking-wide block">
                     {timeLeftInPhase}s
                   </span>
                   <div className="flex gap-0.5 justify-center items-center">
                     <span className="bg-emerald-400 w-1.5 h-1.5 rounded-full inline-block animate-ping" />
-                    <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                    <span className="text-[9px] font-bold text-slate-400 tracking-widest uppercase">
                       Ciclo {ciclos + 1}/{selectedTech?.cycles}
                     </span>
                   </div>
@@ -315,17 +503,17 @@ export default function Respiracao() {
               <h2 className="text-3xl font-black text-white tracking-tight">
                 {getPhaseLabelPortuguese()}
               </h2>
-              <p className="text-slate-400 text-sm max-w-xs mx-auto font-light">
-                {fase === "inspira" && "Deixe o ar preencher seus pulmões expandindo o abdômen."}
-                {fase === "sustemPreso" && "Mantenha o ar retido em paz, sem fazer esforço."}
-                {fase === "solta" && "Esvazie as tensões com um sopro longo e contínuo."}
-                {fase === "sustemVazio" && "Repouse no vazio absoluto antes do próximo ciclo."}
+              <p className="text-slate-400 text-sm max-w-xs mx-auto font-light leading-relaxed min-h-[48px]">
+                {fase === "inspira" && "Deixe o ar preencher seus pulmões expandindo o abdômen suavemente."}
+                {fase === "sustemPreso" && "Mantenha o ar retido em paz, colhendo o silêncio interior."}
+                {fase === "solta" && "Esvazie as tensões com um sopro longo, contínuo e silencioso."}
+                {fase === "sustemVazio" && "Repouse no vazio absoluto antes de acolher o novo ciclo."}
               </p>
             </div>
 
             <button
               onClick={stopBreathing}
-              className="py-3 px-6 bg-white/5 hover:bg-white/10 active:scale-95 text-slate-400 hover:text-white rounded-2xl text-xs font-bold uppercase tracking-widest border border-white/10 transition-all flex items-center gap-2"
+              className="py-3.5 px-7 bg-white/5 hover:bg-white/10 active:scale-95 text-slate-400 hover:text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest border border-white/10 transition-all flex items-center gap-2 cursor-pointer shadow-lg"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
               Abandonar Exercício

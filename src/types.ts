@@ -15,6 +15,7 @@ export interface MoodEntry {
   intensity?: number; // 0-10
   note?: string;
   timestamp: Date;
+  triggers?: string[];
 }
 
 export interface Therapist {

@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertTriangle, ExternalLink, Copy, Check, Bell, X } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Copy, Check, Bell, X, Wifi, WifiOff } from 'lucide-react';
 
 import { auth } from '../services/firebase';
+import { NotificationService } from '../services/notificationService';
 
 interface PWAContextType {
   installPrompt: any;
@@ -14,19 +15,60 @@ interface PWAContextType {
   isInIframe: boolean;
   showIframeWarning: boolean;
   setShowIframeWarning: (show: boolean) => void;
+  isOffline: boolean;
+  syncOfflineData: () => Promise<void>;
 }
+
 
 const PWAContext = createContext<PWAContextType | undefined>(undefined);
 
 export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default'
+    NotificationService.getPermissionStatus()
   );
   const [showIframeWarning, setShowIframeWarning] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
 
   const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+
+  // Sincroniza dados offline quando o navegador volta a ficar online
+  const syncOfflineData = async () => {
+    try {
+      const { offlineStorage } = await import('../services/offlineStorage');
+      const { db } = await import('../services/firebase');
+      const { collection, addDoc } = await import('firebase/firestore');
+      
+      const unsynced = await offlineStorage.getUnsyncedMoods();
+      if (unsynced && unsynced.length > 0) {
+        console.log(`PWA: Sincronizando ${unsynced.length} registros offline com o Firestore...`);
+        for (const entry of unsynced) {
+          // Salva no firestore
+          const newEntry = {
+            userId: entry.userId,
+            emotion: entry.emotion || 'Registro de humor',
+            value: entry.value,
+            intensity: entry.intensity,
+            timestamp: entry.timestamp,
+            triggers: entry.triggers || []
+          };
+          
+          await addDoc(collection(db, 'emotion_logs'), newEntry);
+          
+          // Marca como sincronizado localmente
+          if (entry.id) {
+            await offlineStorage.markAsSynced(Number(entry.id));
+          }
+        }
+        console.log('PWA: Sincronização offline concluída com sucesso!');
+      }
+    } catch (err) {
+      console.warn('Erro ao sincronizar dados offline:', err);
+    }
+  };
 
   useEffect(() => {
     const handler = (e: any) => {
@@ -34,12 +76,35 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setInstallPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+
+    const handleOnline = () => {
+      setIsOffline(false);
+      syncOfflineData();
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Executa sincronismo inicial caso já esteja online
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      syncOfflineData();
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
+
 
   // Sincroniza inscrição de push quando o status de autenticação muda ou o aplicativo inicia
   useEffect(() => {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    if (NotificationService.getPermissionStatus() === 'granted') {
       const unsubscribe = auth.onAuthStateChanged((user) => {
         if (user) {
           subscribeToPush();
@@ -67,13 +132,8 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    if (!('Notification' in window)) {
-      console.log('This browser does not support notifications');
-      return;
-    }
-
     try {
-      const permission = await Notification.requestPermission();
+      const permission = await NotificationService.requestPermission();
       setNotificationPermission(permission);
       
       if (permission === 'granted') {
@@ -159,11 +219,34 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       subscribeToPush,
       isInIframe,
       showIframeWarning,
-      setShowIframeWarning
+      setShowIframeWarning,
+      isOffline,
+      syncOfflineData
     }}>
       {children}
 
       <AnimatePresence>
+        {isOffline && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-4 right-4 z-[998] bg-slate-900 border border-emerald-500/20 backdrop-blur-md px-5 py-3.5 rounded-2xl shadow-xl flex items-center gap-3 text-slate-100 text-xs"
+            id="pwa-offline-notification"
+          >
+            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+              <WifiOff className="w-4 h-4 animate-pulse" />
+            </div>
+            <div>
+              <p className="font-bold">Modo Offline Ativo 🛡️</p>
+              <p className="text-[10px] text-slate-400 leading-normal">Diário e exercícios respiratórios disponíveis localmente.</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+
         {showIframeWarning && (
           <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
             <motion.div 

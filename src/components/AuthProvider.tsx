@@ -31,6 +31,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
 
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simProfileStr = localStorage.getItem("simulatedProfile");
+    if (simUserStr && simProfileStr) {
+      try {
+        const simUser = JSON.parse(simUserStr);
+        const simProfile = JSON.parse(simProfileStr);
+        setUser(simUser);
+        setProfile(simProfile);
+        setLoading(false);
+        setIsAuthReady(true);
+        return () => {};
+      } catch (e) {
+        console.error("Failed to parse simulated session:", e);
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       

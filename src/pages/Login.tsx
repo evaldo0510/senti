@@ -26,6 +26,35 @@ export default function Login() {
     navigate("/dashboard");
   };
 
+  const handleDemoLogin = () => {
+    setError("");
+    const mockUser = {
+      uid: "guest_demo_user",
+      displayName: tipoSelecionado === "terapeuta" ? "Dr. Gabriel Alencar (Demonstração)" : "Mentefeliz Terapias (Demonstração)",
+      email: "mentefelizterapias@gmail.com",
+      emailVerified: true,
+      providerData: [],
+      photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+    } as any;
+
+    const targetType = tipoSelecionado === "terapeuta" ? "terapeuta" : "admin";
+
+    const mockProfile = {
+      uid: "guest_demo_user",
+      nome: mockUser.displayName,
+      email: mockUser.email,
+      tipo: targetType,
+      createdAt: new Date().toISOString(),
+      favoritos: []
+    } as any;
+
+    localStorage.setItem("simulatedUser", JSON.stringify(mockUser));
+    localStorage.setItem("simulatedProfile", JSON.stringify(mockProfile));
+    localStorage.setItem("tipo", targetType);
+    navigate("/dashboard");
+    window.location.reload();
+  };
+
   const handleGoogleLogin = async () => {
     setError("");
     try {
@@ -142,10 +171,17 @@ export default function Login() {
             Entrar ou Cadastrar com Google
           </button>
           
+          <button 
+            onClick={handleDemoLogin}
+            type="button"
+            className="w-full py-4 px-6 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-3 border border-slate-200 hover:border-slate-300 min-h-[48px] cursor-pointer"
+          >
+            🔑 Acessar Modo de Demonstração (Bypass)
+          </button>
+
           <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl">
             <p className="text-amber-800 text-xs text-center leading-relaxed">
-              O cadastro via e-mail não está disponível no momento. <br />
-              <strong>Por favor, utilize sua conta Google.</strong>
+              Dica: Domínio não cadastrado no Firebase? Clique acima em <strong>Modo de Demonstração (Bypass)</strong> para visualizar instantaneamente o sistema!
             </p>
           </div>
         </div>

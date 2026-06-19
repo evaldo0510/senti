@@ -20,7 +20,7 @@ import {
 import { offlineStorage } from './offlineStorage';
 
 export const userService = {
-  saveMood: async (value: number, intensity: number, note?: string) => {
+  saveMood: async (value: number, intensity: number, note?: string, triggers?: string[]) => {
     const user = auth.currentUser;
     const userId = user?.uid || 'guest_user';
     const userName = user?.displayName || user?.email || 'Anônimo';
@@ -31,7 +31,8 @@ export const userService = {
       emotion: note || 'Registro de humor',
       value,
       intensity,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      triggers: triggers || []
     };
 
     try {
@@ -106,6 +107,7 @@ export const userService = {
           intensity: entry.intensity,
           note: entry.emotion,
           timestamp: entry.timestamp,
+          triggers: entry.triggers || [],
         }));
         callback(mappedList);
       }
@@ -126,7 +128,8 @@ export const userService = {
           value: data.value,
           intensity: data.intensity,
           note: data.emotion || data.note || 'Registro de humor',
-          timestamp: data.timestamp
+          timestamp: data.timestamp,
+          triggers: data.triggers || []
         };
       });
       history.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -139,6 +142,7 @@ export const userService = {
           intensity: entry.intensity,
           emotion: entry.note,
           timestamp: entry.timestamp,
+          triggers: entry.triggers || [],
           synced: true
         }).catch(() => {}); // ignore duplicates/errors on local storage write
       }

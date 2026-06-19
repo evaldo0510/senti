@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
+import { NotificationService } from "../services/notificationService";
 import { usePushNotifications } from "../hooks/usePushNotifications";
 import { 
   Users, 
@@ -39,7 +40,7 @@ import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, 
 
 export default function Terapeuta() {
   const navigate = useNavigate();
-  const { handleInstall, isInstallable, notificationPermission, requestNotificationPermission } = usePWA();
+  const { handleInstall, isInstallable, requestNotificationPermission } = usePWA();
   const { profile, loading, isAuthReady } = useAuth();
   const { isSubscribed, permission: pushPermission, subscribe } = usePushNotifications(profile?.uid);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -400,7 +401,7 @@ export default function Terapeuta() {
         <div className="max-w-5xl mx-auto space-y-10">
           
           {/* Notification Prompt Banner */}
-          {notificationPermission === 'default' && (
+          {NotificationService.isPendingOrDenied() && (
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -412,14 +413,14 @@ export default function Terapeuta() {
                 </div>
                 <div>
                   <p className="font-bold text-sm">Ative as notificações</p>
-                  <p className="text-xs text-emerald-100">Receba alertas de novos agendamentos em tempo real.</p>
+                  <p className="text-xs text-emerald-100">Receba alertas de novos agendamentos e mensagens em tempo real.</p>
                 </div>
               </div>
               <button 
                 onClick={requestNotificationPermission}
-                className="px-4 py-2 bg-white text-emerald-600 rounded-xl font-bold text-xs hover:bg-emerald-50 transition-colors"
+                className="px-4 py-2 bg-white text-emerald-600 rounded-xl font-bold text-xs hover:bg-emerald-50 transition-colors cursor-pointer"
               >
-                Ativar
+                Ativar notificações
               </button>
             </motion.div>
           )}

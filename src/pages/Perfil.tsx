@@ -31,12 +31,13 @@ import { userService } from "../services/userService";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
 import { usePWA } from "../contexts/PWAContext";
+import { NotificationService } from "../services/notificationService";
 import { analysisService, TreatmentAnalysis } from "../services/analysisService";
 import { getPillOfDay, Pill } from "../services/pillService";
 
 export default function Perfil() {
   const navigate = useNavigate();
-  const { notificationPermission, requestNotificationPermission } = usePWA();
+  const { requestNotificationPermission } = usePWA();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -548,7 +549,7 @@ export default function Perfil() {
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Configurações de Notificação</label>
             <div className={cn(
               "rounded-3xl p-6 space-y-4 transition-all border",
-              notificationPermission !== 'granted' 
+              NotificationService.isPendingOrDenied() 
                 ? "bg-emerald-500/10 border-emerald-500/20" 
                 : "bg-slate-900/30 border-white/5"
             )}>
@@ -556,7 +557,7 @@ export default function Perfil() {
                 <div className="flex items-center gap-3">
                   <div className={cn(
                     "w-10 h-10 rounded-xl flex items-center justify-center",
-                    notificationPermission !== 'granted' ? "bg-emerald-500 text-white" : "bg-emerald-500/10 text-emerald-400"
+                    NotificationService.isPendingOrDenied() ? "bg-emerald-500 text-white" : "bg-emerald-500/10 text-emerald-400"
                   )}>
                     <Bell className="w-4 h-4" />
                   </div>
@@ -567,7 +568,7 @@ export default function Perfil() {
                     </p>
                   </div>
                 </div>
-                {notificationPermission !== 'granted' ? (
+                {NotificationService.isPendingOrDenied() ? (
                   <button 
                     onClick={requestNotificationPermission}
                     className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold text-xs transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
@@ -581,7 +582,7 @@ export default function Perfil() {
                 )}
               </div>
               
-              {notificationPermission === 'granted' && (
+              {!NotificationService.isPendingOrDenied() && (
                 <button 
                   onClick={testNotification}
                   className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl text-xs font-bold transition-all border border-white/5 flex items-center justify-center gap-2"

@@ -26,6 +26,7 @@ export default function Dashboard() {
         navigate("/empresa");
         break;
       case "prefeitura":
+      case "admin":
         navigate("/prefeitura");
         break;
       case "clinica":

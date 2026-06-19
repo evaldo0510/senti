@@ -44,6 +44,8 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   try {
+    localStorage.removeItem("simulatedUser");
+    localStorage.removeItem("simulatedProfile");
     await signOut(auth);
     window.location.reload();
   } catch (error) {

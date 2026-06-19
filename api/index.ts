@@ -609,6 +609,47 @@ app.post("/api/push/send", sensitiveActionLimiter, async (req, res) => {
   }
 });
 
+app.post("/api/push/send-reminders", sensitiveActionLimiter, async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(500).json({ error: "Firestore não inicializado no servidor." });
+    }
+    
+    console.log("Disparando lembretes diários de diário e respiração...");
+    const usersSnapshot = await db.collection("users").get();
+    let sentCount = 0;
+    
+    for (const doc of usersSnapshot.docs) {
+      const userId = doc.id;
+      const userData = doc.data();
+      
+      if (userData && userData.pushSubscription) {
+        // Envia lembrete de Diário Emocional
+        await sendPushNotification(
+          userId,
+          "Diário Emocional 📝",
+          "Como foi seu dia hoje? Dedique 2 minutos para registrar seu humor e sentimentos no diário.",
+          "/diario"
+        );
+        
+        // Envia lembrete de Exercícios de Respiração
+        await sendPushNotification(
+          userId,
+          "Respiração Consciente 🧘",
+          "Que tal relaxar agora? Faça 1 minuto de exercício de respiração guiada para aliviar o estresse.",
+          "/respiracao"
+        );
+        sentCount++;
+      }
+    }
+    
+    res.json({ success: true, message: `Lembretes enviados com sucesso para ${sentCount} usuários.` });
+  } catch (error: any) {
+    console.error("Erro ao enviar lembretes em massa:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/create-checkout-session", sensitiveActionLimiter, async (req, res) => {
   const { therapistId, therapistName, price, time, date, appointmentId, discountPercentage = 0 } = req.body;
 
@@ -984,6 +1025,26 @@ async function sendDailyContent() {
             );
           }, 10000);
         }
+
+        // Lembrete complementar do Diário Emocional
+        setTimeout(() => {
+          sendPushNotification(
+            userId,
+            "Diário Emocional 📝",
+            "Como está sua saúde mental hoje? Tire 2 minutos para registrar seu humor e sentimentos no seu Diário.",
+            "/diario"
+          );
+        }, 15000);
+
+        // Lembrete complementar de Exercícios de Respiração
+        setTimeout(() => {
+          sendPushNotification(
+            userId,
+            "Respiração Consciente 🧘",
+            "Que tal fazer uma pausa agora? Pratique box breathing para diminuir seu ritmo e aliviar a ansiedade.",
+            "/respiracao"
+          );
+        }, 20000);
       }
     }
   } catch (error: any) {

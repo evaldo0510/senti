@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
+import { NotificationService } from "../services/notificationService";
 import { 
   HeartPulse, 
   MessageCircle, 
@@ -18,6 +19,7 @@ import {
   Zap,
   Sparkles,
   RefreshCw,
+  X,
   PlayCircle,
   Sun,
   Moon,
@@ -29,8 +31,16 @@ import {
   Shield,
   Users,
   Brain,
-  Crown
+  Crown,
+  ChevronDown,
+  CheckCircle2,
+  Smile,
+  Meh,
+  Frown,
+  TrendingUp,
+  Eye
 } from "lucide-react";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 import { UserProfile, Appointment, MoodEntry, NewsCardProps } from "../types";
@@ -50,7 +60,7 @@ import { generateTherapistAvatar } from "../services/imageService";
 export default function DashboardPaciente() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable, notificationPermission, requestNotificationPermission } = usePWA();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, sensoryMode, toggleSensoryMode } = useTheme();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [nextAppointment, setNextAppointment] = useState<Appointment | null>(null);
   const [appointmentToReview, setAppointmentToReview] = useState<Appointment | null>(null);
@@ -61,10 +71,24 @@ export default function DashboardPaciente() {
   const [visibleNewsCount, setVisibleNewsCount] = useState(3);
   const [loading, setLoading] = useState(true);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [showDeniedModal, setShowDeniedModal] = useState(false);
   const [dailyPill, setDailyPill] = useState<Pill | null>(null);
   const [pillRead, setPillRead] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Daily Mood Tracker states
+  const [selectedMoodValue, setSelectedMoodValue] = useState<number | null>(null);
+  const [selectedEmoji, setSelectedEmoji] = useState<string>("");
+  const [moodIntensity, setMoodIntensity] = useState<number>(5);
+  const [moodNote, setMoodNote] = useState<string>("");
+  const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
+  const [moodSaving, setMoodSaving] = useState<boolean>(false);
+  const [moodSavedFeedback, setMoodSavedFeedback] = useState<boolean>(false);
+
+  // Emotional history for Recharts
+  const [moodHistory, setMoodHistory] = useState<any[]>([]);
+  const [chartPeriod, setChartPeriod] = useState<'7' | '30' | 'all'>('7');
 
   const loadMoreNews = () => {
     setVisibleNewsCount(prev => prev + 3);
@@ -239,6 +263,7 @@ export default function DashboardPaciente() {
 
         // Get recent mood
         unsubMood = userService.getMoodHistory((history) => {
+          setMoodHistory(history);
           if (history.length > 0) {
             setRecentMood(history[0]);
           }
@@ -342,6 +367,100 @@ export default function DashboardPaciente() {
     }
   };
 
+  const handleDetailedMoodSubmit = async () => {
+    if (selectedMoodValue === null) return;
+    
+    setMoodSaving(true);
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const finalNote = moodNote.trim() || `Sinto-me ${selectedEmoji} com intensidade ${moodIntensity}/10`;
+        await userService.saveMood(selectedMoodValue, moodIntensity, finalNote, selectedTriggers);
+        
+        // Refresh gamification points
+        await addXp(user.uid, XP_ACTIONS.LOG_MOOD);
+        
+        // Reset and show feedback
+        setMoodSavedFeedback(true);
+        setSelectedMoodValue(null);
+        setSelectedEmoji("");
+        setMoodNote("");
+        setMoodIntensity(5);
+        setSelectedTriggers([]);
+        
+        setTimeout(() => {
+          setMoodSavedFeedback(false);
+        }, 4000);
+      }
+    } catch (e) {
+      console.error("Erro ao registrar humor detalhado:", e);
+    } finally {
+      setMoodSaving(false);
+    }
+  };
+
+  const getChartData = () => {
+    const sorted = [...moodHistory].reverse();
+    const now = new Date();
+    const filtered = sorted.filter(entry => {
+      if (!entry.timestamp) return false;
+      const entryDate = new Date(entry.timestamp);
+      if (chartPeriod === '7') {
+        const diffTime = Math.abs(now.getTime() - entryDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 7;
+      }
+      if (chartPeriod === '30') {
+        const diffTime = Math.abs(now.getTime() - entryDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= 30;
+      }
+      return true;
+    });
+
+    return filtered.map(entry => {
+      const d = new Date(entry.timestamp);
+      return {
+        data: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        dataCompleta: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+        humor: entry.value,
+        intensidade: entry.intensity || 5,
+        note: entry.note || 'Sem notes'
+      };
+    });
+  };
+
+  const getTriggersChartData = () => {
+    const counts: { [key: string]: number } = {};
+    const labelMap: { [key: string]: string } = {
+      trabalho: "Trabalho (💼)",
+      familia: "Família (🏠)",
+      saude: "Saúde (❤️)",
+      financas: "Finanças (💵)",
+      relacionamento: "Relacionamento (💑)",
+      amigos: "Amigos (👥)",
+      sono: "Sono (🌙)",
+      estudos: "Estudos (📚)"
+    };
+
+    moodHistory.forEach(entry => {
+      if (entry.triggers && Array.isArray(entry.triggers)) {
+        entry.triggers.forEach((trigger: string) => {
+          const mappedName = labelMap[trigger] || trigger;
+          counts[mappedName] = (counts[mappedName] || 0) + 1;
+        });
+      }
+    });
+
+    const COLORS = ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#ec4899', '#3b82f6', '#8b5cf6', '#14b8a6'];
+
+    return Object.entries(counts).map(([name, value], index) => ({
+      name,
+      value,
+      color: COLORS[index % COLORS.length]
+    })).sort((a, b) => b.value - a.value);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-32 transition-colors">
       <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
@@ -433,6 +552,19 @@ export default function DashboardPaciente() {
             )}
           </button>
           <button 
+            onClick={toggleSensoryMode}
+            aria-label="Alternar Modo Noturno/Leitura"
+            title="Modo Noturno/Leitura (Filtro Antissobrecarga)"
+            className={cn(
+              "p-2.5 rounded-full border transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer",
+              sensoryMode 
+                ? "bg-amber-500/20 border-amber-500/40 text-amber-600 dark:text-amber-400" 
+                : "bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-white/5 text-slate-650 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
+            )}
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button 
             onClick={toggleTheme}
             aria-label="Alternar tema"
             className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
@@ -457,30 +589,428 @@ export default function DashboardPaciente() {
       </header>
 
       <main className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6 sm:space-y-8">
-        {/* Quick Mood Carousel */}
-        <section className="space-y-3">
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Como você está agora?</h3>
+        {/* Banner de Gerenciamento de Permissão de Notificações */}
+        {NotificationService.isPendingOrDenied() && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn(
+              "rounded-[2rem] p-6 border shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all",
+              notificationPermission === "denied"
+                ? "bg-rose-500/5 border-rose-500/25 dark:bg-rose-950/10 dark:border-rose-500/10 text-rose-700 dark:text-rose-450"
+                : "bg-emerald-500/5 border-emerald-500/25 dark:bg-emerald-950/10 dark:border-emerald-500/10 text-emerald-700 dark:text-emerald-450"
+            )}
+            id="notification-permission-manager"
+          >
+            <div className="space-y-1.5 max-w-md">
+              <div className="flex items-center gap-2">
+                <Bell className={cn("w-5 h-5 shrink-0", notificationPermission === "default" && "animate-bounce text-emerald-500")} />
+                <h4 className="text-[10px] sm:text-xs font-bold uppercase tracking-widest">
+                  {notificationPermission === "denied" ? "Notificações Bloqueadas" : "Lembretes e Suporte Diário"}
+                </h4>
+              </div>
+              <h3 className="text-base font-bold font-serif italic text-slate-800 dark:text-slate-100">
+                {notificationPermission === "denied" 
+                  ? "Ative as notificações no navegador" 
+                  : "Receba pílulas de sabedoria e apoio diário"}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                {notificationPermission === "denied"
+                  ? "As notificações foram bloqueadas no navegador. Clique no botão ao lado para desbloquear rapidamente e receber orientações do Sentí."
+                  : "Mantenha-se engajado em sua jornada de bem-estar. Ative os alertas para receber avisos gentis de respiração consciente, novas pílulas diárias e mensagens de evolução pessoal."}
+              </p>
+            </div>
+            
+            <button
+              onClick={async () => {
+                if (notificationPermission === "denied") {
+                  setShowDeniedModal(true);
+                } else {
+                  await requestNotificationPermission();
+                }
+              }}
+              className={cn(
+                "px-5 py-3.5 active:scale-95 text-white rounded-2xl font-bold text-xs uppercase tracking-widest transition-all self-start sm:self-center whitespace-nowrap shadow-md hover:shadow-lg cursor-pointer flex items-center justify-center gap-2 min-h-[44px]",
+                notificationPermission === "denied"
+                  ? "bg-rose-600 hover:bg-rose-500 hover:shadow-rose-500/10"
+                  : "bg-emerald-600 hover:bg-emerald-500 hover:shadow-emerald-500/10"
+              )}
+            >
+              <Bell className="w-4 h-4 shrink-0" />
+              Ativar notificações
+            </button>
+          </motion.div>
+        )}
+
+        {/* Interactive Daily Mood Tracker */}
+        <section className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none space-y-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Smile className="w-5 h-5 text-emerald-500" />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Como você está hoje?</h3>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Selecione um emoji para registrar seu estado emocional no diário do seu perfil</p>
           </div>
-          <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-            {moods.map((m, idx) => (
-              <motion.button
-                key={m.label}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleQuickMood(m.value)}
-                className={cn(
-                  "flex-shrink-0 flex flex-col items-center gap-1 p-2 rounded-xl border border-white/5 transition-all",
-                  "w-16 bg-white dark:bg-slate-900 shadow-sm",
-                  idx % 2 === 0 ? "rotate-1" : "-rotate-1"
-                )}
+
+          {moodSavedFeedback && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+              <span>Registro de humor gravado com sucesso! Ganhou +10 XP. Seu gráfico de tendências foi recalculado.</span>
+            </motion.div>
+          )}
+
+          <div className="flex overflow-x-auto gap-2.5 pb-2 no-scrollbar -mx-2 px-2">
+            {moods.map((m) => {
+              const isSelected = selectedEmoji === m.emoji;
+              return (
+                <motion.button
+                  key={m.label}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    setSelectedEmoji(m.emoji);
+                    setSelectedMoodValue(m.value);
+                  }}
+                  className={cn(
+                    "flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all cursor-pointer w-20 min-h-[74px]",
+                    isSelected 
+                      ? "bg-emerald-500/10 border-emerald-500/35 shadow-inner" 
+                      : "bg-slate-50 dark:bg-slate-950 border-slate-200/60 dark:border-white/5 hover:border-slate-350 dark:hover:border-white/10"
+                  )}
+                >
+                  <span className="text-3xl filter drop-shadow-sm">{m.emoji}</span>
+                  <span className={cn(
+                    "text-[9px] font-bold uppercase tracking-wider",
+                    isSelected ? "text-emerald-500" : "text-slate-550 dark:text-slate-500"
+                  )}>{m.label}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          <AnimatePresence>
+            {selectedMoodValue !== null && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden space-y-4 pt-4 border-t border-slate-100 dark:border-white/5"
               >
-                <span className="text-xl">{m.emoji}</span>
-                <span className="text-[8px] font-bold text-slate-500 uppercase">{m.label}</span>
-              </motion.button>
-            ))}
-          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <span>Sintonia/Nível de Humor:</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-black">{selectedMoodValue}/10</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={selectedMoodValue}
+                      onChange={(e) => setSelectedMoodValue(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-100 dark:bg-white/5 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
+                      <span>Crítico</span>
+                      <span>Neutro</span>
+                      <span>Excelente</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <span>Intensidade do Sentimento:</span>
+                      <span className="text-blue-500 dark:text-blue-400 font-black">{moodIntensity}/10</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="10"
+                      value={moodIntensity}
+                      onChange={(e) => setMoodIntensity(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-100 dark:bg-white/5 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                    />
+                    <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
+                      <span>Brando</span>
+                      <span>Moderado</span>
+                      <span>Profundo</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Nota rápida sobre seu dia (Opcional):</label>
+                  <textarea
+                    rows={2}
+                    value={moodNote}
+                    onChange={(e) => setMoodNote(e.target.value)}
+                    placeholder="Escreva brevemente o que motivou esse sentimento ou o seu foco mental hoje..."
+                    className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-xl text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-emerald-500/45 transition-colors"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Identifique os Gatilhos (Opcional):</label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: "trabalho", label: "💼 Trabalho" },
+                      { id: "familia", label: "🏠 Família" },
+                      { id: "saude", label: "❤️ Saúde" },
+                      { id: "financas", label: "💵 Finanças" },
+                      { id: "relacionamento", label: "💑 Relacionamento" },
+                      { id: "amigos", label: "👥 Amigos" },
+                      { id: "sono", label: "🌙 Sono" },
+                      { id: "estudos", label: "📚 Estudos" }
+                    ].map((trigger) => {
+                      const isSelected = selectedTriggers.includes(trigger.id);
+                      return (
+                        <button
+                          key={trigger.id}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedTriggers(prev => prev.filter(t => t !== trigger.id));
+                            } else {
+                              setSelectedTriggers(prev => [...prev, trigger.id]);
+                            }
+                          }}
+                          className={cn(
+                            "px-3 py-1.5 rounded-full border text-[11px] font-bold cursor-pointer transition-all active:scale-95",
+                            isSelected 
+                              ? "bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 dark:border-indigo-500 shadow-md shadow-indigo-500/10"
+                              : "bg-slate-55 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:border-slate-350 dark:hover:border-white/10"
+                          )}
+                        >
+                          {trigger.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={handleDetailedMoodSubmit}
+                    disabled={moodSaving}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-md shadow-emerald-600/10 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {moodSaving ? "Registrando..." : "Confirmar e Gravar"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMoodValue(null);
+                      setSelectedEmoji("");
+                      setMoodNote("");
+                      setSelectedTriggers([]);
+                    }}
+                    className="px-4 py-3 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-widest transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
+
+        {/* Recharts Emotional Trend Card */}
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div className="space-y-0.5">
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-emerald-500" />
+                Histórico e Tendências de Humor
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">Visualização em tempo real das suas oscilações emocionais</p>
+            </div>
+            
+            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/5 select-none self-start sm:self-center">
+              {(['7', '30', 'all'] as const).map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setChartPeriod(period)}
+                  className={cn(
+                    "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                    chartPeriod === period 
+                      ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
+                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                  )}
+                >
+                  {period === '7' ? "7 dias" : period === '30' ? "30 dias" : "Tudo"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-60 w-full pt-4 font-sans">
+            {getChartData().length === 0 ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-white/5 rounded-3xl space-y-2">
+                <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Ainda sem dados registrados</p>
+                  <p className="text-xs text-slate-450 dark:text-slate-550 max-w-xs leading-relaxed">Selecione um emoji e registre seu humor acima para redefinir as tendências e criar sua curva em tempo real!</p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={getChartData()} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
+                  <XAxis 
+                    dataKey="data" 
+                    stroke="rgba(148, 163, 184, 0.45)" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false}
+                    dy={10}
+                    fontFamily="inherit"
+                  />
+                  <YAxis 
+                    domain={[0, 10]} 
+                    stroke="rgba(148, 163, 184, 0.45)" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false}
+                    dx={-10}
+                    fontFamily="inherit"
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-xl space-y-1.5 font-sans max-w-[240px]">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">{data.dataCompleta}</p>
+                            <div className="space-y-1">
+                              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex justify-between gap-4">
+                                <span>Humor:</span>
+                                <span>{data.humor}/10</span>
+                              </p>
+                              <p className="text-xs font-medium text-blue-500 flex justify-between gap-4">
+                                <span>Intensidade:</span>
+                                <span>{data.intensidade}/10</span>
+                              </p>
+                            </div>
+                            {data.note && (
+                              <p className="text-[10.5px] text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-white/5 pt-1.5 italic">
+                                "{data.note}"
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="humor" 
+                    stroke="url(#lineGradientHumor)" 
+                    strokeWidth={3}
+                    dot={{ r: 3, strokeWidth: 1.5, fill: "#10b981" }}
+                    activeDot={{ r: 5, strokeWidth: 0, fill: "#10b981" }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="intensidade" 
+                    stroke="rgba(59, 130, 246, 0.4)" 
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    dot={false}
+                  />
+                  <defs>
+                    <linearGradient id="lineGradientHumor" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#10b981" />
+                      <stop offset="100%" stopColor="#059669" />
+                    </linearGradient>
+                  </defs>
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="flex gap-4 justify-center items-center text-[9px] uppercase font-bold text-slate-500 dark:text-slate-500 tracking-wider">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Nível de Humor</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full border border-dashed border-blue-500 bg-transparent" />
+              <span className="text-slate-500">Intensidade do Sentimento</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Triggers Distribution Card */}
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none space-y-4">
+          <div className="space-y-0.5">
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-indigo-500" />
+              Distribuição de Gatilhos Recorrentes
+            </h3>
+            <p className="text-xs text-slate-500 font-medium">Fatores ou áreas correlacionadas com seu estado de humor registrado</p>
+          </div>
+
+          <div className="h-60 w-full flex items-center justify-center font-sans">
+            {getTriggersChartData().length === 0 ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-white/5 rounded-3xl space-y-2">
+                <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Sem gatilhos identificados</p>
+                  <p className="text-xs text-slate-450 dark:text-slate-550 max-w-xs leading-relaxed">
+                    Marque os fatores determinantes (ex: Trabalho, Família, Saúde) ao registrar novos sentimentos acima para visualizar seus gatilhos!
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={getTriggersChartData()}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={55}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {getTriggersChartData().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 px-3 py-2 rounded-xl shadow-lg text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
+                            <span>{data.name}: <strong className="text-indigo-600 dark:text-indigo-400">{data.value} {data.value === 1 ? 'registro' : 'registros'}</strong></span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Legend 
+                    layout="horizontal" 
+                    verticalAlign="bottom" 
+                    align="center"
+                    iconType="circle"
+                    iconSize={8}
+                    formatter={(value) => <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 capitalize">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
 
         {/* Quick Actions Carousel */}
         <section className="space-y-3">
@@ -640,7 +1170,7 @@ export default function DashboardPaciente() {
         )}
 
         {/* Notification Prompt */}
-        {notificationPermission === 'default' && (
+        {NotificationService.isPendingOrDenied() && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -650,16 +1180,26 @@ export default function DashboardPaciente() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-2">
                   <Bell className="w-4 h-4 text-emerald-100" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-100">Notificações</span>
+                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-100 font-sans">Notificações</span>
                 </div>
-                <h3 className="text-xl font-bold mb-1">Fique por dentro</h3>
-                <p className="text-sm text-emerald-50/80 leading-relaxed">Ative as notificações para receber lembretes de sessões e dicas diárias.</p>
+                <h3 className="text-xl font-bold mb-1 font-serif italic text-white">Fique por dentro</h3>
+                <p className="text-sm text-emerald-50/80 leading-relaxed font-sans">
+                  {notificationPermission === "denied"
+                    ? "Para receber lembretes de sessões e meditação, ative as notificações no topo da página ou através do seu navegador."
+                    : "Ative as notificações para receber lembretes de sessões e dicas diárias."}
+                </p>
               </div>
               <button 
-                onClick={requestNotificationPermission}
-                className="px-6 py-3 bg-white text-emerald-600 rounded-2xl font-bold text-sm hover:bg-emerald-50 transition-colors shadow-lg shadow-black/5"
+                onClick={async () => {
+                  if (notificationPermission === "denied") {
+                    setShowDeniedModal(true);
+                  } else {
+                    await requestNotificationPermission();
+                  }
+                }}
+                className="px-6 py-3 bg-white text-emerald-600 hover:bg-emerald-50 rounded-2xl font-bold text-sm transition-colors shadow-lg shadow-black/5 cursor-pointer whitespace-nowrap"
               >
-                Ativar
+                Ativar notificações
               </button>
             </div>
             <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
@@ -1114,54 +1654,85 @@ export default function DashboardPaciente() {
         </section>
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-white/5 px-2 pb-safe pt-2 flex justify-around items-center z-30 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] dark:shadow-none">
-        <motion.button 
-          whileTap={{ scale: 0.9 }}
-          onClick={() => navigate("/home")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-emerald-600 dark:text-emerald-400 min-w-[64px]"
-        >
-          <Zap className="w-5 h-5" />
-          <span className="text-[9px] font-extrabold uppercase tracking-widest">Início</span>
-        </motion.button>
-        <motion.button 
-          whileTap={{ scale: 0.9 }}
-          onClick={() => navigate("/profissionais")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
-        >
-          <Search className="w-5 h-5" />
-          <span className="text-[9px] font-extrabold uppercase tracking-widest">Buscar</span>
-        </motion.button>
-        
-        <div className="relative -mt-10">
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => navigate("/live-iara")}
-            aria-label="Sessão IARA Live"
-            className="w-16 h-16 bg-emerald-600 dark:bg-emerald-500 rounded-full flex items-center justify-center shadow-2xl shadow-emerald-600/40 dark:shadow-emerald-900/60 border-4 border-white dark:border-slate-950 transition-all"
-          >
-            <Video className="w-7 h-7 text-white" />
-          </motion.button>
-        </div>
+      {/* Modal de Instruções de Notificação Bloqueada */}
+      <AnimatePresence>
+        {showDeniedModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDeniedModal(false)}
+              className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 cursor-pointer"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-6 w-full max-w-sm z-55 space-y-5 shadow-2xl text-slate-800 dark:text-slate-100"
+              id="denied-notification-modal"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+                <h3 className="text-base font-bold font-serif italic text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-emerald-500" />
+                  Como Ativar Notificações
+                </h3>
+                <button
+                  onClick={() => setShowDeniedModal(false)}
+                  className="text-slate-400 hover:text-slate-650 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-        <motion.button 
-          whileTap={{ scale: 0.9 }}
-          onClick={() => navigate("/diario")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
-        >
-          <BookOpen className="w-5 h-5" />
-          <span className="text-[9px] font-extrabold uppercase tracking-widest">Diário</span>
-        </motion.button>
-        <motion.button 
-          whileTap={{ scale: 0.9 }}
-          onClick={() => navigate("/perfil")}
-          className="flex flex-col items-center gap-1 py-2 px-4 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors min-w-[64px]"
-        >
-          <User className="w-5 h-5" />
-          <span className="text-[9px] font-extrabold uppercase tracking-widest">Perfil</span>
-        </motion.button>
-      </nav>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                As notificações estão bloqueadas no seu navegador. Para permitir pílulas diárias e alertas de áudio, siga estes passos rápidos:
+              </p>
+
+              <div className="space-y-4 text-xs">
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold flex items-center justify-center shrink-0">1</div>
+                  <p className="leading-normal pt-0.5 text-slate-600 dark:text-slate-350">
+                    No topo da página, ao lado do endereço URL (barra de navegação), clique no ícone de <strong>Cadeado 🔒</strong> ou <strong>Configurações ⚙️</strong>.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold flex items-center justify-center shrink-0">2</div>
+                  <p className="leading-normal pt-0.5 text-slate-600 dark:text-slate-350">
+                    Encontre a opção <strong>"Notificações"</strong> e altere para <strong>"Permitir"</strong> ou limpe a preferência atual.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <div className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold flex items-center justify-center shrink-0">3</div>
+                  <p className="leading-normal pt-0.5 font-bold text-emerald-600 dark:text-emerald-405">
+                    Recarregue esta página para ativar as pílulas de sabedoria e apoio instantâneas!
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-3 flex gap-3">
+                <button
+                  onClick={() => setShowDeniedModal(false)}
+                  className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-2xl text-xs font-bold transition-all cursor-pointer text-center"
+                >
+                  Entendi
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeniedModal(false);
+                    window.location.reload();
+                  }}
+                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-extrabold uppercase tracking-wider transition-all cursor-pointer text-center shadow-md shadow-emerald-500/15"
+                >
+                  Recarregar 🔄
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

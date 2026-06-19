@@ -14,6 +14,7 @@ export default function Diario() {
   const [historico, setHistorico] = useState<MoodEntry[]>([]);
   const [salvo, setSalvo] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
 
   useEffect(() => {
     const unsubscribe = userService.getMoodHistory((hist) => {
@@ -23,13 +24,133 @@ export default function Diario() {
   }, []);
 
   const handleSalvar = async () => {
-    await userService.saveMood(humor, intensidade, nota);
+    await userService.saveMood(humor, intensidade, nota, selectedTriggers);
     setSalvo(true);
     setNota("");
+    setSelectedTriggers([]);
     
     setTimeout(() => {
       setSalvo(false);
     }, 3000);
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      
+      // Page styling / Colors
+      const primaryColor = [16, 185, 129]; // Emerald
+      const textColor = [30, 41, 59]; // slate-800
+      const lightGray = [100, 116, 139]; // slate-500
+      
+      // Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("Sentí", 20, 20);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+      doc.text("Pronto Socorro Emocional - Relatório de Evolução", 20, 26);
+      doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 140, 20);
+      
+      // Divider
+      doc.setDrawColor(226, 232, 240);
+      doc.line(20, 32, 190, 32);
+      
+      // Metadata section
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text("Sumário de Atividades", 20, 42);
+      
+      // Calculando métricas
+      const totalRegistros = historico.length;
+      const mediaHumor = totalRegistros > 0 
+        ? (historico.reduce((acc, curr) => acc + curr.value, 0) / totalRegistros).toFixed(1)
+        : "0.0";
+      const mediaIntensidade = totalRegistros > 0
+        ? (historico.reduce((acc, curr) => acc + (curr.intensity || 5), 0) / totalRegistros).toFixed(1)
+        : "0.0";
+        
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(`Total de Check-ins Registrados: ${totalRegistros}`, 20, 50);
+      doc.text(`Média de Sintonia do Humor: ${mediaHumor}/10`, 20, 56);
+      doc.text(`Média de Intensidade do Sentimento: ${mediaIntensidade}/10`, 20, 62);
+      
+      // Divider
+      doc.line(20, 68, 190, 68);
+      
+      // Journal Histórico title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text("Histórico Detalhado de Registros", 20, 78);
+      
+      let y = 88;
+      doc.setFontSize(10);
+      
+      historico.forEach((entry, index) => {
+        // Check page overflow
+        if (y > 260) {
+          doc.addPage();
+          y = 25;
+        }
+        
+        doc.setFont("helvetica", "bold");
+        const entryDate = new Date(entry.timestamp).toLocaleString('pt-BR');
+        doc.text(`Momento: ${entryDate} | Humor: ${entry.value}/10`, 20, y);
+        
+        doc.setFont("helvetica", "normal");
+        const intensityText = entry.intensity !== undefined ? ` | Intensidade: ${entry.intensity}/10` : "";
+        
+        const triggerLabelMap: { [key: string]: string } = {
+          trabalho: "Trabalho",
+          familia: "Família",
+          saude: "Saúde",
+          financas: "Finanças",
+          relacionamento: "Relacionamento",
+          amigos: "Amigos",
+          sono: "Sono",
+          estudos: "Estudos"
+        };
+        const activeTriggers = entry.triggers && Array.isArray(entry.triggers)
+          ? entry.triggers.map(t => triggerLabelMap[t] || t).join(", ")
+          : "";
+        const triggersText = activeTriggers ? ` | Gatilhos: ${activeTriggers}` : "";
+        
+        doc.setFontSize(9);
+        doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+        doc.text(`Sintomas e Fatores: ${intensityText}${triggersText}`, 20, y + 5);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        const notaText = entry.note ? `Reflexão: "${entry.note}"` : "Sem reflexões adicionais registradas.";
+        
+        // Wrap text to fit page width
+        const splitNota = doc.splitTextToSize(notaText, 170);
+        doc.text(splitNota, 20, y + 10);
+        
+        y += 15 + (splitNota.length * 5);
+        
+        // Separator between items
+        doc.setDrawColor(241, 245, 249);
+        doc.line(20, y - 2, 190, y - 2);
+        y += 3;
+      });
+      
+      // Footer/Compliance text on the last page or each page
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184); // slate-400
+      doc.text("Este documento foi gerado pelo aplicativo oficial Sentí e está em plena conformidade com a privacidade de dados da LGPD.", 20, 287);
+      
+      doc.save(`Senti_Progresso_Mental_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error("Erro ao gerar PDF:", err);
+    }
   };
 
   const getMoodIcon = (val: number) => {
@@ -157,6 +278,44 @@ export default function Diario() {
               placeholder="Como foi seu dia? O que está sentindo?"
               className="w-full bg-slate-950 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none h-32"
             />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-slate-300 block">Destaque os Gatilhos do dia (Opcional):</label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "trabalho", label: "💼 Trabalho" },
+                { id: "familia", label: "🏠 Família" },
+                { id: "saude", label: "❤️ Saúde" },
+                { id: "financas", label: "💵 Finanças" },
+                { id: "relacionamento", label: "💑 Relacionamento" },
+                { id: "amigos", label: "👥 Amigos" },
+                { id: "sono", label: "🌙 Sono" },
+                { id: "estudos", label: "📚 Estudos" }
+              ].map((trigger) => {
+                const isSelected = selectedTriggers.includes(trigger.id);
+                return (
+                  <button
+                    key={trigger.id}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedTriggers(prev => prev.filter(t => t !== trigger.id));
+                      } else {
+                        setSelectedTriggers(prev => [...prev, trigger.id]);
+                      }
+                    }}
+                    className={`px-3 py-2 rounded-xl border text-xs font-bold cursor-pointer transition-all active:scale-95 ${
+                      isSelected 
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/10"
+                        : "bg-slate-950 text-slate-400 border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    {trigger.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <button
@@ -313,11 +472,20 @@ export default function Diario() {
           transition={{ delay: 0.1 }}
           className="space-y-4"
         >
-          <div className="flex items-center justify-between px-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-2">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-slate-400" />
               <h3 className="text-base font-medium text-slate-200">Seu Histórico</h3>
             </div>
+            <button
+              onClick={handleExportPDF}
+              className="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 hover:border-emerald-400/40 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              📥 Exportar Relatório PDF
+            </button>
+          </div>
+          <div className="flex items-center justify-between px-2 pt-2">
+            <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Filtragem de data</div>
             <div className="flex items-center gap-2 bg-slate-900 border border-white/5 rounded-2xl px-3 py-1.5 shadow-lg">
               <button 
                 onClick={handlePrevDay}
@@ -401,6 +569,31 @@ export default function Diario() {
                           )}
                         </div>
                       </div>
+
+                      {entry.triggers && entry.triggers.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {entry.triggers.map((trigger: string) => {
+                            const labels: { [key: string]: string } = {
+                              trabalho: "💼 Trabalho",
+                              familia: "🏠 Família",
+                              saude: "❤️ Saúde",
+                              financas: "💵 Finanças",
+                              relacionamento: "💑 Relacionamento",
+                              amigos: "👥 Amigos",
+                              sono: "🌙 Sono",
+                              estudos: "📚 Estudos"
+                            };
+                            return (
+                              <span 
+                                key={trigger}
+                                className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-md"
+                              >
+                                {labels[trigger] || trigger}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                       
                       <div className="relative py-2">
                         <div className="absolute -left-4 top-0 bottom-0 w-0.5 bg-white/5 rounded-full" />

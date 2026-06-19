@@ -12,6 +12,7 @@ export interface OfflineMoodEntry {
   emotion: string; // matches "note" or "emotion"
   timestamp: string;
   synced: boolean;
+  triggers?: string[];
 }
 
 export interface BreathingTechnique {
