@@ -27,6 +27,7 @@ import ProntuarioPaciente from "./pages/ProntuarioPaciente";
 import TerapeutaPerfil from "./pages/TerapeutaPerfil";
 import LiveIARA from "./pages/LiveIARA";
 import Perfil from "./pages/Perfil";
+import GerenciamentoDados from "./pages/GerenciamentoDados";
 import Clinica from "./pages/Clinica";
 import Hospital from "./pages/Hospital";
 import Reset from "./pages/Reset";
@@ -77,6 +78,7 @@ function App() {
             <Route path="/terapeuta-perfil/:id" element={<TerapeutaPerfil />} />
             <Route path="/diario" element={<Diario />} />
             <Route path="/perfil" element={<Perfil />} />
+            <Route path="/gerenciar-dados" element={<GerenciamentoDados />} />
             <Route path="/emergencia" element={<Emergencia />} />
             <Route path="/pronto-atendimento" element={<ProntoAtendimento />} />
             <Route path="/terapeuta-setup" element={<TerapeutaSetup />} />

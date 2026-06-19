@@ -1,0 +1,1627 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "motion/react";
+import { 
+  ArrowLeft, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Briefcase, 
+  Save, 
+  Check, 
+  AlertCircle, 
+  Sparkles,
+  Smile,
+  ShieldCheck,
+  Download,
+  Upload,
+  Clock,
+  FileJson,
+  FileSpreadsheet,
+  ShieldAlert,
+  Loader2,
+  Trash2,
+  Server,
+  RefreshCw,
+  Activity,
+  Shield,
+  Database,
+  Lock,
+  Globe,
+  Wifi
+} from "lucide-react";
+import { auth, storage } from "../services/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { userService } from "../services/userService";
+import { UserProfile } from "../types";
+import { cn } from "../lib/utils";
+import { z } from "zod";
+
+const AVATAR_PRESETS = [
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Zoe",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Jack",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Boots",
+  "https://api.dicebear.com/7.x/avataaars/svg?seed=Cookie",
+];
+
+// Zod Validation Schema for Profile Data
+const profileValidationSchema = z.object({
+  nome: z.string()
+    .min(3, { message: "O nome completo precisa de pelo menos 3 caracteres." })
+    .max(80, { message: "O nome não pode passar de 80 caracteres." })
+    .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, { message: "O nome deve conter apenas letras." }),
+  telefone: z.string()
+    .regex(/^\(?\d{2}\)?\s?\d{4,5}-?\d{4}$|^$/, { message: "Telefone inválido. Use o formato: (XX) 99999-9999" })
+    .optional()
+    .or(z.literal("")),
+  cidade: z.string()
+    .max(60, { message: "A cidade não pode passar de 60 caracteres." })
+    .optional()
+    .or(z.literal("")),
+  biografia: z.string()
+    .max(400, { message: "Sua biografia deve possuir no máximo 400 caracteres." })
+    .optional()
+    .or(z.literal("")),
+  fotoUrl: z.string()
+    .url({ message: "Insira um endereço URL válido." })
+    .or(z.literal(""))
+    .optional(),
+  abordagem: z.string()
+    .max(80, { message: "A abordagem terapêutica deve ter no máximo 80 caracteres." })
+    .optional()
+    .or(z.literal("")),
+});
+
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  description: string;
+  fieldsChanged?: string[];
+  status: "sucesso" | "erro" | "alerta" | "suspeito";
+  userId?: string;
+}
+
+interface BackupSnapshot {
+  id: string;
+  timestamp: string;
+  backupType: "automatic_daily" | "manual_trigger";
+  stats: {
+    usersCount: number;
+    diaryEntriesCount: number;
+    emotionLogsCount: number;
+    appointmentsCount: number;
+  };
+}
+
+export default function GerenciamentoDados() {
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // Tabs Navigation State
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'audits' | 'backups' | 'monitoring'>('profile');
+
+  // LGPD Permanent Deletion State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  // Secure Auditing States
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAudits, setLoadingAudits] = useState(false);
+
+  // Backup States
+  const [backups, setBackups] = useState<BackupSnapshot[]>([]);
+  const [loadingBackups, setLoadingBackups] = useState(false);
+  const [triggeringBackup, setTriggeringBackup] = useState(false);
+
+  // Target logs_auditoria / suspicious detection lists
+  const [logsAuditoria, setLogsAuditoria] = useState<any[]>([]);
+  const [loadingLogsAuditoria, setLoadingLogsAuditoria] = useState(false);
+  const [simEmail, setSimEmail] = useState("terapeuta.privado@senti.app");
+  const [simSuccess, setSimSuccess] = useState(false);
+  const [simAtypical, setSimAtypical] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+
+  // Security Filters States
+  const [filterEmail, setFilterEmail] = useState("");
+  const [filterType, setFilterType] = useState("ALL");
+  const [filterDate, setFilterDate] = useState("");
+
+  // Zod Form Errors
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Input states
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [biografia, setBiografia] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [fotoUrl, setFotoUrl] = useState("");
+  const [estilo, setEstilo] = useState<'acolhedor' | 'provocador' | 'analitico' | 'pratico' | undefined>(undefined);
+  const [abordagem, setAbordagem] = useState("");
+
+  // Load User Data
+  const loadProfile = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const data = await userService.getUser(user.uid);
+      if (data) {
+        setProfile(data);
+        setNome(data.nome || "");
+        setTelefone(data.telefone || "");
+        setBiografia(data.biografia || "");
+        setCidade(data.cidade || "");
+        setFotoUrl(data.fotoUrl || "");
+        if (data.tipo === 'terapeuta') {
+          setEstilo(data.estilo);
+          setAbordagem(data.abordagem || "");
+        }
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+  }, [navigate]);
+
+  // Load Secure Audit Logs from Server-side Cloud Functions simulation
+  const fetchCloudAuditLogs = async () => {
+    setLoadingAudits(true);
+    try {
+      const logs = await userService.getAuditLogsAPI();
+      setAuditLogs(logs);
+    } catch (err) {
+      console.error("Failed to load secure audits:", err);
+    } finally {
+      setLoadingAudits(false);
+    }
+  };
+
+  // Load Cloud-stored Backups
+  const fetchBackupsList = async () => {
+    setLoadingBackups(true);
+    try {
+      const list = await userService.getBackupsAPI();
+      setBackups(list);
+    } catch (err) {
+      console.error("Failed to load backup list:", err);
+    } finally {
+      setLoadingBackups(false);
+    }
+  };
+
+  // Load secure logs from log_auditoria
+  const fetchLogsAuditoria = async () => {
+    setLoadingLogsAuditoria(true);
+    try {
+      const logs = await userService.getLogsAuditoriaAPI();
+      setLogsAuditoria(logs);
+    } catch (err) {
+      console.error("Failed to load logs_auditoria:", err);
+    } finally {
+      setLoadingLogsAuditoria(false);
+    }
+  };
+
+  // Run security threat monitoring simulation for admin compliance auditing
+  const handleSimulateLogin = async () => {
+    setSimulating(true);
+    setMessage(null);
+    try {
+      // Outlier IP from Europe/Asia or normal Brazilian IP
+      const simulatedIp = simAtypical ? "109.112.56.241" : "189.120.14.77";
+      const simulatedLocation = simAtypical 
+        ? { country: "RU", city: "Moscow" } 
+        : { country: "BR", city: "Rio de Janeiro" };
+
+      const res = await userService.monitorLoginAPI(
+        simEmail.trim(),
+        simSuccess,
+        simulatedIp,
+        simulatedLocation,
+        navigator.userAgent || "Mozilla/5.0 Compliance Simulator"
+      );
+
+      if (res.isSuspicious) {
+        setMessage({
+          type: "error",
+          text: `🚨 [AMEAÇA CIBERNÉTICA DETECTADA] ${res.reason} Notificação enviada para o console do admin e evento registrado na coleção 'logs_auditoria' com status 'suspeito'!`
+        });
+      } else {
+        setMessage({
+          type: "success",
+          text: `✓ Atividade de login normal processada. Evento de login (sucesso: ${simSuccess}) adicionado ao rastreador de segurança.`
+        });
+      }
+      
+      // Auto refresh the list
+      await fetchLogsAuditoria();
+    } catch (error: any) {
+      console.error("Simulation error:", error);
+      setMessage({ type: "error", text: `Falha no simulador de ameaças: ${error.message}` });
+    } finally {
+      setSimulating(false);
+    }
+  };
+
+  // Load appropriate resources depending on selected tab
+  useEffect(() => {
+    if (activeTab === 'audits') {
+      fetchCloudAuditLogs();
+    } else if (activeTab === 'backups') {
+      fetchBackupsList();
+    } else if (activeTab === 'monitoring') {
+      fetchLogsAuditoria();
+    }
+  }, [activeTab]);
+
+  // Handles Photo Upload securely via Firebase
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage({ type: 'error', text: 'Por favor, carregue somente arquivos de imagem.' });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'A imagem de perfil deve conter no máximo 2MB.' });
+      return;
+    }
+
+    setUploading(true);
+    setFormErrors((prev) => ({ ...prev, fotoUrl: "" }));
+
+    try {
+      const uid = auth.currentUser?.uid;
+      if (!uid) throw new Error("Usuário não autenticado");
+
+      const storageRef = ref(storage, `users/${uid}/avatar_${Date.now()}_${file.name}`);
+      const uploadResult = await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(uploadResult.ref);
+
+      setFotoUrl(url);
+      setMessage({
+        type: 'success',
+        text: 'Imagem carregada com sucesso para o Firebase Storage!'
+      });
+      await userService.logAuditAPI("Carregamento de foto de perfil efetuado com sucesso via Storage.", ["Foto de Perfil"]);
+    } catch (storageError) {
+      console.warn("Storage upload failed, fallback to local Base64 string:", storageError);
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result as string;
+        setFotoUrl(base64Url);
+        setMessage({
+          type: 'success',
+          text: 'Imagem processada localmente. Ela será gravada diretamente em seu documento do Firestore.'
+        });
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Save profile updates to current authenticated node
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user || !profile) return;
+
+    setSaving(true);
+    setMessage(null);
+    setFormErrors({});
+
+    const validationResult = profileValidationSchema.safeParse({
+      nome: nome.trim(),
+      telefone: telefone.trim(),
+      cidade: cidade.trim(),
+      biografia: biografia.trim(),
+      fotoUrl: fotoUrl.trim(),
+      abordagem: profile.tipo === 'terapeuta' ? abordagem.trim() : undefined
+    });
+
+    if (!validationResult.success) {
+      const fieldErrors: Record<string, string> = {};
+      validationResult.error.issues.forEach((issue) => {
+        const path = issue.path[0] as string;
+        fieldErrors[path] = issue.message;
+      });
+      setFormErrors(fieldErrors);
+      setMessage({
+        type: 'error',
+        text: 'Falha na validação dos campos. Verifique as indicações em vermelho.'
+      });
+      setSaving(false);
+      return;
+    }
+
+    const fieldsChanged: string[] = [];
+    if (nome.trim() !== (profile.nome || "")) fieldsChanged.push("Nome");
+    if (telefone.trim() !== (profile.telefone || "")) fieldsChanged.push("Telefone");
+    if (biografia.trim() !== (profile.biografia || "")) fieldsChanged.push("Biografia");
+    if (cidade.trim() !== (profile.cidade || "")) fieldsChanged.push("Cidade");
+    if (fotoUrl.trim() !== (profile.fotoUrl || "")) fieldsChanged.push("Foto de Perfil");
+    
+    if (profile.tipo === 'terapeuta') {
+      if (estilo !== profile.estilo) fieldsChanged.push("Estilo de Atendimento");
+      if (abordagem.trim() !== (profile.abordagem || "")) fieldsChanged.push("Abordagem");
+    }
+
+    const updatedData: Partial<UserProfile> = {
+      nome: nome.trim(),
+      telefone: telefone.trim(),
+      biografia: biografia.trim(),
+      cidade: cidade.trim(),
+      fotoUrl: fotoUrl.trim(),
+    };
+
+    if (profile.tipo === 'terapeuta') {
+      updatedData.estilo = estilo;
+      updatedData.abordagem = abordagem.trim();
+    }
+
+    try {
+      await userService.updateProfile(user.uid, updatedData);
+      
+      // Notify secure server auditing endpoint of change
+      if (fieldsChanged.length > 0) {
+        await userService.logAuditAPI(`Alteração de dados cadastrais: modificados os campos [${fieldsChanged.join(", ")}]`, fieldsChanged, "sucesso");
+      }
+
+      setProfile((prev) => prev ? ({ ...prev, ...updatedData }) : null);
+      setMessage({
+        type: 'success',
+        text: fieldsChanged.length > 0 
+          ? 'Atualizações gravadas no Firestore com sucesso e registradas na auditoria imutável!'
+          : 'Nenhum dado alterado. Seu perfil já está sincronizado.'
+      });
+      
+      setTimeout(() => setMessage(null), 5000);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      await userService.logAuditAPI(`Falha na atualização cadastral: ${error.message || error}`, fieldsChanged, "erro");
+      setMessage({
+        type: 'error',
+        text: `Falha ao salvar atualizações no banco de dados: ${error.message}`
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Triggers manual backup creation via server API
+  const handleTriggerBackup = async () => {
+    setTriggeringBackup(true);
+    try {
+      const res = await userService.triggerBackupAPI();
+      setMessage({
+        type: 'success',
+        text: `Backup MANUAL gerado com sucesso! Consolidado em ${new Date(res.timestamp).toLocaleTimeString()}`
+      });
+      fetchBackupsList();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || "Erro de permissão ao gerar backup" });
+    } finally {
+      setTriggeringBackup(false);
+    }
+  };
+
+  // Execute LGPD Decisve Cascade Account Deletion
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const res = await userService.deleteAccountAPI();
+      setShowDeleteModal(false);
+      // Logged out & Purged completely! Clean local credentials and reload to sign out
+      await auth.signOut();
+      alert(res.message);
+      navigate("/login");
+    } catch (err: any) {
+      console.error("Error deleting user account cascades:", err);
+      alert(`Falha ao excluir conta: ${err.message || err}`);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Human Portability Download (JSON)
+  const downloadJSON = () => {
+    if (!profile) return;
+    const cleanProfile = { ...profile };
+    const jsonStr = JSON.stringify(cleanProfile, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `meus_dados_estruturados_${profile.nome.toLowerCase().replace(/\s+/g, '_')}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    userService.logAuditAPI("Download de cópia cadastral portátil efetuado em JSON pelo usuário.", [], "sucesso");
+  };
+
+  // Human Portability Download (CSV Table)
+  const downloadCSV = () => {
+    if (!profile) return;
+    const dataRows = [
+      ["Campo", "Valor"],
+      ["Identificador Primário", profile.uid],
+      ["Nome de Registro", profile.nome],
+      ["E-mail", profile.email],
+      ["Telefone de Contato", profile.telefone || "Não fornecido"],
+      ["Cidade/Estado", profile.cidade || "Não fornecido"],
+      ["Função", profile.tipo],
+      ["Histórico Biográfico", profile.biografia || "Nenhuma"]
+    ];
+
+    const csvContent = "\uFEFF" + dataRows.map(row => 
+      row.map(value => `"${value.replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `prontuario_dados_${profile.nome.toLowerCase().replace(/\s+/g, '_')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    userService.logAuditAPI("Download de cópia cadastral portátil efetuado em CSV pelo usuário.", [], "sucesso");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+        <p className="text-slate-500 text-xs font-mono">Processando credenciais seguras...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+      
+      {/* Visual Identity Professional Shielding Header */}
+      <header className="px-6 py-5 sticky top-0 bg-slate-950/95 backdrop-blur-md z-30 border-b border-emerald-500/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-4 w-full sm:w-auto">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2.5 hover:bg-slate-900 border border-white/5 rounded-2xl transition-all active:scale-95"
+            aria-label="Voltar"
+          >
+            <ArrowLeft className="w-5 h-5 text-slate-400" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping" />
+              <h1 className="text-lg font-serif font-semibold text-white tracking-wide">
+                Blindagem Profissional
+              </h1>
+              <span className="text-[9px] font-mono tracking-wider bg-emerald-950 border border-emerald-800 text-emerald-400 font-bold uppercase py-0.5 px-2 rounded">
+                Fase 1 Ativa
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 font-mono tracking-tight mt-0.5">
+              Protocolos de Segurança Avançada & Compliance LGPD • Pronto Socorro Emocional
+            </p>
+          </div>
+        </div>
+
+        {/* Realtime Threat Indicators */}
+        <div className="hidden md:flex items-center gap-4 bg-slate-900 px-4 py-2 border border-white/5 rounded-2xl">
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400 text-right">
+            <div>
+              <p className="font-bold text-slate-300">WAF & Rate Limiting</p>
+              <p className="text-[10px] text-emerald-500">Monitoramento Ativo</p>
+            </div>
+            <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+          </div>
+          <div className="border-l border-white/10 h-8" />
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+            <Wifi className="w-4 h-4 text-emerald-400" />
+            <div>
+              <p className="font-bold text-slate-300">SSL 256-bit</p>
+              <p className="text-[10px] text-slate-500">Imutabilidade Ativa</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Internal Navigation Sub-tabs */}
+      <div className="border-b border-white/5 bg-slate-900/40 sticky top-[73px] z-20 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-6 overflow-x-auto flex gap-1 py-3 text-sm">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
+              activeTab === 'profile'
+                ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
+                : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
+            )}
+          >
+            <User className="w-4 h-4 text-emerald-400" />
+            Meus Dados Básicos
+          </button>
+
+          <button
+            onClick={() => setActiveTab('security')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
+              activeTab === 'security'
+                ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
+                : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
+            )}
+          >
+            <Shield className="w-4 h-4 text-emerald-400" />
+            Segurança & LGPD
+          </button>
+
+          <button
+            onClick={() => setActiveTab('audits')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
+              activeTab === 'audits'
+                ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
+                : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
+            )}
+          >
+            <Clock className="w-4 h-4 text-emerald-400" />
+            Auditoria Server (Imutável)
+          </button>
+
+          <button
+            onClick={() => setActiveTab('backups')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
+              activeTab === 'backups'
+                ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
+                : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
+            )}
+          >
+            <Database className="w-4 h-4 text-emerald-400" />
+            Resiliência & Backups
+          </button>
+
+          <button
+            onClick={() => setActiveTab('monitoring')}
+            className={cn(
+              "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
+              activeTab === 'monitoring'
+                ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
+                : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
+            )}
+          >
+            <ShieldAlert className="w-4 h-4 text-emerald-400" />
+            Detector de Ameaças & Login
+          </button>
+        </div>
+      </div>
+
+      <main className="p-6 max-w-6xl mx-auto mt-6">
+        
+        {/* Error/Success Feedbacks */}
+        {message && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={cn(
+              "p-4 rounded-3xl flex items-start gap-3 border text-xs sm:text-sm max-w-3xl mx-auto mb-6",
+              message.type === 'success' 
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+                : "bg-red-500/10 border-red-500/20 text-red-300"
+            )}
+          >
+            {message.type === 'success' ? (
+              <Check className="w-5 h-5 shrink-0 mt-0.5 text-emerald-400" />
+            ) : (
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-500" />
+            )}
+            <div>
+              <p className="font-bold">{message.type === 'success' ? 'Verificação de Segurança' : 'Eventualidade Detectada'}</p>
+              <p className="mt-1 font-mono text-xs">{message.text}</p>
+            </div>
+          </motion.div>
+        )}
+
+        <AnimatePresence mode="wait">
+          {/* TAB 1: Profile Editing */}
+          {activeTab === 'profile' && (
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+            >
+              <section className="lg:col-span-7 space-y-6">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-serif text-white italic flex items-center gap-2">
+                    Edição Cadastral Protegida <Sparkles className="w-5 h-5 text-emerald-400" />
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Sua gravação é amparada pelas regras restritas do Firestore, garantindo isolamento total do documento do usuário contra vazamento cruzado.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSave} className="space-y-6">
+                  {/* Photo Upload Card */}
+                  <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-5">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                      <Smile className="w-4 h-4 text-emerald-500" /> Identidade Visual & Avatar
+                    </h3>
+                    
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      <div className="relative group overflow-hidden w-24 h-24 rounded-3xl border-2 border-emerald-500/30 bg-slate-950 shrink-0">
+                        {uploading ? (
+                          <div className="absolute inset-0 bg-slate-950/80 flex items-center justify-center z-10">
+                            <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+                          </div>
+                        ) : null}
+                        <img 
+                          src={fotoUrl || "https://api.dicebear.com/7.x/avataaars/svg?seed=default"} 
+                          alt="Foto de perfil" 
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                        <label 
+                          htmlFor="avatar-uploader" 
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center cursor-pointer transition-opacity text-white text-[10px] font-mono"
+                        >
+                          <Upload className="w-5 h-5 mb-1 text-emerald-400" />
+                          Upload
+                        </label>
+                        <input 
+                          type="file" 
+                          id="avatar-uploader" 
+                          accept="image/*" 
+                          onChange={handlePhotoUpload} 
+                          className="hidden" 
+                        />
+                      </div>
+
+                      <div className="flex-1 w-full space-y-3">
+                        <label className="text-[11px] text-slate-500 font-mono block">
+                          Clínicos e terapeutas recomendam usar fotos originais para gerar vínculo. Ou selecione um preset:
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {AVATAR_PRESETS.map((preset, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setFotoUrl(preset);
+                                setFormErrors((prev) => ({ ...prev, fotoUrl: "" }));
+                              }}
+                              className={cn(
+                                "w-10 h-10 rounded-xl overflow-hidden border bg-slate-950 transition-all active:scale-90",
+                                fotoUrl === preset ? "border-emerald-500 scale-105 shadow-md shadow-emerald-500/20" : "border-white/5 hover:border-white/20"
+                              )}
+                              aria-label={`Selecionar preset ${idx + 1}`}
+                            >
+                              <img src={preset} alt="preset" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-400 font-mono">Endereço URL Direto da Imagem:</label>
+                      <input 
+                        type="url"
+                        value={fotoUrl}
+                        onChange={(e) => {
+                          setFotoUrl(e.target.value);
+                          if (formErrors.fotoUrl) setFormErrors((prev) => ({ ...prev, fotoUrl: "" }));
+                        }}
+                        className={cn(
+                          "w-full bg-slate-950 border rounded-2xl px-4 py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all font-mono",
+                          formErrors.fotoUrl ? "border-red-500/50" : "border-white/5"
+                        )}
+                        placeholder="https://exemplo.com/foto.jpg"
+                      />
+                      {formErrors.fotoUrl && (
+                        <p className="text-xs text-red-400 flex items-center gap-1 mt-1 font-mono">
+                          <AlertCircle className="w-3.5 h-3.5" /> {formErrors.fotoUrl}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Personal Fields Card */}
+                  <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-4">
+                    <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400">Informações Primárias</h3>
+
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
+                        <User className="w-3.5 h-3.5 text-slate-500" /> Nome Completo
+                      </label>
+                      <input 
+                        type="text"
+                        required
+                        value={nome}
+                        onChange={(e) => {
+                          setNome(e.target.value);
+                          if (formErrors.nome) setFormErrors((prev) => ({ ...prev, nome: "" }));
+                        }}
+                        className={cn(
+                          "w-full bg-slate-950 border rounded-2xl px-4 py-3.5 text-xs sm:text-sm text-slate-100 placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all",
+                          formErrors.nome ? "border-red-500/50" : "border-white/5"
+                        )}
+                        placeholder="Seu nome completo"
+                      />
+                      {formErrors.nome && (
+                        <p className="text-xs text-red-500 flex items-center gap-1 mt-1 font-mono">
+                          <AlertCircle className="w-3.5 h-3.5" /> {formErrors.nome}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
+                          <Phone className="w-3.5 h-3.5 text-slate-500" /> WhatsApp
+                        </label>
+                        <input 
+                          type="tel"
+                          value={telefone}
+                          onChange={(e) => {
+                            setTelefone(e.target.value);
+                            if (formErrors.telefone) setFormErrors((prev) => ({ ...prev, telefone: "" }));
+                          }}
+                          className={cn(
+                            "w-full bg-slate-950 border rounded-2xl px-4 py-3.5 text-xs sm:text-sm text-slate-100 placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all font-mono",
+                            formErrors.telefone ? "border-red-500/50" : "border-white/5"
+                          )}
+                          placeholder="(11) 99999-9999"
+                        />
+                        {formErrors.telefone && (
+                          <p className="text-xs text-red-500 flex items-center gap-1 mt-1 font-mono">
+                            <AlertCircle className="w-3.5 h-3.5" /> {formErrors.telefone}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 flex items-center gap-1.5 font-mono">
+                          <MapPin className="w-3.5 h-3.5 text-slate-500" /> Cidade / UF
+                        </label>
+                        <input 
+                          type="text"
+                          value={cidade}
+                          onChange={(e) => {
+                            setCidade(e.target.value);
+                            if (formErrors.cidade) setFormErrors((prev) => ({ ...prev, cidade: "" }));
+                          }}
+                          className={cn(
+                            "w-full bg-slate-950 border rounded-2xl px-4 py-3.5 text-xs sm:text-sm text-slate-100 placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all",
+                            formErrors.cidade ? "border-red-500/50" : "border-white/5"
+                          )}
+                          placeholder="Cidade - UF"
+                        />
+                        {formErrors.cidade && (
+                          <p className="text-xs text-red-500 flex items-center gap-1 mt-1 font-mono">
+                            <AlertCircle className="w-3.5 h-3.5" /> {formErrors.cidade}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-2">
+                      <label className="text-xs text-slate-500 flex items-center gap-1.5 font-mono">
+                        <Mail className="w-3.5 h-3.5 text-slate-600" /> E-mail (Verificado por Autenticação)
+                      </label>
+                      <div className="bg-slate-950 border border-white/5 rounded-2xl px-4 py-3 flex items-center justify-between text-xs sm:text-sm text-slate-400 font-mono">
+                        <span>{profile?.email}</span>
+                        <span className="text-[9px] bg-slate-900 border border-white/10 px-2 py-0.5 rounded text-emerald-500 flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-emerald-500" /> Criptografado
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Biography Card */}
+                  <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-3">
+                    <h3 className="text-xs font-mono uppercase tracking-wider text-slate-400">Minha Jornada / Biografia</h3>
+                    <textarea 
+                      value={biografia}
+                      onChange={(e) => {
+                        setBiografia(e.target.value);
+                        if (formErrors.biografia) setFormErrors((prev) => ({ ...prev, biografia: "" }));
+                      }}
+                      rows={4}
+                      className={cn(
+                        "w-full bg-slate-950 border rounded-2xl p-4 text-xs sm:text-sm text-slate-100 placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-all resize-none",
+                        formErrors.biografia ? "border-red-500/50" : "border-white/5"
+                      )}
+                      placeholder="Fale um pouco sobre você, seu foco de autoconhecimento ou histórico psicoterápico..."
+                    />
+                    {formErrors.biografia && (
+                      <p className="text-xs text-red-500 flex items-center gap-1 mt-1 font-mono">
+                        <AlertCircle className="w-3.5 h-3.5" /> {formErrors.biografia}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Clinical Settings */}
+                  {profile?.tipo === 'terapeuta' && (
+                    <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-4">
+                      <h3 className="text-xs font-mono uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                        <Briefcase className="w-4 h-4" /> Configurações de Atendimento Clínico (Terapeuta)
+                      </h3>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 font-mono">Estilo Terapêutico Dominante:</label>
+                        <select
+                          value={estilo || ""}
+                          onChange={(e) => setEstilo(e.target.value as any)}
+                          className="w-full bg-slate-950 border border-white/5 rounded-2xl px-4 py-3 text-xs sm:text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        >
+                          <option value="" disabled>Selecione um estilo...</option>
+                          <option value="acolhedor">Acolhedor (Foco empático e acolhimento caloroso)</option>
+                          <option value="analitico">Analítico (Abordagem de investigação do inconsciente)</option>
+                          <option value="provocador">Provocador (Desafia de forma técnica os pensamentos automáticos)</option>
+                          <option value="pratico">Prático (Abordagem focada em métodos e planos pragmáticos)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 font-mono">Abordagem Psicológica de Trabalho:</label>
+                        <input 
+                          type="text"
+                          value={abordagem}
+                          onChange={(e) => setAbordagem(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/5 rounded-2xl px-4 py-3 text-xs sm:text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                          placeholder="Ex: TCC (Cognitivo Comportamental), Psicanálise Lacaniana, Gestalt..."
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-2xl font-bold text-xs sm:text-sm transition-all shadow-lg shadow-emerald-700/20 active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>Gravando nos servidores do Firestore...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Persistir Alterações Básicas</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              {/* Sidebar with Portability features */}
+              <section className="lg:col-span-5 space-y-6">
+                
+                {/* Data Portability Card */}
+                <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-4">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-serif font-bold text-white flex items-center gap-2">
+                      <Download className="w-4 h-4 text-emerald-400" /> Cópia Portátil de Dados (LGPD)
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                      Em estrita observância ao Artigo 18 da Lei Geral de Proteção de Dados (LGPD), você pode baixar um arquivo estruturado de suas informações a qualquer momento.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    <button
+                      onClick={downloadJSON}
+                      className="p-4 bg-slate-950 hover:bg-slate-800 border border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <FileJson className="w-5 h-5 text-emerald-400" />
+                      <span className="text-[10px] font-bold">Portabilidade JSON</span>
+                    </button>
+
+                    <button
+                      onClick={downloadCSV}
+                      className="p-4 bg-slate-950 hover:bg-slate-800 border border-white/5 rounded-2xl flex flex-col items-center justify-center gap-2 transition-all active:scale-95"
+                    >
+                      <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
+                      <span className="text-[10px] font-bold">Baixar Tabela CSV</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Cloud security facts */}
+                <div className="bg-slate-900/60 border border-white/5 p-6 rounded-[2.5rem] space-y-3 font-mono text-xs text-slate-500">
+                  <h4 className="font-bold text-slate-300 uppercase tracking-widest text-[10px] flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500" /> Diretrizes de Blindagem
+                  </h4>
+                  <ul className="space-y-2 list-disc pl-4 leading-relaxed text-[11px]">
+                    <li>Seus prontuários, diários de sentimentos e comunicações via chat são cifrados localmente e na nuvem.</li>
+                    <li>Nenhuma modificação pode ser efetuada no Firestore sem as credenciais criptográficas de ID token ativas do próprio usuário.</li>
+                  </ul>
+                </div>
+              </section>
+            </motion.div>
+          )}
+
+          {/* TAB 2: Advanced Security & LGPD */}
+          {activeTab === 'security' && (
+            <motion.div
+              key="security"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="max-w-3xl mx-auto space-y-8"
+            >
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-[2.5rem] space-y-6">
+                <div className="space-y-2">
+                  <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center">
+                    <Trash2 className="w-6 h-6" />
+                  </div>
+                  <h2 className="text-xl font-serif text-white font-bold">
+                    Exclusão Definitiva de Conta (Lei Geral de Proteção de Dados)
+                  </h2>
+                  <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                    Conforme o direito de eliminação e esquecimento do titular dos dados, ao solicitar a exclusão de conta, nosso servidor iniciará uma rotina destrutiva em cascata nas tabelas do Firestore (incluindo anamneses, prontuários privados, mensagens de socorro, registros de humor e faturas de Stripe) e eliminará seu registro criptográfico final no Firebase Authentication.
+                  </p>
+                </div>
+
+                <div className="border border-red-500/20 bg-red-500/5 p-4 rounded-3xl text-xs leading-relaxed text-red-300 font-mono">
+                  <p className="font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-red-500" /> Ação Irreversível e Imediata
+                  </p>
+                  <p className="mt-1">
+                    Esta exclusão é executada do lado do servidor via Admin SDK de alta segurança. Seus dados clínicos e de contatos profissionais serão perdidos definitivamente, impossibilitando qualquer posterior recuperação por nossa equipe de contingência técnica.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="py-3 px-6 bg-red-950/40 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/20 rounded-2xl font-bold font-mono text-xs transition-all active:scale-95 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Iniciar Processo de Exclusão Cascata</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Dynamic Rate Limiting & Firewall Status Indicator */}
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-[2.5rem] space-y-6">
+                <div>
+                  <h3 className="text-base font-serif font-bold text-white flex items-center gap-2">
+                    <Server className="w-4 h-4 text-emerald-400" /> Limitador Dinâmico de Tráfego (Rate Limiting)
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1 font-mono">
+                    Proteção ativa contra ataques DDoS, abuso de chamadas de API de prontuário, tentativas de força bruta na autenticação e raspagem de dados clínicos de terapeutas.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl flex justify-between items-center">
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-slate-500 font-mono uppercase font-bold">API Geral</p>
+                      <p className="text-xs text-slate-300 font-mono font-bold">Máx 150 req / 15 min</p>
+                    </div>
+                    <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase">
+                      Seguro
+                    </span>
+                  </div>
+
+                  <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl flex justify-between items-center">
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-slate-500 font-mono uppercase font-bold">API Segurança / LGPD</p>
+                      <p className="text-xs text-slate-300 font-mono font-bold">Máx 12 req / 15 min</p>
+                    </div>
+                    <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-mono font-bold px-2 py-0.5 rounded uppercase">
+                      Seguro
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-950 border border-white/5 rounded-2xl flex items-center gap-3 text-xs text-slate-500 font-mono">
+                  <Globe className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Seu endereço IP de acesso atual é monitorado pelo filtro de rede em nosso container Cloud Run.</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* TAB 3: Immutable System Audit timeline */}
+          {activeTab === 'audits' && (
+            <motion.div
+              key="audits"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="max-w-3xl mx-auto space-y-6"
+            >
+              <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-serif text-white flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-emerald-400" /> Trilha de Auditoria Imutável do Servidor
+                  </h2>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Registros capturados em tempo real por nossas barreiras Express API. Atualizações e exclusões nesta coleção são negadas terminantemente pelas regras de segurança de nível de banco de dados.
+                  </p>
+                </div>
+
+                <button
+                  onClick={fetchCloudAuditLogs}
+                  disabled={loadingAudits}
+                  className="p-3 hover:bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all disabled:opacity-50"
+                  aria-label="Atualizar Logs"
+                >
+                  <RefreshCw className={cn("w-4 h-4", loadingAudits && "animate-spin")} />
+                </button>
+              </div>
+
+              {loadingAudits ? (
+                <div className="p-12 text-center space-y-3">
+                  <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
+                  <p className="text-slate-500 text-xs font-mono">Sincronizando logs de banco de dados...</p>
+                </div>
+              ) : auditLogs.length === 0 ? (
+                <div className="p-12 bg-slate-900/60 border border-dashed border-white/5 rounded-[2.5rem] text-center space-y-4">
+                  <ShieldCheck className="w-12 h-12 text-emerald-500/20 mx-auto" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-300">Nenhum Log de Servidor Encontrado</p>
+                    <p className="text-xs text-slate-500 font-mono">Ações que modificam seus dados cadastrais ou solicitam portabilidade registrarão eventos aqui permanentemente.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {auditLogs.map((log) => (
+                    <div 
+                      key={log.id} 
+                      className="p-4 bg-slate-900 border border-white/5 rounded-3xl flex items-start gap-4 text-xs font-mono leading-relaxed"
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                        log.status === "sucesso" ? "bg-emerald-500/10 text-emerald-400" :
+                        log.status === "erro" ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"
+                      )}>
+                        {log.status === "sucesso" ? <ShieldCheck className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
+                      </div>
+
+                      <div className="space-y-2 flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-slate-500 text-[10px]">
+                          <span>ID de Registro: {log.id || "LGD_SVC"}</span>
+                          <span>{new Date(log.timestamp).toLocaleString('pt-BR')}</span>
+                        </div>
+                        <p className="text-slate-200 font-semibold text-xs">{log.description}</p>
+                        {log.fieldsChanged && log.fieldsChanged.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {log.fieldsChanged.map((f, i) => (
+                              <span key={i} className="text-[9px] bg-slate-950 border border-white/10 px-2 py-0.5 rounded text-slate-400">
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB 4: Disaster Recovery Backups panel */}
+          {activeTab === 'backups' && (
+            profile?.tipo !== 'admin' ? (
+              <motion.div
+                key="backups-locked"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="max-w-md mx-auto text-center p-8 bg-slate-900 border border-white/5 rounded-[2.5rem] space-y-6"
+              >
+                <div className="w-16 h-16 bg-red-400/10 text-red-500 rounded-3xl flex items-center justify-center mx-auto border border-red-500/20">
+                  <Lock className="w-8 h-8 text-red-400" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-serif text-white font-bold">Resiliência Restrita</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                    A visualização e disparo manual de backups redundantes do Firestore é restrita a administradores autorizados.
+                  </p>
+                </div>
+                <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl text-left font-mono text-[11px] text-slate-500 space-y-1">
+                  <p>ID do Usuário: <span className="text-slate-400">{profile?.uid || "não identificado"}</span></p>
+                  <p>Email: <span className="text-slate-400">{profile?.email || "não identificado"}</span></p>
+                  <p>Tipo de Perfil: <span className="text-red-400 font-bold uppercase">{profile?.tipo || "indefinido"}</span></p>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="backups"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="max-w-3xl mx-auto space-y-6"
+              >
+                <div className="flex justify-between items-center">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-serif text-white flex items-center gap-2">
+                      <Database className="w-5 h-5 text-emerald-400" /> Resiliência e Backups de Dados Clínicos
+                    </h2>
+                    <p className="text-xs text-slate-400 font-mono">
+                      Nossa rotina de contingência cria automaticamente backups diários de segurança na nuvem para recuperação de catástrofes. Exiba snapshots ou consolide backups manuais.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={fetchBackupsList}
+                      disabled={loadingBackups}
+                      className="p-3 hover:bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all disabled:opacity-50"
+                      aria-label="Atualizar Backups"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", loadingBackups && "animate-spin")} />
+                    </button>
+
+                    <button
+                      onClick={handleTriggerBackup}
+                      disabled={triggeringBackup}
+                      className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-2xl font-bold font-mono text-xs transition-all flex items-center gap-1.5"
+                    >
+                      {triggeringBackup ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Database className="w-4 h-4" />
+                      )}
+                      <span>Gerar Snapshot Manual</span>
+                    </button>
+                  </div>
+                </div>
+
+                {loadingBackups ? (
+                  <div className="p-12 text-center space-y-3">
+                    <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
+                    <p className="text-slate-500 text-xs font-mono">Recuperando registros de cópia de segurança...</p>
+                  </div>
+                ) : backups.length === 0 ? (
+                  <div className="p-12 bg-slate-900/60 border border-dashed border-white/5 rounded-[2.5rem] text-center space-y-4">
+                    <Database className="w-12 h-12 text-emerald-500/25 mx-auto" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-300 font-serif">Banco de Backups Vazio</p>
+                      <p className="text-xs text-slate-500 font-mono">O servidor inicializará a primeira rotina de backup de contingência nas próximas horas. Crie uma cópia manual instantânea acima para demonstrar conformidade.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {backups.map((b) => (
+                      <div 
+                        key={b.id} 
+                        className="p-5 bg-slate-900 border border-white/5 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono text-xs leading-relaxed"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              "text-[9px] font-bold py-0.5 px-2 rounded uppercase",
+                              b.backupType === "automatic_daily" ? "bg-blue-950 border border-blue-900 text-blue-400" : "bg-emerald-950 border border-emerald-900 text-emerald-400"
+                            )}>
+                              {b.backupType === "automatic_daily" ? "Automático Diário" : "Consolidação Manual"}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              Snap_ID: {b.id.substring(0, 10)}...
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-300 font-bold">
+                            Efetuado em: {new Date(b.timestamp).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+
+                        <div className="border-t sm:border-t-0 sm:border-l border-white/10 pt-3 sm:pt-0 sm:pl-4 space-y-1 text-slate-400">
+                          <p className="text-[10px] uppercase font-bold text-slate-500">Objetos Persistidos:</p>
+                          <p className="text-[11px]">
+                            👥 Usuários: {b.stats?.usersCount || 0} • 📖 Diários: {b.stats?.diaryEntriesCount || 0}
+                          </p>
+                          <p className="text-[11px]">
+                            ❤️ Humores: {b.stats?.emotionLogsCount || 0} • 📅 Sessões: {b.stats?.appointmentsCount || 0}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )
+          )}
+
+          {/* TAB 5: Live Suspicious Login Activity Tracker & Threat Simulator */}
+          {activeTab === 'monitoring' && (
+            profile?.tipo !== 'admin' ? (
+              <motion.div
+                key="monitoring-locked"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="max-w-md mx-auto text-center p-8 bg-slate-900 border border-white/5 rounded-[2.5rem] space-y-6"
+              >
+                <div className="w-16 h-16 bg-red-400/10 text-red-500 rounded-3xl flex items-center justify-center mx-auto border border-red-500/20">
+                  <Lock className="w-8 h-8 text-red-400" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-serif text-white font-bold">Monitor Administrativo Restrito</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                    O detector de ameaças e monitor de login (logs_auditoria) é exclusivo para usuários com perfil de administrador.
+                  </p>
+                </div>
+                <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl text-left font-mono text-[11px] text-slate-500 space-y-1">
+                  <p>ID do Usuário: <span className="text-slate-400">{profile?.uid || "não identificado"}</span></p>
+                  <p>Email: <span className="text-slate-400">{profile?.email || "não identificado"}</span></p>
+                  <p>Tipo de Perfil: <span className="text-red-400 font-bold uppercase">{profile?.tipo || "indefinido"}</span></p>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="monitoring"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full"
+              >
+                {/* Stats Metrics Row */}
+                <div className="lg:col-span-12 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-900 border border-white/5 p-5 rounded-[2rem] flex items-center gap-4">
+                    <div className="w-12 h-12 bg-red-500/10 text-red-400 border border-red-500/25 rounded-2xl flex items-center justify-center shrink-0">
+                      <ShieldAlert className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Alertas Suspeitos</h4>
+                      <p className="text-xl font-bold text-red-400 mt-1">
+                        {logsAuditoria.filter(log => log.operationType === "ALERTA_LOGIN_SUSPEITO").length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 border border-white/5 p-5 rounded-[2rem] flex items-center gap-4">
+                    <div className="w-12 h-12 bg-amber-500/10 text-amber-400 border border-amber-500/25 rounded-2xl flex items-center justify-center shrink-0">
+                      <AlertCircle className="w-6 h-6 text-amber-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Tentativas Falhas</h4>
+                      <p className="text-xl font-bold text-amber-400 mt-1">
+                        {logsAuditoria.filter(log => log.operationType === "TENTATIVA_LOGIN_FALHADA").length}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 border border-white/5 p-5 rounded-[2rem] flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-500/10 text-blue-400 border border-blue-500/25 rounded-2xl flex items-center justify-center shrink-0">
+                      <Globe className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Acessos Estrangeiros</h4>
+                      <p className="text-xl font-bold text-blue-400 mt-1">
+                        {logsAuditoria.filter(log => log.location?.country !== "BR" && log.location).length}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Simulator Column */}
+                <section className="lg:col-span-4 space-y-6">
+                  <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-6">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-serif font-semibold text-white flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-emerald-400" />
+                        Simulador de Ameaças
+                      </h3>
+                      <p className="text-[10.5px] text-slate-400 font-mono">
+                        Desencadeie testes funcionais para verificar a blindagem ativa de mitigação contra invasões em tempo real.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4 font-mono text-xs">
+                      <div className="space-y-1.5">
+                        <label className="text-slate-400 font-bold">Email de Tentativa:</label>
+                        <input 
+                          type="email" 
+                          value={simEmail}
+                          onChange={(e) => setSimEmail(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/5 rounded-2xl p-3 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Nome da conta a simular"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-slate-950 border border-white/5 rounded-2xl">
+                        <span className="text-slate-300">Autenticação com Sucesso:</span>
+                        <button
+                          type="button"
+                          onClick={() => setSimSuccess(!simSuccess)}
+                          className={cn(
+                            "px-3 py-1 rounded-xl text-[10px] font-bold transition-all",
+                            simSuccess ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"
+                          )}
+                        >
+                          {simSuccess ? "SUCESSO" : "FALHA"}
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 bg-slate-950 border border-white/5 rounded-2xl">
+                        <div>
+                          <p className="text-slate-300">Geolocalização Atípica:</p>
+                          <p className="text-[9px] text-slate-500">Simular IP estrangeiro de risco</p>
+                        </div>
+                        <input 
+                          type="checkbox"
+                          checked={simAtypical}
+                          onChange={(e) => setSimAtypical(e.target.checked)}
+                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-white/10 bg-slate-950"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleSimulateLogin}
+                        disabled={simulating}
+                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-xl shadow-emerald-950"
+                      >
+                        {simulating ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Activity className="w-4 h-4" />
+                        )}
+                        <span>Lançar Vetor de Login</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl space-y-3 font-mono text-[10.5px] leading-relaxed text-slate-400">
+                    <p className="text-white font-bold flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                      <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                      Critérios de Classificação:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>3 ou mais falhas na mesma conta num periodo de 10 min.</li>
+                      <li>Qualquer acesso proveniente de país fora do Brasil (atípico).</li>
+                    </ul>
+                    <p className="text-slate-500 text-[10px] mt-2">
+                      *Toda infração gera um registro do tipo <strong className="text-red-400">ALERTA_LOGIN_SUSPEITO</strong> na coleção de auditoria e printa um aviso com trace no console do servidor.
+                    </p>
+                  </div>
+                </section>
+
+                {/* Log List Column */}
+                <section className="lg:col-span-8 space-y-6">
+                  {/* Filters Bar Card */}
+                  <div className="bg-slate-900 border border-white/5 p-5 rounded-[2rem] space-y-4">
+                    <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-400">Filtros de Auditoria Especializados</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {/* filter by dynamic text search (user email, etc) */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500">Usuário / Email ID</label>
+                        <input
+                          type="text"
+                          value={filterEmail}
+                          onChange={(e) => setFilterEmail(e.target.value)}
+                          placeholder="Ex: terapeuta.privado..."
+                          className="w-full bg-slate-950 border border-white/5 rounded-xl p-2 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* filter by event type enum */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500">Tipo de Evento</label>
+                        <select
+                          value={filterType}
+                          onChange={(e) => setFilterType(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/5 rounded-xl p-2 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500 selection:bg-slate-800"
+                        >
+                          <option value="ALL">TODOS OS REQUISITOS</option>
+                          <option value="ALERTA_LOGIN_SUSPEITO">APENAS SUSPEITOS</option>
+                          <option value="LOGIN_BEM_SUCEDIDO">APENAS LOGIN RECONHECIDO</option>
+                          <option value="TENTATIVA_LOGIN_FALHADA">APENAS TENTATIVAS FALHADAS</option>
+                        </select>
+                      </div>
+
+                      {/* filter by date picker */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-mono text-slate-500">Filtrar por Data</label>
+                        <input
+                          type="date"
+                          value={filterDate}
+                          onChange={(e) => setFilterDate(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/5 rounded-xl p-2 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-serif italic text-white flex items-center gap-2">
+                        Logs de Acesso Ativos (logs_auditoria)
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Monitor em tempo real de acessos críticos e comportamentos suspeitos.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={fetchLogsAuditoria}
+                      disabled={loadingLogsAuditoria}
+                      className="p-3 hover:bg-slate-900 border border-white/5 rounded-2xl text-slate-400 hover:text-white transition-all disabled:opacity-50"
+                      aria-label="Recarregar"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", loadingLogsAuditoria && "animate-spin")} />
+                    </button>
+                  </div>
+
+                  {loadingLogsAuditoria ? (
+                    <div className="p-16 text-center space-y-3">
+                      <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mx-auto" />
+                      <p className="text-slate-500 text-xs font-mono">Lendo registros de auditoria...</p>
+                    </div>
+                  ) : logsAuditoria.length === 0 ? (
+                    <div className="p-16 bg-slate-900/60 border border-dashed border-white/5 rounded-[2.5rem] text-center space-y-4">
+                      <ShieldCheck className="w-12 h-12 text-emerald-500/25 mx-auto" />
+                      <div>
+                        <p className="text-sm font-semibold text-slate-300 font-serif">Nenhum evento registrado</p>
+                        <p className="text-xs text-slate-500 font-mono mt-1">Interaja com o simulador à esquerda para preencher a fila em tempo real.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    (() => {
+                      const filtered = logsAuditoria.filter((log: any) => {
+                        if (filterEmail) {
+                          const query = filterEmail.toLowerCase().trim();
+                          const matchesId = log.userId?.toLowerCase().includes(query) || false;
+                          const matchesDesc = log.description?.toLowerCase().includes(query) || false;
+                          if (!matchesId && !matchesDesc) return false;
+                        }
+                        if (filterType !== "ALL") {
+                          if (log.operationType !== filterType) return false;
+                        }
+                        if (filterDate) {
+                          const logDate = new Date(log.timestamp).toISOString().split("T")[0];
+                          if (logDate !== filterDate) return false;
+                        }
+                        return true;
+                      });
+
+                      return filtered.length === 0 ? (
+                        <div className="p-16 bg-slate-900/60 border border-dashed border-white/5 rounded-[2.5rem] text-center space-y-2">
+                          <AlertCircle className="w-8 h-8 text-slate-600 mx-auto" />
+                          <p className="text-sm font-semibold text-slate-300 font-serif">Sem ocorrências correspondentes</p>
+                          <p className="text-xs text-slate-500 font-mono">Modifique os valores dos filtros especializados acima para refinar a busca.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+                          {filtered.map((log: any) => {
+                            const isAlert = log.operationType === "ALERTA_LOGIN_SUSPEITO";
+                            return (
+                              <div 
+                                key={log.id}
+                                className={cn(
+                                  "p-5 bg-slate-900 border rounded-3xl font-mono text-xs flex flex-col sm:flex-row sm:items-start justify-between gap-4 transition-all leading-relaxed",
+                                  isAlert ? "border-red-500/20 bg-red-950/5" : "border-white/5"
+                                )}
+                              >
+                                <div className="space-y-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    {isAlert ? (
+                                      <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[9px] font-bold py-0.5 px-2 rounded uppercase animate-pulse">
+                                        SUSPEITO
+                                      </span>
+                                    ) : (
+                                      <span className="bg-emerald-950 text-emerald-400 border border-emerald-900 text-[9px] font-bold py-0.5 px-2 rounded uppercase">
+                                        NORMAL
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] text-slate-500 font-bold">{log.operationType}</span>
+                                    <span className="text-[10px] text-slate-500">• {new Date(log.timestamp).toLocaleString('pt-BR')}</span>
+                                  </div>
+
+                                  <p className={cn("text-xs leading-relaxed", isAlert ? "text-red-300" : "text-slate-300")}>
+                                    {log.description}
+                                  </p>
+
+                                  <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
+                                    <span>IP: <strong className="text-slate-400 font-normal">{log.ip || "127.0.0.1"}</strong></span>
+                                    <span>Localidade: <strong className="text-slate-400 font-normal">{(log.location?.country === "RU" ? "🇷🇺 Rússia" : "🇧🇷 Brasil") + ` - ${log.location?.city || "São Paulo"}`}</strong></span>
+                                    <span>User: <strong className="text-slate-340 font-normal">{log.userId}</strong></span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()
+                  )}
+                </section>
+              </motion.div>
+            )
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* LGPD Double Confirm Delete User Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-slate-900 border border-red-500/20 max-w-md w-full p-6 rounded-[2.5rem] shadow-2xl shadow-red-950/20 space-y-6"
+          >
+            <div className="space-y-2">
+              <div className="w-10 h-10 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-serif font-bold text-white">
+                Confirmar Mandato de Exclusão Cascata (LGPD)
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                Por questões de extrema segurança do paciente, este processo é definitivo. Toda a ficha de sentimentos, agendas e prontuários privados integrados neste cadastro serão expurgados do banco de dados imediatamente.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] text-slate-400 font-mono block">
+                Para prosseguir com o esquecimento permanente, digite a frase <strong className="text-red-400 select-all">EXCLUIR CONTA DEFINITIVAMENTE</strong> no campo abaixo:
+              </label>
+              <input 
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3 text-xs sm:text-sm text-slate-100 placeholder:text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-500/40 font-mono uppercase tracking-wide"
+                placeholder="Digitar frase jurídica de confirmação"
+              />
+            </div>
+
+            <div className="flex gap-3 font-mono text-xs pt-1">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText("");
+                }}
+                className="flex-1 py-3 bg-slate-950 border border-white/5 text-slate-400 hover:text-white rounded-2xl font-bold transition-all"
+              >
+                Cancelar Recuo
+              </button>
+              
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmText.trim() !== "EXCLUIR CONTA DEFINITIVAMENTE" || deleting}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                {deleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                <span>Expurgar Dados</span>
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}

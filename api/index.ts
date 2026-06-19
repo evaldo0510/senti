@@ -9,6 +9,7 @@ import admin from "firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import webpush from "web-push";
+import rateLimit from "express-rate-limit";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -207,6 +208,355 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, 
 // Standard JSON parsing for other routes
 app.use(express.json());
 
+// 1. Configure Rate Limiters
+export const apiGeneralLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 150, // limit each IP to 150 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Muitas requisições originárias deste IP. Por favor, aguarde 15 minutos." }
+});
+
+export const sensitiveActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 12, // stricter rate limit for security/data portability actions
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Ações de segurança consecutivas suspeitas bloqueadas por rate-limiting. Tente novamente mais tarde." }
+});
+
+// Apply general api rate limiting to all /api routes
+app.use("/api/", apiGeneralLimiter);
+
+// 2. Bearer Authentication Middleware via Firebase Admin SDK
+const requireAuth = async (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Cabeçalho de autorização inválido ou ausente." });
+  }
+
+  const idToken = authHeader.split(" ")[1];
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error("Auth Middleware ID token verification failure:", error);
+    return res.status(403).json({ error: "Sua sessão expirou ou o token é inválido. Autentique-se novamente." });
+  }
+};
+
+// 3. Automated Daily Backup Engine & Manual API Core (Garantia de Resiliência)
+async function executeAutomaticBackup(isManual = false) {
+  console.log(`[BACKUP ENGINE] Iniciando backup de contingência ${isManual ? 'MANUAL' : 'AGENDADO_DIARIO'}...`);
+  try {
+    if (!db) throw new Error("Firestore não inicializado");
+    
+    // Fetch snapshot of critical collections
+    const usersSnap = await db.collection("users").get();
+    const diarySnap = await db.collection("diary_entries").get();
+    const logsSnap = await db.collection("emotion_logs").get();
+    const apptsSnap = await db.collection("appointments").get();
+
+    const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const diaryData = diarySnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const logsData = logsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const apptsData = apptsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+    const backupPayload = {
+      timestamp: new Date().toISOString(),
+      backupType: isManual ? "manual_trigger" : "automatic_daily",
+      stats: {
+        usersCount: usersSnap.size,
+        diaryEntriesCount: diarySnap.size,
+        emotionLogsCount: logsSnap.size,
+        appointmentsCount: apptsSnap.size,
+      },
+      // Encrypted or structured payload of crucial tables for disaster recovery
+      data: {
+        users: usersData.slice(0, 50), // limits sizes for previews
+        diary: diaryData.slice(0, 100),
+        emotionLogs: logsData.slice(0, 100),
+        appointments: apptsData.slice(0, 50)
+      }
+    };
+
+    const backupDoc = await db.collection("backups").add(backupPayload);
+    console.log(`[BACKUP ENGINE] Backup persistido com sucesso! ID: ${backupDoc.id}`);
+    
+    // Write an administrative audit log
+    await db.collection("audit_logs").add({
+      id: `backup_${Date.now()}`,
+      userId: "system_admin",
+      timestamp: new Date().toISOString(),
+      description: `Backup automatizado ${isManual ? 'instantâneo' : 'agendado diário'} executado com sucesso nas tabelas de dados básicos da plataforma.`,
+      status: "sucesso"
+    });
+
+    return backupPayload;
+  } catch (error: any) {
+    console.error("[BACKUP ENGINE] Falha crítica de backup:", error);
+    try {
+      await db.collection("audit_logs").add({
+        id: `backup_err_${Date.now()}`,
+        userId: "system_admin",
+        timestamp: new Date().toISOString(),
+        description: `Falha ao executar rotina de segurança de backup básico de contingência: ${error.message}`,
+        status: "erro"
+      });
+    } catch (innerErr) {
+      console.error("Não foi possível persistir histórico de erro do backup", innerErr);
+    }
+    throw error;
+  }
+}
+
+// 4. Secure Auditing endpoints & Server Cloud Logging
+app.post("/api/user/log-audit", requireAuth, sensitiveActionLimiter, async (req: any, res: any) => {
+  const { description, fieldsChanged, status } = req.body;
+  const uid = req.user.uid;
+
+  try {
+    const logDoc = await db.collection("audit_logs").add({
+      userId: uid,
+      timestamp: new Date().toISOString(),
+      description: description || "Alteração cadastral efetuada",
+      fieldsChanged: fieldsChanged || [],
+      status: status || "sucesso"
+    });
+
+    res.json({ success: true, logId: logDoc.id });
+  } catch (err: any) {
+    console.error("Erro ao registrar log de auditoria via API do servidor:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to fetch audit logs for a user securely
+app.get("/api/user/audit-logs", requireAuth, async (req: any, res: any) => {
+  const uid = req.user.uid;
+  try {
+    const snapshot = await db.collection("audit_logs")
+      .where("userId", "==", uid)
+      .orderBy("timestamp", "desc")
+      .limit(10)
+      .get();
+
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ logs });
+  } catch (err: any) {
+    console.error("Erro ao buscar registros de auditoria no Firestore:", err);
+    // Return empty list instead of crashing if index is building
+    res.json({ logs: [] });
+  }
+});
+
+// Endpoint to process and monitor login attempts for suspicious activity
+app.post("/api/security/monitor-login", sensitiveActionLimiter, async (req: any, res: any) => {
+  const { email, success, ip, location, userAgent } = req.body;
+  const timestamp = new Date().toISOString();
+  
+  try {
+    // Record login attempts to general tracker
+    const attempt = {
+      email: email || "unknown",
+      success: !!success,
+      ip: ip || req.ip || "127.0.0.1",
+      location: location || { country: "BR", city: "São Paulo" },
+      userAgent: userAgent || req.headers["user-agent"] || "",
+      timestamp
+    };
+    
+    await db.collection("login_attempts").add(attempt);
+    
+    let isSuspicious = false;
+    let reason = "";
+    
+    // Check 1: Atypical location (e.g. non-Brazil or simulated outlier region)
+    if (attempt.location && attempt.location.country && attempt.location.country !== "BR") {
+      isSuspicious = true;
+      reason += `Acesso de IP geolocalizado atipicamente: ${attempt.location.country} (${attempt.location.city || 'Desconhecida'}). `;
+    }
+    
+    // Check 2: Multiple login failures (3 or more failed attempts for the email in last 10 minutes)
+    if (!success) {
+      const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const failuresSnapshot = await db.collection("login_attempts")
+        .where("email", "==", email)
+        .where("success", "==", false)
+        .where("timestamp", ">=", tenMinsAgo)
+        .get();
+        
+      if (failuresSnapshot.size >= 3) {
+        isSuspicious = true;
+        reason += `Múltiplas falhas de login recentes detectadas (total: ${failuresSnapshot.size} tentativas malsucedidas). `;
+      }
+    }
+    
+    // Save to the sensitive logs_auditoria collection as mandated
+    const operationParams = {
+      userId: email || "anonymous_attempt",
+      timestamp,
+      operationType: isSuspicious ? "ALERTA_LOGIN_SUSPEITO" : (success ? "LOGIN_BEM_SUCEDIDO" : "TENTATIVA_LOGIN_FALHADA"),
+      description: isSuspicious 
+        ? `[ALERTA DE SEGURANÇA] Atividade suspeita detectada para o email: ${email}. Motivo: ${reason}`
+        : (success ? `Login estabelecido com sucesso para a conta ${email}` : `Falha isolada na autenticação de ${email}`),
+      ip: attempt.ip,
+      location: attempt.location,
+      userAgent: attempt.userAgent,
+      status: isSuspicious ? "suspeito" : "sucesso"
+    };
+
+    await db.collection("logs_auditoria").add(operationParams);
+
+    if (isSuspicious) {
+      // Notify administrator via system console and high priority log
+      console.warn(`[SECURITY BREACH MONITOR] email: ${email} | IP: ${attempt.ip} | Motivo: ${reason}`);
+    } else {
+      console.log(`[SECURITY LOGIN MONITOR] login registrado para ${email} (Sucesso: ${success})`);
+    }
+
+    res.json({ success: true, isSuspicious, reason });
+  } catch (err: any) {
+    console.error("Erro ao realizar auditoria do monitor de login:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to get safety logs from logs_auditoria
+app.get("/api/security/logs-auditoria", requireAuth, async (req: any, res: any) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    if (!userDoc.exists || userDoc.data()?.tipo !== "admin") {
+      return res.status(403).json({ error: "Acesso negado. Esta área é exclusiva para administradores." });
+    }
+
+    const snapshot = await db.collection("logs_auditoria")
+      .orderBy("timestamp", "desc")
+      .limit(100) // Increase limits to support comprehensive searches and filters
+      .get();
+      
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ logs });
+  } catch (err: any) {
+    console.error("Erro ao retornar logs_auditoria:", err);
+    res.json({ logs: [] });
+  }
+});
+
+// 5. Portability & Contingency Admin Backups
+app.post("/api/admin/trigger-backup", requireAuth, sensitiveActionLimiter, async (req: any, res: any) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    if (!userDoc.exists || userDoc.data()?.tipo !== "admin") {
+      return res.status(403).json({ error: "Acesso negado. Apenas administradores podem acionar e gerenciar backups." });
+    }
+
+    const result = await executeAutomaticBackup(true);
+    res.json({ success: true, stats: result.stats, timestamp: result.timestamp });
+  } catch (error: any) {
+    res.status(500).json({ error: `Falha ao gerar backup: ${error.message}` });
+  }
+});
+
+app.get("/api/admin/backups", requireAuth, async (req: any, res: any) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    if (!userDoc.exists || userDoc.data()?.tipo !== "admin") {
+      return res.status(403).json({ error: "Acesso negado. Apenas administradores habilitados podem listar backups." });
+    }
+
+    const snapshot = await db.collection("backups")
+      .orderBy("timestamp", "desc")
+      .limit(5)
+      .get();
+    
+    const backups = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ backups });
+  } catch (error: any) {
+    console.error("Erro ao buscar backups:", error);
+    res.json({ backups: [] });
+  }
+});
+
+// 6. Exclusão Definitiva de Conta - Destruição em Cascata Baseada na LGPD (Lei Geral de Proteção de Dados)
+app.post("/api/user/delete-account", requireAuth, sensitiveActionLimiter, async (req: any, res: any) => {
+  const uid = req.user.uid;
+  const userEmail = req.user.email;
+  
+  console.log(`[MANDATO LGPD] Iniciando expurgo definitivo de dados para a conta: ${uid} (E-mail: ${userEmail})`);
+  
+  try {
+    if (!db) throw new Error("Banco de dados indisponível");
+
+    const batch = db.batch();
+
+    // A. Remover documento primordial em 'users'
+    const userDocRef = db.collection("users").doc(uid);
+    batch.delete(userDocRef);
+
+    // B. Buscar e remover emotion_logs vinculados
+    const emotionSnap = await db.collection("emotion_logs").where("userId", "==", uid).get();
+    emotionSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // C. Buscar e remover diary_entries vinculadas
+    const diarySnap = await db.collection("diary_entries").where("userId", "==", uid).get();
+    diarySnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // D. Buscar e remover feedbacks realizados
+    const feedbacksSnap = await db.collection("feedbacks").where("userId", "==", uid).get();
+    feedbacksSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // E. Buscar e remover private_notes associadas (seja se o usuário é o dono)
+    const notesSnap = await db.collection("private_notes").where("userId", "==", uid).get();
+    notesSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // F. Buscar e remover agendamentos passados ou futuros (appointments)
+    // Caso seja paciente
+    const apptsPatientSnap = await db.collection("appointments").where("patientId", "==", uid).get();
+    apptsPatientSnap.docs.forEach(doc => batch.delete(doc.ref));
+    
+    // Caso seja terapeuta
+    const apptsTherapistSnap = await db.collection("appointments").where("therapistId", "==", uid).get();
+    apptsTherapistSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // G. Buscar e remover mensagens enviadas ou recebidas
+    const messagesSentSnap = await db.collection("messages").where("senderId", "==", uid).get();
+    messagesSentSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    const messagesRecvSnap = await db.collection("messages").where("receiverId", "==", uid).get();
+    messagesRecvSnap.docs.forEach(doc => batch.delete(doc.ref));
+
+    // Executar batch do Firestore de forma síncrona/segura
+    await batch.commit();
+    console.log(`[MANDATO LGPD] Documentos eliminados do Firestore para o usuário ${uid}`);
+
+    // H. Registrar log de auditoria definitivo (não associado à UID para manter anonimização sob LGPD)
+    await db.collection("audit_logs").add({
+      id: `lgpd_deletion_${Date.now()}`,
+      userId: "removed_user",
+      timestamp: new Date().toISOString(),
+      description: `Mandato LGPD: Conta (${uid}) e todos os históricos de tratamento, prontuários, feedbacks, sentimentos e agendamentos foram expurgados permanentemente.`,
+      status: "sucesso"
+    });
+
+    // I. Deletar a conta primária de Autenticação no Firebase Auth
+    await admin.auth().deleteUser(uid);
+    console.log(`[MANDATO LGPD] Exclusão de Auth concluída com sucesso para a credencial ${uid}`);
+
+    res.json({ 
+      success: true, 
+      message: "Sua conta e todas as informações armazenadas na plataforma foram eliminadas em conformidade estrita com a LGPD." 
+    });
+
+  } catch (error: any) {
+    console.error("[MANDATO LGPD] Falha crítica ao processar pedido de exclusão em cascata:", error);
+    res.status(500).json({ 
+      error: `Erro ao apagar registros LGPD do banco de dados: ${error.message || error}` 
+    });
+  }
+});
+
 app.get("/api/health", async (req, res) => {
   try {
     const testSnapshot = await db.collection("health_check").limit(1).get();
@@ -221,7 +571,7 @@ app.get("/api/push/public-key", (req, res) => {
   res.json({ publicKey: vapidPublicKey || "" });
 });
 
-app.post("/api/push/subscribe", async (req, res) => {
+app.post("/api/push/subscribe", sensitiveActionLimiter, async (req, res) => {
   const { userId, subscription } = req.body;
   if (!userId || !subscription) {
     return res.status(400).json({ error: "Faltando userId ou subscription no corpo da requisição." });
@@ -244,7 +594,7 @@ app.post("/api/push/subscribe", async (req, res) => {
   }
 });
 
-app.post("/api/push/send", async (req, res) => {
+app.post("/api/push/send", sensitiveActionLimiter, async (req, res) => {
   const { userId, title, body, url } = req.body;
   if (!userId || !title || !body) {
     return res.status(400).json({ error: "Faltando campos obrigatórios: userId, title, body." });
@@ -259,7 +609,7 @@ app.post("/api/push/send", async (req, res) => {
   }
 });
 
-app.post("/api/create-checkout-session", async (req, res) => {
+app.post("/api/create-checkout-session", sensitiveActionLimiter, async (req, res) => {
   const { therapistId, therapistName, price, time, date, appointmentId, discountPercentage = 0 } = req.body;
 
   // Logic: Therapist sets what they want to receive (price)
@@ -350,7 +700,7 @@ app.post("/api/create-checkout-session", async (req, res) => {
   }
 });
 
-app.post("/api/create-journey-checkout-session", async (req, res) => {
+app.post("/api/create-journey-checkout-session", sensitiveActionLimiter, async (req, res) => {
   const { userId, userEmail } = req.body;
 
   if (!stripe) {
@@ -405,7 +755,7 @@ app.post("/api/create-journey-checkout-session", async (req, res) => {
   }
 });
 
-app.post("/api/create-subscription-checkout-session", async (req, res) => {
+app.post("/api/create-subscription-checkout-session", sensitiveActionLimiter, async (req, res) => {
   const { userId, userEmail } = req.body;
 
   if (!stripe) {

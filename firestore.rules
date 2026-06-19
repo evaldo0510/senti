@@ -2,9 +2,72 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra global de segurança garantindo que leitura e escrita sejam permitidas apenas para usuários autenticados
+    // Global Safety Net (default-deny catch-all)
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    // Função auxiliar para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Regras estritas específicas para a coleção de usuários (users)
+    match /users/{userId} {
+      // Qualquer usuário autenticado pode ler dados básicos (essencial para busca de terapeutas, perfis, etc.)
+      allow read: if isAuthenticated();
+      
+      // Criação, atualização e exclusão permitidas APENAS se o usuário autenticado for o dono do próprio documento
+      allow create, update, delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Regras para Auditoria Corretiva e Imutável (LGPD)
+    match /audit_logs/{logId} {
+      // O usuário pode ler apenas seus próprios registros de auditoria
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Permite criar um log apenas autoatribuído pela própria UID logada
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Bloqueio de alteração e remoção (Imutabilidade absoluta das trilhas de auditoria)
+      allow update, delete: if false;
+    }
+
+    // Regras extremamente estritas para garantir que a coleção 'logs_auditoria' 
+    // seja write-only para o sistema (via Admin SDK) e 100% protegida contra leitura, edição e exclusão de clientes.
+    match /logs_auditoria/{logId} {
+      allow read, write: if false;
+    }
+
+    // Regras para Backups automáticos de segurança
+    match /backups/{backupId} {
+      // Apenas leitura permitida se autenticado (ou por SDK Admin do servidor)
+      allow read: if isAuthenticated();
+      // Escrita proibida para clientes ordinários (apenas via servidor com Admin Privileges)
+      allow write: if false;
+    }
+
+    // Regras para as outras coleções operacionais da plataforma
+    match /emotion_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /diary_entries/{entryId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /feedbacks/{feedbackId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /private_notes/{noteId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /messages/{messageId} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

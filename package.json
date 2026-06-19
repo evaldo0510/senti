@@ -30,8 +30,10 @@
     "dotenv": "^17.2.3",
     "esbuild": "^0.27.5",
     "express": "^4.22.1",
+    "express-rate-limit": "^8.5.2",
     "firebase": "^12.11.0",
     "firebase-admin": "^13.7.0",
+    "firebase-functions": "^7.2.5",
     "jspdf": "^4.2.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.546.0",
@@ -51,7 +53,8 @@
     "workbox-core": "^7.4.0",
     "workbox-precaching": "^7.4.0",
     "workbox-routing": "^7.4.0",
-    "workbox-strategies": "^7.4.0"
+    "workbox-strategies": "^7.4.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/crypto-js": "^4.2.2",

@@ -584,14 +584,21 @@ export const userService = {
           uid: user.uid,
           nome: user.displayName || user.email?.split('@')[0] || 'Usuário',
           email: user.email || '',
-          tipo: type,
+          tipo: user.email === 'mentefelizterapias@gmail.com' ? 'admin' : type,
           createdAt: new Date().toISOString(),
           favoritos: []
         };
         await setDoc(doc(db, 'users', user.uid), profile);
         return profile;
+      } else {
+        const stored = docSnap.data() as UserProfile;
+        if (user.email === 'mentefelizterapias@gmail.com' && stored.tipo !== 'admin') {
+          const updated = { ...stored, tipo: 'admin' as UserType };
+          await setDoc(doc(db, 'users', user.uid), updated);
+          return updated;
+        }
+        return stored;
       }
-      return docSnap.data() as UserProfile;
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
       return null;
@@ -782,6 +789,123 @@ export const userService = {
       for (const t of MOCK_THERAPISTS) {
         await setDoc(doc(db, 'users', t.uid), t);
       }
+    }
+  },
+
+  // Helpers for Professional Security Shielding & Compliance
+  getAuthHeader: async (): Promise<HeadersInit> => {
+    const user = auth.currentUser;
+    if (!user) return {};
+    const token = await user.getIdToken(true); // force refresh for security
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+  },
+
+  deleteAccountAPI: async (): Promise<any> => {
+    const headers = await userService.getAuthHeader();
+    const response = await fetch('/api/user/delete-account', {
+      method: 'POST',
+      headers
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Erro de rede: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  getAuditLogsAPI: async (): Promise<any[]> => {
+    const headers = await userService.getAuthHeader();
+    try {
+      const response = await fetch('/api/user/audit-logs', {
+        method: 'GET',
+        headers
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.logs || [];
+    } catch (err) {
+      console.error("Error calling getAuditLogsAPI:", err);
+      return [];
+    }
+  },
+
+  logAuditAPI: async (description: string, fieldsChanged: string[] = [], status: "sucesso" | "erro" = "sucesso"): Promise<void> => {
+    const headers = await userService.getAuthHeader();
+    try {
+      await fetch('/api/user/log-audit', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ description, fieldsChanged, status })
+      });
+    } catch (err) {
+      console.error("Error logging security audit:", err);
+    }
+  },
+
+  triggerBackupAPI: async (): Promise<any> => {
+    const headers = await userService.getAuthHeader();
+    const response = await fetch('/api/admin/trigger-backup', {
+      method: 'POST',
+      headers
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `Erro ao gerar backup: ${response.status}`);
+    }
+    return response.json();
+  },
+
+  getBackupsAPI: async (): Promise<any[]> => {
+    const headers = await userService.getAuthHeader();
+    try {
+      const response = await fetch('/api/admin/backups', {
+        method: 'GET',
+        headers
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.backups || [];
+    } catch (err) {
+      console.error("Error fetching backups:", err);
+      return [];
+    }
+  },
+
+  monitorLoginAPI: async (email: string, success: boolean, ip: string, location: { country: string, city: string }, userAgent: string): Promise<any> => {
+    try {
+      const response = await fetch('/api/security/monitor-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, success, ip, location, userAgent })
+      });
+      if (!response.ok) {
+        throw new Error(`Error calling monitor login: ${response.status}`);
+      }
+      return response.json();
+    } catch (err) {
+      console.error("Error monitor login:", err);
+      return { success: false, error: err };
+    }
+  },
+
+  getLogsAuditoriaAPI: async (): Promise<any[]> => {
+    const headers = await userService.getAuthHeader();
+    try {
+      const response = await fetch('/api/security/logs-auditoria', {
+        method: 'GET',
+        headers
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return data.logs || [];
+    } catch (err) {
+      console.error("Error fetching logs_auditoria:", err);
+      return [];
     }
   }
 };

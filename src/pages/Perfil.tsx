@@ -475,6 +475,30 @@ export default function Perfil() {
             </div>
           </div>
 
+          {/* Gerenciamento de Dados */}
+          <div className="space-y-4 pt-4">
+            <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Gerenciamento de Dados</label>
+            <div 
+              onClick={() => navigate("/gerenciar-dados")}
+              className="bg-slate-900/30 border border-white/5 rounded-3xl p-6 hover:border-emerald-500/30 transition-all cursor-pointer group flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center animate-pulse">
+                  <User className="w-4 h-4 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-200 group-hover:text-emerald-400 transition-colors">Dados Cadastrais & Perfil</p>
+                  <p className="text-xs text-slate-500">
+                    Edite nome, telefone, cidade, biografia e foto de perfil.
+                  </p>
+                </div>
+              </div>
+              <div className="text-slate-500 group-hover:text-emerald-400 transition-colors">
+                <Sparkles className="w-4 h-4 text-emerald-500/80" />
+              </div>
+            </div>
+          </div>
+
           {/* Security Settings */}
           <div className="space-y-4 pt-4">
             <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Segurança da Conta</label>
