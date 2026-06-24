@@ -248,6 +248,27 @@ export const userService = {
   },
 
   getUser: async (uid: string): Promise<UserProfile | null> => {
+    if (uid === 'guest_demo_user') {
+      const simProfileStr = localStorage.getItem("simulatedProfile");
+      if (simProfileStr) {
+        try {
+          return JSON.parse(simProfileStr) as UserProfile;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      return {
+        uid: "guest_demo_user",
+        nome: "Paciente de Demonstração",
+        email: "mentefelizterapias@gmail.com",
+        tipo: "usuario",
+        createdAt: new Date().toISOString(),
+        favoritos: [],
+        xp: 15,
+        level: "Iniciante",
+        streak: 1
+      } as any;
+    }
     const path = `users/${uid}`;
     try {
       const docSnap = await getDoc(doc(db, 'users', uid));
@@ -262,6 +283,13 @@ export const userService = {
   },
 
   getTherapists: async (): Promise<UserProfile[]> => {
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    const user = auth.currentUser || simUser;
+    if (!auth.currentUser || (user && user.uid === 'guest_demo_user')) {
+      const { MOCK_THERAPISTS } = await import('./mockData');
+      return MOCK_THERAPISTS;
+    }
     const path = 'users';
     try {
       const q = query(collection(db, path), where("tipo", "==", "terapeuta"));
@@ -274,6 +302,13 @@ export const userService = {
   },
 
   getFeaturedTherapists: async (limitCount: number = 3): Promise<UserProfile[]> => {
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    const user = auth.currentUser || simUser;
+    if (!auth.currentUser || (user && user.uid === 'guest_demo_user')) {
+      const { MOCK_THERAPISTS } = await import('./mockData');
+      return MOCK_THERAPISTS.slice(0, limitCount);
+    }
     const path = 'users';
     try {
       const q = query(
@@ -301,6 +336,16 @@ export const userService = {
   },
 
   createAppointment: async (appointment: Omit<Appointment, 'id' | 'createdAt'>) => {
+    if (appointment.patientId === 'guest_demo_user') {
+      console.log("Simulating appointment creation:", appointment);
+      return {
+        id: `demo_app_${Date.now()}`,
+        ...appointment,
+        createdAt: new Date().toISOString(),
+        status: 'pending' as const,
+        sharedSecret: "senti_encryption_demo_key_123"
+      };
+    }
     const path = 'appointments';
     try {
       const sharedSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -367,6 +412,28 @@ export const userService = {
   },
 
   getAppointment: async (id: string): Promise<Appointment | null> => {
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    const user = auth.currentUser || simUser;
+    if (id.startsWith("demo_") || id === 'demo_app_1' || (user && user.uid === 'guest_demo_user')) {
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      tomorrow.setHours(15, 0, 0, 0);
+      return {
+        id: "demo_app_1",
+        patientId: "guest_demo_user",
+        patientNome: "Paciente de Demonstração",
+        therapistId: "ana_silva_generated",
+        therapistNome: "Dra. Ana Silva",
+        date: tomorrow.toISOString().split('T')[0],
+        time: "15:00",
+        status: "confirmed",
+        type: "video",
+        price: 0,
+        createdAt: now.toISOString(),
+        sharedSecret: "senti_encryption_demo_key_123"
+      };
+    }
     const path = `appointments/${id}`;
     try {
       const docSnap = await getDoc(doc(db, 'appointments', id));
@@ -431,6 +498,10 @@ export const userService = {
   },
 
   updateAppointment: async (id: string, data: Partial<Appointment>) => {
+    if (id.startsWith("demo_") || id === "demo_app_1") {
+      console.log(`Simulating appointment update for ${id}:`, data);
+      return;
+    }
     const path = `appointments/${id}`;
     try {
       await updateDoc(doc(db, 'appointments', id), data);
@@ -440,6 +511,10 @@ export const userService = {
   },
 
   updateAppointmentStatus: async (id: string, status: Appointment['status']) => {
+    if (id.startsWith("demo_") || id === "demo_app_1") {
+      console.log(`Simulating status update to ${status} for ${id}`);
+      return;
+    }
     const path = `appointments/${id}`;
     try {
       const apptRef = doc(db, 'appointments', id);

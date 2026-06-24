@@ -22,6 +22,28 @@ export interface MemoriaIara {
 
 export const memoriaService = {
   async buscarMemoria(userId: string): Promise<MemoriaIara | null> {
+    if (userId === 'guest_demo_user') {
+      const localMem = localStorage.getItem("simulated_memoria_iara");
+      if (localMem) {
+        try {
+          return JSON.parse(localMem) as MemoriaIara;
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      return {
+        perfil: {
+          nome: "Paciente de Demonstração",
+          emocaoAtual: "Tranquilo",
+          padrao: "estável",
+          intensidade: "baixa",
+          preferencia: "voz suave"
+        },
+        historico: [
+          { dia: 1, emocao: "Tranquilo", data: new Date().toISOString() }
+        ]
+      };
+    }
     try {
       const docRef = doc(db, "memoria_iara", userId);
       const docSnap = await getDoc(docRef);
@@ -36,6 +58,10 @@ export const memoriaService = {
   },
 
   async salvarMemoria(userId: string, memoria: MemoriaIara): Promise<void> {
+    if (userId === 'guest_demo_user') {
+      localStorage.setItem("simulated_memoria_iara", JSON.stringify(memoria));
+      return;
+    }
     try {
       await setDoc(doc(db, "memoria_iara", userId), memoria);
     } catch (error) {
@@ -44,6 +70,23 @@ export const memoriaService = {
   },
 
   async atualizarEmocao(userId: string, emocaoAtual: string, intensidade: number): Promise<void> {
+    if (userId === 'guest_demo_user') {
+      const mem = await this.buscarMemoria(userId);
+      const intensidadeStr = intensidade > 7 ? "alta" : intensidade > 4 ? "media" : "baixa";
+      if (mem) {
+        const novoHistorico = [...(mem.historico || []), {
+          dia: (mem.historico?.length || 0) + 1,
+          emocao: emocaoAtual,
+          data: new Date().toISOString()
+        }];
+        if (novoHistorico.length > 30) novoHistorico.shift();
+        mem.perfil.emocaoAtual = emocaoAtual;
+        mem.perfil.intensidade = intensidadeStr;
+        mem.historico = novoHistorico;
+        await this.salvarMemoria(userId, mem);
+      }
+      return;
+    }
     try {
       const docRef = doc(db, "memoria_iara", userId);
       const docSnap = await getDoc(docRef);
@@ -92,6 +135,14 @@ export const memoriaService = {
   },
   
   async atualizarPadrao(userId: string, padrao: string): Promise<void> {
+    if (userId === 'guest_demo_user') {
+      const mem = await this.buscarMemoria(userId);
+      if (mem) {
+        mem.perfil.padrao = padrao;
+        await this.salvarMemoria(userId, mem);
+      }
+      return;
+    }
     try {
       const docRef = doc(db, "memoria_iara", userId);
       await updateDoc(docRef, {
