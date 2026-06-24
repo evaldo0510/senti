@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Activity, Wind, Heart, ArrowLeft, Play, Square, Flame, Sparkles, CheckCircle2 } from "lucide-react";
 import { offlineStorage, BreathingTechnique } from "../services/offlineStorage";
+import { trackEvent } from "../services/analyticsService";
 
 export default function Respiracao() {
   const location = useLocation();
@@ -170,6 +171,11 @@ export default function Respiracao() {
     
     await offlineStorage.saveLastUsedTechnique(tech.id);
     
+    trackEvent("breathing_start", {
+      technique_id: tech.id,
+      technique_name: tech.name,
+    });
+
     setIsPlaying(true);
     setCiclos(0);
     runBreathingCycle(tech, 0, "inspira");
@@ -187,6 +193,11 @@ export default function Respiracao() {
     if (currentCycle >= tech.cycles) {
       setFase("finalizado");
       setIsPlaying(false);
+      trackEvent("breathing_complete", {
+        technique_id: tech.id,
+        technique_name: tech.name,
+        completed_cycles: tech.cycles
+      });
       // Wait and redirect to chat/home
       setTimeout(() => {
         navigate("/home");

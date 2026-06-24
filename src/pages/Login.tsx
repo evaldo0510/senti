@@ -28,16 +28,27 @@ export default function Login() {
 
   const handleDemoLogin = () => {
     setError("");
+    
+    const displayNameMap = {
+      usuario: "Paciente de Demonstração",
+      terapeuta: "Dr. Gabriel Alencar (Demonstração)",
+      empresa: "MenteFeliz Empresas (Demonstração)",
+      prefeitura: "Prefeitura de São Paulo (Demonstração)"
+    };
+    const displayName = displayNameMap[tipoSelecionado] || "Usuário de Demonstração";
+
     const mockUser = {
       uid: "guest_demo_user",
-      displayName: tipoSelecionado === "terapeuta" ? "Dr. Gabriel Alencar (Demonstração)" : "Mentefeliz Terapias (Demonstração)",
+      displayName: displayName,
       email: "mentefelizterapias@gmail.com",
       emailVerified: true,
       providerData: [],
-      photoURL: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+      photoURL: tipoSelecionado === "terapeuta" 
+        ? "https://images.unsplash.com/photo-1559839734-2b71f1536780?w=100&auto=format&fit=crop&q=80"
+        : "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
     } as any;
 
-    const targetType = tipoSelecionado === "terapeuta" ? "terapeuta" : "admin";
+    const targetType = tipoSelecionado;
 
     const mockProfile = {
       uid: "guest_demo_user",
@@ -45,7 +56,10 @@ export default function Login() {
       email: mockUser.email,
       tipo: targetType,
       createdAt: new Date().toISOString(),
-      favoritos: []
+      favoritos: [],
+      xp: 15,
+      level: "Iniciante",
+      streak: 1
     } as any;
 
     localStorage.setItem("simulatedUser", JSON.stringify(mockUser));

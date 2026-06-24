@@ -124,10 +124,22 @@ export default function DashboardPaciente() {
     let unsubMood: (() => void) | undefined;
 
     const loadData = async () => {
-      const user = auth.currentUser;
+      const simUserStr = localStorage.getItem("simulatedUser");
+      const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+      const user = auth.currentUser || simUser;
       
       try {
-        const profile = user ? await userService.getUser(user.uid) : null;
+        let profile = user ? await userService.getUser(user.uid) : null;
+        if (!profile && simUser) {
+          const simProfileStr = localStorage.getItem("simulatedProfile");
+          if (simProfileStr) {
+            try {
+              profile = JSON.parse(simProfileStr);
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
         setUserProfile(profile);
 
         // Get featured therapists
@@ -237,8 +249,26 @@ export default function DashboardPaciente() {
         setDailyPill(getPillOfDay());
 
         // Gamification: Update streak and add XP for opening app
-        await updateStreak(user.uid);
-        await addXp(user.uid, XP_ACTIONS.OPEN_APP);
+        if (user && user.uid) {
+          await updateStreak(user.uid);
+          await addXp(user.uid, XP_ACTIONS.OPEN_APP);
+          
+          // Refresh profile after updating gamification to show updated score immediately
+          let updatedProfile = await userService.getUser(user.uid);
+          if (!updatedProfile && simUser) {
+            const simProfileStr = localStorage.getItem("simulatedProfile");
+            if (simProfileStr) {
+              try {
+                updatedProfile = JSON.parse(simProfileStr);
+              } catch (e) {
+                console.error(e);
+              }
+            }
+          }
+          if (updatedProfile) {
+            setUserProfile(updatedProfile);
+          }
+        }
 
         // Get next appointment
         unsubAppointments = userService.getMyAppointments((apps) => {
@@ -291,18 +321,48 @@ export default function DashboardPaciente() {
     return "Boa noite";
   };
 
+  const getActiveUser = () => {
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    return auth.currentUser || simUser;
+  };
+
   const handleReadPill = async () => {
-    if (!pillRead && auth.currentUser) {
-      await addXp(auth.currentUser.uid, XP_ACTIONS.READ_PILL);
+    const activeUser = getActiveUser();
+    if (!pillRead && activeUser) {
+      await addXp(activeUser.uid, XP_ACTIONS.READ_PILL);
       setPillRead(true);
+      
+      // Update profile view for immediate gamification feedback if simulated
+      if (activeUser.uid === 'guest_demo_user') {
+        const simProfileStr = localStorage.getItem("simulatedProfile");
+        if (simProfileStr) {
+          try {
+            setUserProfile(JSON.parse(simProfileStr));
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
     }
   };
 
   const handleSetFavoritePill = async () => {
-    if (dailyPill && auth.currentUser) {
+    const activeUser = getActiveUser();
+    if (dailyPill && activeUser) {
       const success = await pillService.setFavoritePill(dailyPill);
       if (success) {
-        const profile = await userService.getUser(auth.currentUser.uid);
+        let profile = await userService.getUser(activeUser.uid);
+        if (!profile && activeUser.uid === 'guest_demo_user') {
+          const simProfileStr = localStorage.getItem("simulatedProfile");
+          if (simProfileStr) {
+            try {
+              profile = JSON.parse(simProfileStr);
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
         setUserProfile(profile);
       }
     }
@@ -353,7 +413,8 @@ export default function DashboardPaciente() {
   ];
 
   const handleQuickMood = async (value: number) => {
-    if (auth.currentUser) {
+    const activeUser = getActiveUser();
+    if (activeUser) {
       await userService.saveMood(value, 5, "Registro rápido via dashboard");
       // Refresh mood history
       const history = await new Promise<MoodEntry[]>((resolve) => {
@@ -363,7 +424,19 @@ export default function DashboardPaciente() {
         });
       });
       if (history.length > 0) setRecentMood(history[0]);
-      await addXp(auth.currentUser.uid, XP_ACTIONS.LOG_MOOD);
+      await addXp(activeUser.uid, XP_ACTIONS.LOG_MOOD);
+
+      // Update local profile view if simulated
+      if (activeUser.uid === 'guest_demo_user') {
+        const simProfileStr = localStorage.getItem("simulatedProfile");
+        if (simProfileStr) {
+          try {
+            setUserProfile(JSON.parse(simProfileStr));
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
     }
   };
 
@@ -372,13 +445,25 @@ export default function DashboardPaciente() {
     
     setMoodSaving(true);
     try {
-      const user = auth.currentUser;
-      if (user) {
+      const activeUser = getActiveUser();
+      if (activeUser) {
         const finalNote = moodNote.trim() || `Sinto-me ${selectedEmoji} com intensidade ${moodIntensity}/10`;
         await userService.saveMood(selectedMoodValue, moodIntensity, finalNote, selectedTriggers);
         
         // Refresh gamification points
-        await addXp(user.uid, XP_ACTIONS.LOG_MOOD);
+        await addXp(activeUser.uid, XP_ACTIONS.LOG_MOOD);
+        
+        // Update local profile view if simulated
+        if (activeUser.uid === 'guest_demo_user') {
+          const simProfileStr = localStorage.getItem("simulatedProfile");
+          if (simProfileStr) {
+            try {
+              setUserProfile(JSON.parse(simProfileStr));
+            } catch (e) {
+              console.error(e);
+            }
+          }
+        }
         
         // Reset and show feedback
         setMoodSavedFeedback(true);

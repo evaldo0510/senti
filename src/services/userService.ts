@@ -92,8 +92,34 @@ export const userService = {
   },
 
   getMoodHistory: (callback: (history: any[]) => void) => {
-    const user = auth.currentUser;
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    const user = auth.currentUser || simUser;
     const userId = user?.uid || 'guest_user';
+
+    if (userId === 'guest_demo_user') {
+      const mockMoodHistory = [
+        { id: "h1", value: 8, intensity: 6, note: "Sentindo-me muito focado e em paz hoje.", timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), triggers: ["Trabalho", "Meditação"] },
+        { id: "h2", value: 4, intensity: 5, note: "Um pouco cansado devido à noite de sono curta.", timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), triggers: ["Sono"] },
+        { id: "h3", value: 6, intensity: 7, note: "Pratiquei respiração guiada e me senti muito melhor.", timestamp: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(), triggers: ["Saúde", "Exercício"] },
+        { id: "h4", value: 2, intensity: 8, note: "Crise de ansiedade antes da apresentação comercial.", timestamp: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), triggers: ["Trabalho", "Ansiedade"] },
+        { id: "h5", value: 7, intensity: 6, note: "Dia tranquilo em família.", timestamp: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString(), triggers: ["Família"] }
+      ];
+      // Seed these to offline cache
+      for (const entry of mockMoodHistory) {
+        offlineStorage.saveMoodOffline({
+          userId: 'guest_demo_user',
+          value: entry.value,
+          intensity: entry.intensity,
+          emotion: entry.note,
+          timestamp: entry.timestamp,
+          triggers: entry.triggers,
+          synced: true
+        }).catch(() => {});
+      }
+      setTimeout(() => callback(mockMoodHistory), 100);
+      return () => {};
+    }
 
     const path = 'emotion_logs';
     
@@ -155,8 +181,35 @@ export const userService = {
   },
 
   getDiaryEntries: (callback: (entries: any[]) => void) => {
-    const user = auth.currentUser;
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    const user = auth.currentUser || simUser;
     const userId = user?.uid || 'guest_user';
+
+    if (userId === 'guest_demo_user') {
+      const mockDiary = [
+        {
+          id: "d1",
+          userId: "guest_demo_user",
+          title: "Diário de Bordo",
+          content: "Hoje comecei meu dia praticando a respiração do quadrado. Notei uma diferença sutil na forma como reajo aos estímulos estressantes no trabalho. A sensação de presença se manteve por mais tempo.",
+          timestamp: new Date(Date.now() - 3 * 3600 * 1000).toISOString(),
+          triggers: ["Trabalho", "Meditação"],
+          moodValue: 8
+        },
+        {
+          id: "d2",
+          userId: "guest_demo_user",
+          title: "Reflexões Noturnas",
+          content: "Tive uma conversa difícil à tarde, o que me causou um pico de ansiedade. Mas consegui usar o SOS Emergência e me acalmar. Anotar o que senti me ajudou a externalizar a angústia.",
+          timestamp: new Date(Date.now() - 28 * 3600 * 1000).toISOString(),
+          triggers: ["Relacionamentos", "Ansiedade"],
+          moodValue: 3
+        }
+      ];
+      setTimeout(() => callback(mockDiary), 100);
+      return () => {};
+    }
 
     const path = 'diary_entries';
     const q = query(
@@ -328,9 +381,35 @@ export const userService = {
   },
 
   getMyAppointments: (callback: (appointments: Appointment[]) => void, role: UserType = 'usuario') => {
-    const user = auth.currentUser;
+    const simUserStr = localStorage.getItem("simulatedUser");
+    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+    const user = auth.currentUser || simUser;
     const userId = user?.uid || 'guest_user';
     
+    if (userId === 'guest_demo_user') {
+      const now = new Date();
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      tomorrow.setHours(15, 0, 0, 0);
+      const mockAppointments: Appointment[] = [
+        {
+          id: "demo_app_1",
+          patientId: "guest_demo_user",
+          patientNome: "Paciente de Demonstração",
+          therapistId: "ana_silva_generated",
+          therapistNome: "Dra. Ana Silva",
+          date: tomorrow.toISOString().split('T')[0],
+          time: "15:00",
+          status: "confirmed",
+          type: "video",
+          price: 0,
+          createdAt: now.toISOString(),
+          sharedSecret: "senti_encryption_demo_key_123"
+        }
+      ];
+      setTimeout(() => callback(mockAppointments), 100);
+      return () => {};
+    }
+
     const path = 'appointments';
     const field = role === 'terapeuta' ? 'therapistId' : 'patientId';
     

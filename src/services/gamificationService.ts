@@ -37,6 +37,26 @@ export const getNextLevel = (xp: number) => {
 };
 
 export const addXp = async (uid: string, amount: number) => {
+  if (!uid) return;
+
+  if (uid === 'guest_demo_user') {
+    const simProfileStr = localStorage.getItem("simulatedProfile");
+    if (simProfileStr) {
+      try {
+        const simProfile = JSON.parse(simProfileStr);
+        const newXp = (simProfile.xp || 0) + amount;
+        simProfile.xp = newXp;
+        simProfile.level = getLevelByXp(newXp).name;
+        localStorage.setItem("simulatedProfile", JSON.stringify(simProfile));
+        // Disparar evento para atualizar a UI que consome este perfil em tempo real se necessário
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        console.error("Failed to add XP to simulated user:", e);
+      }
+    }
+    return;
+  }
+
   const userRef = doc(db, 'users', uid);
   const userSnap = await getDoc(userRef);
   
@@ -53,6 +73,39 @@ export const addXp = async (uid: string, amount: number) => {
 };
 
 export const updateStreak = async (uid: string) => {
+  if (!uid) return;
+
+  if (uid === 'guest_demo_user') {
+    const simProfileStr = localStorage.getItem("simulatedProfile");
+    if (simProfileStr) {
+      try {
+        const simProfile = JSON.parse(simProfileStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const lastActive = simProfile.lastActive ? new Date(simProfile.lastActive) : null;
+        if (lastActive) {
+          lastActive.setHours(0, 0, 0, 0);
+          const diffTime = Math.abs(today.getTime() - lastActive.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays === 1) {
+            simProfile.streak = (simProfile.streak || 0) + 1;
+          } else if (diffDays > 1) {
+            simProfile.streak = 1;
+          }
+        } else {
+          simProfile.streak = 1;
+        }
+        simProfile.lastActive = today.toISOString();
+        localStorage.setItem("simulatedProfile", JSON.stringify(simProfile));
+        window.dispatchEvent(new Event('storage'));
+      } catch (e) {
+        console.error("Failed to update streak for simulated user:", e);
+      }
+    }
+    return;
+  }
+
   const userRef = doc(db, 'users', uid);
   const userSnap = await getDoc(userRef);
   

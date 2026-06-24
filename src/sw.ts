@@ -5,19 +5,27 @@ import { StaleWhileRevalidate, CacheFirst } from 'workbox-strategies';
 // @ts-ignore
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Cache-First strategy for images, icons, and fonts
+// 1. CACHE-FIRST: Crucial external and local static assets (Google Fonts, local icons, images, etc.)
 registerRoute(
-  ({ request }) => request.destination === 'image' || request.destination === 'font',
+  ({ url, request }) => {
+    const isFont = request.destination === 'font' || url.origin.includes('fonts.gstatic.com') || url.pathname.endsWith('.woff2') || url.pathname.endsWith('.woff');
+    const isIconOrImage = request.destination === 'image' || url.pathname.match(/\.(png|jpg|jpeg|svg|gif|ico)$/);
+    return isFont || isIconOrImage;
+  },
   new CacheFirst({
-    cacheName: 'senti-media-cache',
+    cacheName: 'senti-critical-assets-cache',
   })
 );
 
-// Stale-While-Revalidate strategy for JS, CSS, and manifest assets
+// 2. STALE-WHILE-REVALIDATE: CSS/JS sheets and crucial application routes (diary, breathing, dashboard views)
 registerRoute(
-  ({ request }) => request.destination === 'script' || request.destination === 'style',
+  ({ url, request }) => {
+    const isStyleOrScript = request.destination === 'script' || request.destination === 'style';
+    const isDiaryOrBreathingRelated = url.pathname.includes('/diario') || url.pathname.includes('/respiracao') || url.pathname.includes('/manifest') || url.pathname.includes('/pwa');
+    return isStyleOrScript || isDiaryOrBreathingRelated;
+  },
   new StaleWhileRevalidate({
-    cacheName: 'senti-bundle-cache',
+    cacheName: 'senti-core-views-cache',
   })
 );
 

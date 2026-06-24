@@ -5,6 +5,7 @@ import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Hear
 import { userService } from "../services/userService";
 import { MoodEntry } from "../types";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
+import { trackEvent } from "../services/analyticsService";
 
 export default function Diario() {
   const navigate = useNavigate();
@@ -25,6 +26,12 @@ export default function Diario() {
 
   const handleSalvar = async () => {
     await userService.saveMood(humor, intensidade, nota, selectedTriggers);
+    trackEvent("diary_saved", {
+      humor,
+      intensidade,
+      numTriggers: selectedTriggers.length,
+      hasNote: !!nota
+    });
     setSalvo(true);
     setNota("");
     setSelectedTriggers([]);
