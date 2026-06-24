@@ -594,6 +594,31 @@ app.post("/api/push/subscribe", sensitiveActionLimiter, async (req, res) => {
   }
 });
 
+app.post("/api/push/save-fcm-token", sensitiveActionLimiter, async (req, res) => {
+  const { userId, fcmToken } = req.body;
+  if (!userId || !fcmToken) {
+    return res.status(400).json({ error: "Faltando campos obrigatórios: userId ou fcmToken." });
+  }
+
+  try {
+    if (!db) {
+      return res.status(500).json({ error: "Firestore não inicializado no servidor." });
+    }
+
+    // Salva o token do FCM no documento do usuário
+    await db.collection("users").doc(userId).set({
+      fcmToken: fcmToken,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    console.log(`Saved FCM token for user ${userId}`);
+    res.status(200).json({ success: true, message: "Token FCM salvo com sucesso." });
+  } catch (error: any) {
+    console.error(`Erro ao salvar FCM Token para usuário ${userId}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/push/send", sensitiveActionLimiter, async (req, res) => {
   const { userId, title, body, url } = req.body;
   if (!userId || !title || !body) {
@@ -886,20 +911,58 @@ async function sendPushNotification(userId: string, title: string, body: string,
     }
     
     const userData = userDoc.data();
-    if (!userData || !userData.pushSubscription) {
-      console.log(`O usuário ${userId} não possui pushSubscription registrada`);
+    if (!userData) {
+      console.log(`Documento de usuário ${userId} está vazio.`);
       return;
     }
 
-    const payload = JSON.stringify({
-      title,
-      body,
-      url: url || "/"
-    });
+    // 1. Enviar via Firebase Cloud Messaging se o fcmToken estiver disponível
+    if (userData.fcmToken) {
+      console.log(`Tentando enviar push via Firebase Cloud Messaging (FCM) para usuário ${userId}`);
+      try {
+        const message = {
+          token: userData.fcmToken,
+          notification: {
+            title,
+            body,
+          },
+          data: {
+            url: url || "/",
+          },
+        };
+        await admin.messaging().send(message);
+        console.log(`FCM: Notificação enviada com sucesso para usuário ${userId}`);
+        return; // Retorna com sucesso!
+      } catch (fcmError: any) {
+        console.error(`Erro ao enviar via FCM para usuário ${userId}:`, fcmError);
+        // Se o token estiver registrado incorretamente ou expirado, limpamos do banco de dados
+        if (fcmError.code === 'messaging/registration-token-not-registered' || fcmError.code === 'messaging/invalid-registration-token') {
+          console.log(`Removendo FCM Token inválido para usuário ${userId}`);
+          try {
+            await db.collection("users").doc(userId).update({
+              fcmToken: admin.firestore.FieldValue.delete()
+            });
+          } catch (cleanError) {
+            console.error(`Falha ao remover FCM Token inválido de ${userId}:`, cleanError);
+          }
+        }
+      }
+    }
 
-    console.log(`Enviando push real para ${userId}: "${title}" - "${body}"`);
-    await webpush.sendNotification(userData.pushSubscription, payload);
-    console.log(`Notificação push enviada com sucesso para ${userId}`);
+    // 2. Fallback: Enviar via Web Push tradicional se houver pushSubscription
+    if (userData.pushSubscription) {
+      const payload = JSON.stringify({
+        title,
+        body,
+        url: url || "/"
+      });
+
+      console.log(`Web-Push: Enviando push real para ${userId}: "${title}" - "${body}"`);
+      await webpush.sendNotification(userData.pushSubscription, payload);
+      console.log(`Web-Push: Notificação enviada com sucesso para ${userId}`);
+    } else {
+      console.log(`O usuário ${userId} não possui pushSubscription nem fcmToken registrado.`);
+    }
   } catch (error: any) {
     console.error(`Erro ao enviar push notification para o usuário ${userId}:`, error);
     // If the subscription is no longer valid (status code 410 or 404), clear it out

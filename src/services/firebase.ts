@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import firebaseAppletConfig from '../../firebase-applet-config.json';
 
 const firebaseConfig = firebaseAppletConfig;
@@ -26,6 +27,73 @@ const firestore = initializeFirestore(app, {
 export const db = firestore;
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+
+// Initialize Firebase Cloud Messaging conditionally (only in client context with SW support)
+export const messaging = typeof window !== 'undefined' && 'serviceWorker' in navigator
+  ? getMessaging(app)
+  : null;
+
+// Seta listener de foreground messages se messaging estiver ativo
+if (messaging) {
+  onMessage(messaging, (payload) => {
+    console.log('Mensagem recebida em primeiro plano:', payload);
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      const notificationTitle = payload.notification?.title || 'SENTI';
+      const notificationOptions = {
+        body: payload.notification?.body || 'Você tem uma nova atualização.',
+        icon: '/icon.svg',
+        badge: '/icon.svg',
+        data: payload.data || {},
+      };
+      new Notification(notificationTitle, notificationOptions);
+    }
+  });
+}
+
+/**
+ * Registra o Service Worker e gera/atualiza o Token do FCM no Backend
+ */
+export async function registerFCMToken(userId: string): Promise<string | null> {
+  if (!messaging) {
+    console.warn('FCM Messaging não é suportado neste ambiente.');
+    return null;
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    
+    // Obter chave pública VAPID do backend para registro seguro
+    const response = await fetch('/api/push/public-key');
+    const { publicKey } = await response.json();
+    
+    if (!publicKey) {
+      console.warn('VAPID public key não disponível.');
+      return null;
+    }
+
+    const fcmToken = await getToken(messaging, {
+      serviceWorkerRegistration: registration,
+      vapidKey: publicKey
+    });
+
+    if (fcmToken) {
+      console.log('FCM Token obtido com sucesso:', fcmToken);
+      
+      // Envia o token obtido para o backend registrar no Firestore
+      await fetch('/api/push/save-fcm-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, fcmToken }),
+      });
+      return fcmToken;
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao obter ou salvar FCM Token:', error);
+    return null;
+  }
+}
 
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();

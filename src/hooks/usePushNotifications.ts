@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { registerFCMToken } from '../services/firebase';
 
 export function usePushNotifications(userId: string | undefined) {
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -64,6 +65,14 @@ export function usePushNotifications(userId: string | undefined) {
           subscription
         }),
       });
+
+      // Também registra o token FCM no backend para recebimento via Firebase Admin
+      try {
+        await registerFCMToken(userId);
+        console.log('FCM token registrado com sucesso em usePushNotifications!');
+      } catch (fcmErr) {
+        console.error('Erro ao registrar FCM token em usePushNotifications:', fcmErr);
+      }
 
       setIsSubscribed(true);
       return true;

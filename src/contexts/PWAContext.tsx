@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, ExternalLink, Copy, Check, Bell, X, Wifi, WifiOff, Wind, Heart } from 'lucide-react';
 
-import { auth } from '../services/firebase';
+import { auth, registerFCMToken } from '../services/firebase';
 import { NotificationService } from '../services/notificationService';
 import { initGA4, trackEvent, flushOfflineEvents, trackUserReturn } from '../services/analyticsService';
 
@@ -261,6 +261,16 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.log('Push subscription fully registered successfully on backend!');
       } else {
         console.error('Failed to register subscription on backend:', await subscribeResponse.text());
+      }
+
+      // Além do Web Push tradicional, registra o token do Firebase Cloud Messaging (FCM)
+      if (userId && userId !== 'guest') {
+        try {
+          await registerFCMToken(userId);
+          console.log('Firebase Cloud Messaging (FCM) token registrado com sucesso!');
+        } catch (fcmErr) {
+          console.error('Erro ao registrar FCM token:', fcmErr);
+        }
       }
     } catch (error) {
       console.error('Error subscribing to push notifications in PWAContext:', error);
