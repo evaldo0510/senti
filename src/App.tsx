@@ -42,6 +42,7 @@ import Contact from "./pages/Contact";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
+import { DiagnosticPanel } from "./components/DiagnosticPanel";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -92,6 +93,7 @@ function App() {
           </Routes>
           <IARAChatBubble />
           <SOSButton />
+          <DiagnosticPanel />
         </Router>
       </PWAProvider>
     </ThemeProvider>

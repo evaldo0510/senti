@@ -27,6 +27,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email_verified == true;
     }
 
+    function isUserAdmin(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) && 
+             get(/databases/$(database)/documents/users/$(uid)).data.tipo == 'admin';
+    }
+
+    function isUserTherapist(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) && 
+             get(/databases/$(database)/documents/users/$(uid)).data.tipo == 'terapeuta';
+    }
+
     // Default deny catch-all safety net
     match /{document=**} {
       allow read, write: if false;
@@ -35,34 +45,19 @@ service cloud.firestore {
     // Collection: Users (User profiles for patients, therapists, admins)
     match /users/{userId} {
       // 1. Owners can always get/read their own profile document
-      allow get: if isSignedIn() && request.auth.uid == userId;
-
-      // 2. Signed in users can get therapist profiles
-      allow get: if isSignedIn() && resource != null && resource.data.tipo == 'terapeuta';
-
-      // 3. Admins can get any profile by email
-      allow get: if isSignedIn() && request.auth.token.email == 'mentefelizterapias@gmail.com';
-
-      // 4. Admins can get any profile by database role check (guarded against self-recursion)
-      allow get: if isSignedIn() && 
-                    request.auth.uid != userId &&
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin';
-
-      // 5. Therapists can get any profile (guarded against self-recursion)
-      allow get: if isSignedIn() && 
-                    request.auth.uid != userId &&
-                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
-      
-      // 6. Listing users: Allow querying for therapists, querying own document, or full list for admin
-      allow list: if isSignedIn() && (
-        resource.data.tipo == 'terapeuta' ||
-        resource.id == request.auth.uid ||
+      allow get: if isSignedIn() && (
+        request.auth.uid == userId ||
         request.auth.token.email == 'mentefelizterapias@gmail.com' ||
-        (request.auth.uid != resource.id &&
-         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin')
+        (resource != null && resource.data.tipo == 'terapeuta') ||
+        (request.auth.uid != userId && isUserAdmin(request.auth.uid)) ||
+        (request.auth.uid != userId && isUserTherapist(request.auth.uid))
+      );
+      
+      // 2. Listing users: Allow querying for therapists, querying own document, or full list for admin
+      allow list: if isSignedIn() && (
+        (resource != null && resource.data.tipo == 'terapeuta') ||
+        userId == request.auth.uid ||
+        request.auth.token.email == 'mentefelizterapias@gmail.com'
       );
 
       allow create: if isSignedIn() && (request.auth.uid == userId) && (
@@ -141,12 +136,10 @@ service cloud.firestore {
     // Collection: Emotion Logs (Mood tracking history)
     match /emotion_logs/{logId} {
       // 1. User can read/list their own emotion logs
-      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
 
       // 2. Therapist can read/list any user's emotion logs
-      allow get, list: if isSignedIn() && 
-                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+      allow get, list: if isSignedIn() && isUserTherapist(request.auth.uid);
 
       allow create: if isSignedIn() && (
         incoming().userId == request.auth.uid &&
@@ -186,12 +179,10 @@ service cloud.firestore {
     // Collection: Feedbacks (Platform evaluations)
     match /feedbacks/{feedbackId} {
       // 1. User can read/list their own feedback
-      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
 
       // 2. Admins can read/list feedback
-      allow get, list: if isSignedIn() && 
-                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin';
+      allow get, list: if isSignedIn() && isUserAdmin(request.auth.uid);
 
       allow create: if isSignedIn() && (
         incoming().userId == request.auth.uid &&
@@ -203,10 +194,9 @@ service cloud.firestore {
 
     // Collection: Audit Logs (Immutable security logs)
     match /audit_logs/{logId} {
-      allow get, list: if isSignedIn() && (
+      allow get, list: if isSignedIn() && resource != null && (
         resource.data.userId == request.auth.uid ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin')
+        isUserAdmin(request.auth.uid)
       );
 
       allow create: if isSignedIn() && (
@@ -218,21 +208,19 @@ service cloud.firestore {
 
     // Collection: Private Notes (Clinical session records stored securely by therapists)
     match /private_notes/{noteId} {
-      allow get, list: if isSignedIn() && (
+      allow get, list: if isSignedIn() && resource != null && (
         resource.data.therapistId == request.auth.uid
       );
 
       allow create: if isSignedIn() && (
         incoming().therapistId == request.auth.uid &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'
+        isUserTherapist(request.auth.uid)
       );
 
       allow update: if isSignedIn() && (
         existing().therapistId == request.auth.uid &&
         incoming().therapistId == request.auth.uid &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'
+        isUserTherapist(request.auth.uid)
       );
 
       allow delete: if isSignedIn() && existing().therapistId == request.auth.uid;
