@@ -48,16 +48,17 @@ service cloud.firestore {
       allow get: if isSignedIn() && (
         request.auth.uid == userId ||
         request.auth.token.email == 'mentefelizterapias@gmail.com' ||
-        (resource != null && resource.data.tipo == 'terapeuta') ||
+        resource.data.tipo == 'terapeuta' ||
         (request.auth.uid != userId && isUserAdmin(request.auth.uid)) ||
         (request.auth.uid != userId && isUserTherapist(request.auth.uid))
       );
       
       // 2. Listing users: Allow querying for therapists, querying own document, or full list for admin
       allow list: if isSignedIn() && (
-        (resource != null && resource.data.tipo == 'terapeuta') ||
+        resource.data.tipo == 'terapeuta' ||
         userId == request.auth.uid ||
-        request.auth.token.email == 'mentefelizterapias@gmail.com'
+        request.auth.token.email == 'mentefelizterapias@gmail.com' ||
+        isUserAdmin(request.auth.uid)
       );
 
       allow create: if isSignedIn() && (request.auth.uid == userId) && (

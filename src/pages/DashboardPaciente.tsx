@@ -56,6 +56,7 @@ import { addXp, updateStreak, XP_ACTIONS, getLevelByXp, getNextLevel, LEVELS } f
 import { Onboarding } from "../components/Onboarding";
 import { AffirmationToast } from "../components/AffirmationToast";
 import { generateTherapistAvatar } from "../services/imageService";
+import DashboardAnalytics from "../components/Dashboard";
 
 export default function DashboardPaciente() {
   const navigate = useNavigate();
@@ -89,6 +90,7 @@ export default function DashboardPaciente() {
   // Emotional history for Recharts
   const [moodHistory, setMoodHistory] = useState<any[]>([]);
   const [chartPeriod, setChartPeriod] = useState<'7' | '30' | 'all'>('7');
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'humor' | 'completo'>('humor');
 
   const loadMoreNews = () => {
     setVisibleNewsCount(prev => prev + 3);
@@ -904,130 +906,166 @@ export default function DashboardPaciente() {
 
         {/* Recharts Emotional Trend Card */}
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-start md:items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
             <div className="space-y-0.5">
               <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-emerald-500" />
-                Histórico e Tendências de Humor
+                Histórico e Estatísticas
               </h3>
-              <p className="text-xs text-slate-500 font-medium">Visualização em tempo real das suas oscilações emocionais</p>
+              <p className="text-xs text-slate-500 font-medium">Visualização em tempo real das suas oscilações emocionais e atividade</p>
             </div>
             
             <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/5 select-none self-start sm:self-center">
-              {(['7', '30', 'all'] as const).map((period) => (
-                <button
-                  key={period}
-                  onClick={() => setChartPeriod(period)}
-                  className={cn(
-                    "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
-                    chartPeriod === period 
-                      ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
-                      : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                  )}
-                >
-                  {period === '7' ? "7 dias" : period === '30' ? "30 dias" : "Tudo"}
-                </button>
-              ))}
+              <button
+                onClick={() => setActiveAnalyticsTab('humor')}
+                className={cn(
+                  "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                  activeAnalyticsTab === 'humor' 
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                Histórico Simples
+              </button>
+              <button
+                onClick={() => setActiveAnalyticsTab('completo')}
+                className={cn(
+                  "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                  activeAnalyticsTab === 'completo' 
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                Estatísticas Completas
+              </button>
             </div>
           </div>
 
-          <div className="h-60 w-full pt-4 font-sans">
-            {getChartData().length === 0 ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-white/5 rounded-3xl space-y-2">
-                <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Ainda sem dados registrados</p>
-                  <p className="text-xs text-slate-450 dark:text-slate-550 max-w-xs leading-relaxed">Selecione um emoji e registre seu humor acima para redefinir as tendências e criar sua curva em tempo real!</p>
+          {activeAnalyticsTab === 'completo' ? (
+            <div className="pt-2">
+              <DashboardAnalytics />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/5 select-none">
+                  {(['7', '30', 'all'] as const).map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setChartPeriod(period)}
+                      className={cn(
+                        "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                        chartPeriod === period 
+                          ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
+                          : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      )}
+                    >
+                      {period === '7' ? "7 dias" : period === '30' ? "30 dias" : "Tudo"}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={getChartData()} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
-                  <XAxis 
-                    dataKey="data" 
-                    stroke="rgba(148, 163, 184, 0.45)" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false}
-                    dy={10}
-                    fontFamily="inherit"
-                  />
-                  <YAxis 
-                    domain={[0, 10]} 
-                    stroke="rgba(148, 163, 184, 0.45)" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false}
-                    dx={-10}
-                    fontFamily="inherit"
-                  />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-xl space-y-1.5 font-sans max-w-[240px]">
-                            <p className="text-[10px] text-slate-400 font-bold uppercase">{data.dataCompleta}</p>
-                            <div className="space-y-1">
-                              <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex justify-between gap-4">
-                                <span>Humor:</span>
-                                <span>{data.humor}/10</span>
-                              </p>
-                              <p className="text-xs font-medium text-blue-500 flex justify-between gap-4">
-                                <span>Intensidade:</span>
-                                <span>{data.intensidade}/10</span>
-                              </p>
-                            </div>
-                            {data.note && (
-                              <p className="text-[10.5px] text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-white/5 pt-1.5 italic">
-                                "{data.note}"
-                              </p>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="humor" 
-                    stroke="url(#lineGradientHumor)" 
-                    strokeWidth={3}
-                    dot={{ r: 3, strokeWidth: 1.5, fill: "#10b981" }}
-                    activeDot={{ r: 5, strokeWidth: 0, fill: "#10b981" }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="intensidade" 
-                    stroke="rgba(59, 130, 246, 0.4)" 
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
-                    dot={false}
-                  />
-                  <defs>
-                    <linearGradient id="lineGradientHumor" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%" stopColor="#10b981" />
-                      <stop offset="100%" stopColor="#059669" />
-                    </linearGradient>
-                  </defs>
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          <div className="flex gap-4 justify-center items-center text-[9px] uppercase font-bold text-slate-500 dark:text-slate-500 tracking-wider">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Nível de Humor</span>
+
+              <div className="h-60 w-full pt-4 font-sans">
+                {getChartData().length === 0 ? (
+                  <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-white/5 rounded-3xl space-y-2">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400">
+                      <Activity className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Ainda sem dados registrados</p>
+                      <p className="text-xs text-slate-450 dark:text-slate-550 max-w-xs leading-relaxed">Selecione um emoji e registre seu humor acima para redefinir as tendências e criar sua curva em tempo real!</p>
+                    </div>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={getChartData()} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
+                      <XAxis 
+                        dataKey="data" 
+                        stroke="rgba(148, 163, 184, 0.45)" 
+                        fontSize={10} 
+                        tickLine={false} 
+                        axisLine={false}
+                        dy={10}
+                        fontFamily="inherit"
+                      />
+                      <YAxis 
+                        domain={[0, 10]} 
+                        stroke="rgba(148, 163, 184, 0.45)" 
+                        fontSize={10} 
+                        tickLine={false} 
+                        axisLine={false}
+                        dx={-10}
+                        fontFamily="inherit"
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-xl space-y-1.5 font-sans max-w-[240px]">
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{data.dataCompleta}</p>
+                                <div className="space-y-1">
+                                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex justify-between gap-4">
+                                    <span>Humor:</span>
+                                    <span>{data.humor}/10</span>
+                                  </p>
+                                  <p className="text-xs font-medium text-blue-500 flex justify-between gap-4">
+                                    <span>Intensidade:</span>
+                                    <span>{data.intensidade}/10</span>
+                                  </p>
+                                </div>
+                                {data.note && (
+                                  <p className="text-[10.5px] text-slate-600 dark:text-slate-300 leading-relaxed border-t border-slate-100 dark:border-white/5 pt-1.5 italic">
+                                    "{data.note}"
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="humor" 
+                        stroke="url(#lineGradientHumor)" 
+                        strokeWidth={3}
+                        dot={{ r: 3, strokeWidth: 1.5, fill: "#10b981" }}
+                        activeDot={{ r: 5, strokeWidth: 0, fill: "#10b981" }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="intensidade" 
+                        stroke="rgba(59, 130, 246, 0.4)" 
+                        strokeWidth={1.5}
+                        strokeDasharray="4 4"
+                        dot={false}
+                      />
+                      <defs>
+                        <linearGradient id="lineGradientHumor" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#10b981" />
+                          <stop offset="100%" stopColor="#059669" />
+                        </linearGradient>
+                      </defs>
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              <div className="flex gap-4 justify-center items-center text-[9px] uppercase font-bold text-slate-500 dark:text-slate-500 tracking-wider pt-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>Nível de Humor</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full border border-dashed border-blue-500 bg-transparent" />
+                  <span className="text-slate-500">Intensidade do Sentimento</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full border border-dashed border-blue-500 bg-transparent" />
-              <span className="text-slate-500">Intensidade do Sentimento</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Triggers Distribution Card */}

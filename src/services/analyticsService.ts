@@ -37,7 +37,7 @@ export const salvarDadosAnalytics = async (dados: {
   }
 };
 
-const GA_MEASUREMENT_ID = (import.meta.env.VITE_GA_MEASUREMENT_ID as string) || "G-PD1B26JNYH";
+const GA_MEASUREMENT_ID = (import.meta.env.VITE_GA_MEASUREMENT_ID as string) || "G-G10JT9C99G";
 
 // Inicializa o Google Analytics 4 (GA4) dinamicamente no navegador
 export const initGA4 = () => {
