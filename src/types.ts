@@ -138,6 +138,7 @@ export interface UserProfile {
   // Social
   instagram?: string;
   website?: string;
+  customKey?: string;
 }
 
 export interface NewsCardProps {

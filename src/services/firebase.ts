@@ -29,9 +29,15 @@ export const auth = getAuth(app);
 export const storage = getStorage(app);
 
 // Initialize Firebase Cloud Messaging conditionally (only in client context with SW support)
-export const messaging = typeof window !== 'undefined' && 'serviceWorker' in navigator
-  ? getMessaging(app)
-  : null;
+let messagingInstance: any = null;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    messagingInstance = getMessaging(app);
+  } catch (error) {
+    console.warn('Firebase Cloud Messaging (FCM) is not available or blocked in this browser environment:', error);
+  }
+}
+export const messaging = messagingInstance;
 
 // Seta listener de foreground messages se messaging estiver ativo
 if (messaging) {

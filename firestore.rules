@@ -1,8 +1,241 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper functions for auth and validation
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Default deny catch-all safety net
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // Collection: Users (User profiles for patients, therapists, admins)
+    match /users/{userId} {
+      // 1. Owners can always get/read their own profile document
+      allow get: if isSignedIn() && request.auth.uid == userId;
+
+      // 2. Signed in users can get therapist profiles
+      allow get: if isSignedIn() && resource != null && resource.data.tipo == 'terapeuta';
+
+      // 3. Admins can get any profile by email
+      allow get: if isSignedIn() && request.auth.token.email == 'mentefelizterapias@gmail.com';
+
+      // 4. Admins can get any profile by database role check (guarded against self-recursion)
+      allow get: if isSignedIn() && 
+                    request.auth.uid != userId &&
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin';
+
+      // 5. Therapists can get any profile (guarded against self-recursion)
+      allow get: if isSignedIn() && 
+                    request.auth.uid != userId &&
+                    exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                    get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+      
+      // 6. Listing users: Allow querying for therapists, querying own document, or full list for admin
+      allow list: if isSignedIn() && (
+        resource.data.tipo == 'terapeuta' ||
+        resource.id == request.auth.uid ||
+        request.auth.token.email == 'mentefelizterapias@gmail.com' ||
+        (request.auth.uid != resource.id &&
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin')
+      );
+
+      allow create: if isSignedIn() && (request.auth.uid == userId) && (
+        incoming().uid == userId &&
+        incoming().email is string &&
+        incoming().tipo is string
+      );
+
+      allow update: if isSignedIn() && (
+        // Action 1: Owner updating their own fields (cannot escalate their type/role unless they are the admin email)
+        ((request.auth.uid == userId) && 
+         incoming().uid == existing().uid && 
+         (incoming().tipo == existing().tipo || request.auth.token.email == 'mentefelizterapias@gmail.com') &&
+         incoming().createdAt == existing().createdAt) ||
+        // Action 2: Review submission on a therapist profile
+        (existing().tipo == 'terapeuta' && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['avaliacoes', 'rating']))
+      );
+
+      allow delete: if false; // Deletion is handled only securely via Server APIs (LGPD deletion)
+    }
+
+    // Collection: Appointments (Scheduled sessions)
+    match /appointments/{appointmentId} {
+      allow get, list: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.therapistId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() && (
+        (incoming().patientId == request.auth.uid || incoming().therapistId == request.auth.uid) &&
+        incoming().patientId is string &&
+        incoming().therapistId is string &&
+        incoming().date is string &&
+        incoming().status == 'pending'
+      );
+
+      allow update: if isSignedIn() && (
+        existing().patientId == request.auth.uid || 
+        existing().therapistId == request.auth.uid
+      );
+
+      allow delete: if false;
+    }
+
+    // Collection: Messages (Secure chat messages between patient and therapist)
+    match /messages/{messageId} {
+      allow get: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid ||
+        (resource.data.appointmentId != null &&
+         exists(/databases/$(database)/documents/appointments/$(resource.data.appointmentId)) &&
+         (get(/databases/$(database)/documents/appointments/$(resource.data.appointmentId)).data.patientId == request.auth.uid ||
+          get(/databases/$(database)/documents/appointments/$(resource.data.appointmentId)).data.therapistId == request.auth.uid))
+      );
+
+      allow create: if isSignedIn() && (
+        incoming().senderId == request.auth.uid &&
+        incoming().receiverId is string &&
+        incoming().text is string
+      );
+
+      allow update: if isSignedIn() && (
+        (existing().senderId == request.auth.uid || existing().receiverId == request.auth.uid) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['read'])
+      );
+
+      allow delete: if false;
+    }
+
+    // Collection: Emotion Logs (Mood tracking history)
+    match /emotion_logs/{logId} {
+      // 1. User can read/list their own emotion logs
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // 2. Therapist can read/list any user's emotion logs
+      allow get, list: if isSignedIn() && 
+                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta';
+
+      allow create: if isSignedIn() && (
+        incoming().userId == request.auth.uid &&
+        incoming().emotion is string
+      );
+
+      allow update: if isSignedIn() && (
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId
+      );
+
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Collection: Memoria Iara (AI Chat memories per user)
+    match /memoria_iara/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+
+    // Collection: Diary Entries (Private journaling)
+    match /diary_entries/{entryId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() && (
+        incoming().userId == request.auth.uid &&
+        incoming().content is string
+      );
+
+      allow update: if isSignedIn() && (
+        existing().userId == request.auth.uid &&
+        incoming().userId == existing().userId
+      );
+
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // Collection: Feedbacks (Platform evaluations)
+    match /feedbacks/{feedbackId} {
+      // 1. User can read/list their own feedback
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // 2. Admins can read/list feedback
+      allow get, list: if isSignedIn() && 
+                         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+                         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin';
+
+      allow create: if isSignedIn() && (
+        incoming().userId == request.auth.uid &&
+        incoming().comment is string
+      );
+
+      allow update, delete: if false;
+    }
+
+    // Collection: Audit Logs (Immutable security logs)
+    match /audit_logs/{logId} {
+      allow get, list: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin')
+      );
+
+      allow create: if isSignedIn() && (
+        incoming().userId == request.auth.uid
+      );
+
+      allow update, delete: if false; // IMMUTABLE AUDIT LOG (LGPD & Security Requirements)
+    }
+
+    // Collection: Private Notes (Clinical session records stored securely by therapists)
+    match /private_notes/{noteId} {
+      allow get, list: if isSignedIn() && (
+        resource.data.therapistId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() && (
+        incoming().therapistId == request.auth.uid &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'
+      );
+
+      allow update: if isSignedIn() && (
+        existing().therapistId == request.auth.uid &&
+        incoming().therapistId == request.auth.uid &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'
+      );
+
+      allow delete: if isSignedIn() && existing().therapistId == request.auth.uid;
     }
   }
 }

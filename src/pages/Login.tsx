@@ -5,12 +5,14 @@ import { HeartPulse, ArrowLeft, User, Briefcase } from "lucide-react";
 import { loginWithGoogle } from "../services/firebase";
 import { userService } from "../services/userService";
 import { useAuth } from "../components/AuthProvider";
+import { useSecurityAudit } from "../hooks/useSecurityAudit";
 
 export default function Login() {
   const navigate = useNavigate();
   const { user, profile, isAuthReady } = useAuth();
   const [error, setError] = useState("");
   const [tipoSelecionado, setTipoSelecionado] = useState<"usuario" | "terapeuta" | "empresa" | "prefeitura">("usuario");
+  const { logSecurityEvent } = useSecurityAudit();
 
   useEffect(() => {
     if (isAuthReady && user && profile) {
@@ -79,6 +81,14 @@ export default function Login() {
         const profile = await userService.syncProfile(user, tipoSelecionado);
         console.log("Perfil sincronizado:", profile);
         localStorage.setItem("tipo", profile?.tipo || tipoSelecionado);
+        
+        // Log critical security event: login success
+        try {
+          await logSecurityEvent('login', `Autenticação com Google efetuada com sucesso como perfil: ${profile?.tipo || tipoSelecionado}`, [], 'sucesso');
+        } catch (auditErr) {
+          console.error("Erro ao registrar log de auditoria de login:", auditErr);
+        }
+
         navigate("/dashboard");
       }
     } catch (err: any) {
@@ -105,6 +115,14 @@ export default function Login() {
           message = err.message || message;
         }
       }
+      
+      // Log failed login security event
+      try {
+        await logSecurityEvent('falha_seguranca', `Falha na tentativa de login com Google: ${message}`, [], 'erro');
+      } catch (auditErr) {
+        console.error("Erro ao registrar log de auditoria de falha de login:", auditErr);
+      }
+
       setError(message);
     }
   };

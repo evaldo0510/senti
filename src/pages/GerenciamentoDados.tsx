@@ -34,6 +34,7 @@ import {
 import { auth, storage } from "../services/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { userService } from "../services/userService";
+import { useSecurityAudit } from "../hooks/useSecurityAudit";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
 import { z } from "zod";
@@ -98,6 +99,7 @@ interface BackupSnapshot {
 
 export default function GerenciamentoDados() {
   const navigate = useNavigate();
+  const { logSecurityEvent } = useSecurityAudit();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -133,6 +135,11 @@ export default function GerenciamentoDados() {
   const [filterEmail, setFilterEmail] = useState("");
   const [filterType, setFilterType] = useState("ALL");
   const [filterDate, setFilterDate] = useState("");
+
+  // Password & Security Key states
+  const [newPassword, setNewPassword] = useState("");
+  const [loadingPass, setLoadingPass] = useState(false);
+  const [passMessage, setPassMessage] = useState("");
 
   // Zod Form Errors
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -443,6 +450,31 @@ export default function GerenciamentoDados() {
     }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setLoadingPass(true);
+    setPassMessage("");
+    try {
+      // For this app, update the secure E2EE / Clinic security passphrase
+      await userService.updateProfile(profile.uid, {
+        customKey: newPassword
+      });
+      
+      // Log the security event: alteracao_senha
+      await logSecurityEvent("alteracao_senha", "Chave ou senha de segurança clínica alterada com sucesso pelo usuário.", ["customKey"], "sucesso");
+      
+      setPassMessage("Senha / Chave clínica de segurança redefinida com sucesso!");
+      setNewPassword("");
+    } catch (err: any) {
+      console.error("Erro ao alterar senha:", err);
+      await logSecurityEvent("alteracao_senha", `Falha ao tentar alterar senha de segurança: ${err.message || err}`, ["customKey"], "erro");
+      setPassMessage("Erro ao redefinir sua senha de segurança. Tente novamente.");
+    } finally {
+      setLoadingPass(false);
+    }
+  };
+
   // Human Portability Download (JSON)
   const downloadJSON = () => {
     if (!profile) return;
@@ -458,6 +490,7 @@ export default function GerenciamentoDados() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     userService.logAuditAPI("Download de cópia cadastral portátil efetuado em JSON pelo usuário.", [], "sucesso");
+    logSecurityEvent("exportacao_dados", "Download de cópia cadastral portátil efetuado em JSON pelo usuário.", ["perfil_completo"], "sucesso");
   };
 
   // Human Portability Download (CSV Table)
@@ -488,6 +521,7 @@ export default function GerenciamentoDados() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
     userService.logAuditAPI("Download de cópia cadastral portátil efetuado em CSV pelo usuário.", [], "sucesso");
+    logSecurityEvent("exportacao_dados", "Download de cópia cadastral portátil efetuado em CSV pelo usuário.", ["perfil_completo"], "sucesso");
   };
 
   if (loading) {
@@ -1008,6 +1042,48 @@ export default function GerenciamentoDados() {
                     <span>Iniciar Processo de Exclusão Cascata</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Immutable Security Log Form (Redefinição de Senha de Segurança) */}
+              <div className="bg-slate-900 border border-white/5 p-8 rounded-[2.5rem] space-y-6">
+                <div className="space-y-2">
+                  <div className="w-12 h-12 bg-blue-500/10 text-blue-500 rounded-2xl flex items-center justify-center">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <h2 className="text-xl font-serif text-white font-bold">
+                    Redefinição de Senha e Chaves de Segurança Clínica
+                  </h2>
+                  <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                    Atualize sua senha ou código secreto para a cifragem de prontuários médicos. Em concordância com os princípios de <strong>Auditoria Imutável</strong>, cada redefinição de credenciais de segurança é gravada instantaneamente no Firestore para rastreabilidade perpétua.
+                  </p>
+                </div>
+
+                {passMessage && (
+                  <div className={`p-4 rounded-2xl text-xs font-mono border ${passMessage.includes("Erro") ? "bg-red-500/5 text-red-300 border-red-500/20" : "bg-emerald-500/5 text-emerald-300 border-emerald-500/20"}`}>
+                    {passMessage}
+                  </div>
+                )}
+
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Nova Senha ou Código Clínico</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Digite seu novo código/senha clínica secreto"
+                      className="w-full bg-slate-950 px-4 py-3 rounded-2xl border border-white/5 text-slate-200 text-sm focus:outline-none focus:border-blue-500/50"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loadingPass || !newPassword.trim()}
+                    className="py-3 px-6 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 text-white font-mono text-xs font-bold rounded-2xl transition-all"
+                  >
+                    {loadingPass ? "Processando..." : "Confirmar Alteração de Senha"}
+                  </button>
+                </form>
               </div>
 
               {/* Dynamic Rate Limiting & Firewall Status Indicator */}

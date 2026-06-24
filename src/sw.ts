@@ -6,26 +6,33 @@ import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 import firebaseAppletConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase in the Service Worker
-const firebaseApp = initializeApp(firebaseAppletConfig);
-const messaging = getMessaging(firebaseApp);
+let messaging: any = null;
+try {
+  const firebaseApp = initializeApp(firebaseAppletConfig);
+  messaging = getMessaging(firebaseApp);
+} catch (error) {
+  console.warn('Firebase Service Worker Messaging initialization failed or is not supported:', error);
+}
 
 // Handle FCM Background Messages
-onBackgroundMessage(messaging, (payload) => {
-  console.log('Mensagem em segundo plano recebida:', payload);
-  const title = payload.notification?.title || 'SENTI';
-  const options = {
-    body: payload.notification?.body || 'Você tem uma nova atualização.',
-    icon: '/icon.svg',
-    badge: '/icon.svg',
-    data: payload.data?.url || '/',
-    vibrate: [100, 50, 100],
-    actions: [
-      { action: 'open', title: 'Ver Agora' }
-    ]
-  };
+if (messaging) {
+  onBackgroundMessage(messaging, (payload) => {
+    console.log('Mensagem em segundo plano recebida:', payload);
+    const title = payload.notification?.title || 'SENTI';
+    const options = {
+      body: payload.notification?.body || 'Você tem uma nova atualização.',
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      data: payload.data?.url || '/',
+      vibrate: [100, 50, 100],
+      actions: [
+        { action: 'open', title: 'Ver Agora' }
+      ]
+    };
 
-  (self as any).registration.showNotification(title, options);
-});
+    (self as any).registration.showNotification(title, options);
+  });
+}
 
 // @ts-ignore
 precacheAndRoute(self.__WB_MANIFEST);
