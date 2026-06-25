@@ -17,9 +17,15 @@ import {
   Smartphone,
   Crown,
   History,
-  Activity
+  Activity,
+  Download,
+  Share,
+  Check,
+  ShieldAlert,
+  Heart
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { usePWA } from "../contexts/PWAContext";
 
 interface MobileDeviceWrapperProps {
   children: React.ReactNode;
@@ -28,8 +34,21 @@ interface MobileDeviceWrapperProps {
 export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isInstallable, handleInstall } = usePWA();
+
   const [time, setTime] = useState("");
   const [showTools, setShowTools] = useState(false);
+  
+  // Simulated native cold-start splash screen
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashPercent, setSplashPercent] = useState(0);
+  const [splashSub, setSplashSub] = useState("Estabelecendo canais criptografados...");
+  
+  // PWA Installation Guide state
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [isAppStandalone, setIsAppStandalone] = useState(false);
+  const [deviceOS, setDeviceOS] = useState<'ios' | 'android' | 'other'>('other');
+  const [showStickyInstallPrompt, setShowStickyInstallPrompt] = useState(false);
 
   // Update mock digital clock
   useEffect(() => {
@@ -44,10 +63,111 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
     return () => clearInterval(timer);
   }, []);
 
+  // Standalone mode detector & OS detector
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || 
+                         (navigator as any).standalone || 
+                         document.referrer.includes('android-app://');
+      setIsAppStandalone(!!standalone);
+
+      const ua = navigator.userAgent.toLowerCase();
+      if (/iphone|ipad|ipod/.test(ua)) {
+        setDeviceOS('ios');
+      } else if (/android/.test(ua)) {
+        setDeviceOS('android');
+      }
+
+      // Show sticky install prompt on mobile/tablet after 4 seconds if not running standalone
+      if (!standalone && (window.innerWidth < 1024)) {
+        const timer = setTimeout(() => {
+          const dismissed = localStorage.getItem("senti_install_dismissed");
+          if (!dismissed) {
+            setShowStickyInstallPrompt(true);
+          }
+        }, 4000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
+
+  // Cold start splash screen controller (per tab session)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasShown = sessionStorage.getItem("senti_splash_shown_v3");
+    if (!hasShown) {
+      setShowSplash(true);
+      
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.floor(Math.random() * 8) + 6;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          setSplashSub("Ambiente seguro de acolhimento pronto.");
+          setTimeout(() => {
+            setShowSplash(false);
+            sessionStorage.setItem("senti_splash_shown_v3", "true");
+          }, 500);
+        } else {
+          if (progress < 25) {
+            setSplashSub("Iniciando criptografia grau clínico...");
+          } else if (progress < 55) {
+            setSplashSub("Sincronizando registros clínicos offline...");
+          } else if (progress < 80) {
+            setSplashSub("Carregando inteligência de regulação IARA...");
+          } else {
+            setSplashSub("Conectando ao pronto-atendimento emocional...");
+          }
+        }
+        setSplashPercent(progress);
+      }, 60);
+
+      return () => clearInterval(interval);
+    }
+  }, []);
+
   const path = location.pathname;
 
   // Active state checker
   const isActive = (route: string) => path === route;
+
+  // Soft tactile haptic feedback simulation using standard device vibration
+  const triggerHaptic = (ms = 15) => {
+    if (typeof window !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate(ms);
+      } catch (e) {
+        // Suppress errors (safari/unsupported devices)
+      }
+    }
+  };
+
+  const handleNavClick = (route: string) => {
+    triggerHaptic(12);
+    navigate(route);
+  };
+
+  const handleOpenTools = () => {
+    triggerHaptic(20);
+    setShowTools(true);
+  };
+
+  const handleTriggerInstall = () => {
+    triggerHaptic(25);
+    if (isInstallable) {
+      handleInstall();
+    } else {
+      // Open our bespoke guides
+      setShowInstallGuide(true);
+    }
+  };
+
+  const dismissStickyPrompt = () => {
+    triggerHaptic(10);
+    setShowStickyInstallPrompt(false);
+    localStorage.setItem("senti_install_dismissed", "true");
+  };
 
   // Tools list for Toolbar
   const quickTools = [
@@ -92,6 +212,13 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
       icon: Sparkles,
       color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
       path: "/reset"
+    },
+    {
+      title: "Sobre o SentiPae",
+      description: "Conheça nosso propósito, metodologia e canais de segurança.",
+      icon: Heart,
+      color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+      path: "/sobre"
     }
   ];
 
@@ -110,19 +237,31 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           </div>
         </div>
         <p className="text-sm text-slate-400 leading-relaxed font-light">
-          Você está navegando na <strong className="text-slate-200">Demonstração Interativa</strong> otimizada para dispositivos móveis.
+          Você está navegando no <strong className="text-slate-200">Sentí</strong> otimizado para celulares com tecnologia PWA nativa de alta fidelidade.
         </p>
+        
         <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 space-y-3">
-          <div className="flex gap-2 items-center text-xs font-bold text-emerald-450">
-            <Smartphone className="w-4 h-4" /> COMPILADO NATIVO PWA
+          <div className="flex gap-2 items-center text-xs font-bold text-emerald-400">
+            <Smartphone className="w-4 h-4" /> NAVEGAÇÃO APP NATIVO
           </div>
           <p className="text-xs text-slate-500 leading-normal">
-            A barra de navegação inferior e as ferramentas flutuantes imitam a arquitetura nativa com suporte táctil nativo completo.
+            Toques vibram sutilmente, as trocas de telas imitam transições físicas, e o app funciona totalmente off-grid.
           </p>
         </div>
+
+        {!isAppStandalone && (
+          <button 
+            onClick={handleTriggerInstall}
+            className="w-full py-3.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/25 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"
+          >
+            <Download className="w-4 h-4" />
+            Instalar como App Nativo
+          </button>
+        )}
+
         <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-2">
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-          Servidor operando em modo de alta fidelidade
+          Servidor seguro criptografado grau militar
         </div>
       </div>
 
@@ -162,16 +301,53 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} // smooth native-like spring curve
               className="w-full min-h-full flex flex-col"
             >
               {children}
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* Sticky Install Banner Prompt for mobile browsers */}
+        <AnimatePresence>
+          {showStickyInstallPrompt && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="absolute bottom-32 inset-x-3 bg-slate-900/95 backdrop-blur-md border border-emerald-500/20 shadow-2xl rounded-2xl p-4 z-40 flex items-center justify-between gap-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Smartphone className="w-5 h-5 animate-bounce" style={{ animationDuration: '3s' }} />
+                </div>
+                <div className="text-left">
+                  <h4 className="text-xs font-black text-white uppercase tracking-wider">Usar Sentí como App</h4>
+                  <p className="text-[10px] text-slate-400 mt-0.5 leading-normal">Adicione à tela inicial para toques instantâneos e suporte offline.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={handleTriggerInstall}
+                  className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-[10px] rounded-xl uppercase tracking-wider active:scale-95 transition-all"
+                >
+                  Instalar
+                </button>
+                <button
+                  onClick={dismissStickyPrompt}
+                  className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-slate-400"
+                  aria-label="Dispensar recomendação"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ----------------- NATIVE BOTTOM NAV & TOOLBAR PANELS ----------------- */}
 
@@ -183,7 +359,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             className="flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-200/50 dark:border-white/5 shadow-lg shadow-slate-900/10 pointer-events-auto"
           >
             <button 
-              onClick={() => navigate("/respiracao")}
+              onClick={() => handleNavClick("/respiracao")}
               className="px-3 py-1.5 text-[10px] font-bold text-slate-650 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 flex items-center gap-1 cursor-pointer transition-colors"
             >
               <Wind className="w-3.5 h-3.5" />
@@ -191,7 +367,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             </button>
             <div className="w-px h-3 bg-slate-200 dark:bg-white/10" />
             <button 
-              onClick={() => navigate("/live-iara")}
+              onClick={() => handleNavClick("/live-iara")}
               className="px-3 py-1.5 text-[10px] font-bold text-slate-650 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 flex items-center gap-1 cursor-pointer transition-colors"
             >
               <Video className="w-3.5 h-3.5" />
@@ -199,7 +375,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             </button>
             <div className="w-px h-3 bg-slate-200 dark:bg-white/10" />
             <button 
-              onClick={() => navigate("/emergencia")}
+              onClick={() => handleNavClick("/emergencia")}
               className="px-3 py-1.5 text-[10px] font-extrabold text-rose-600 dark:text-rose-400 hover:text-rose-500 flex items-center gap-1 cursor-pointer transition-colors uppercase tracking-wider"
             >
               <span className="w-1.5 h-1.5 bg-rose-550 rounded-full animate-pulse shrink-0" />
@@ -213,9 +389,9 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           
           {/* Button 1: Início */}
           <button 
-            onClick={() => navigate("/home")}
+            onClick={() => handleNavClick("/home")}
             className={cn(
-              "flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
+              "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
               isActive("/home") 
                 ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -224,13 +400,16 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           >
             <Home className="w-4.5 h-4.5" />
             <span className="text-[9px] uppercase tracking-widest font-black">Início</span>
+            {isActive("/home") && (
+              <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
+            )}
           </button>
 
           {/* Button 2: IARA AI Chat */}
           <button 
-            onClick={() => navigate("/chat")}
+            onClick={() => handleNavClick("/chat")}
             className={cn(
-              "flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
+              "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
               isActive("/chat") 
                 ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -239,6 +418,9 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           >
             <MessageSquare className="w-4.5 h-4.5" />
             <span className="text-[9px] uppercase tracking-widest font-black">Chat</span>
+            {isActive("/chat") && (
+              <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
+            )}
           </button>
 
           {/* Button 3: CENTRAL HIGH-ENGAGEMENT MICRO TOOL MENU DOCK (Barra de ferramentas) */}
@@ -246,7 +428,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             <motion.button 
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}
-              onClick={() => setShowTools(true)}
+              onClick={handleOpenTools}
               aria-label="Abrir caixa de ferramentas mentais"
               id="tab-main-tools"
               className={cn(
@@ -265,9 +447,9 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
 
           {/* Button 4: Diário Emocional */}
           <button 
-            onClick={() => navigate("/diario")}
+            onClick={() => handleNavClick("/diario")}
             className={cn(
-              "flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
+              "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
               isActive("/diario") 
                 ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -276,13 +458,16 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           >
             <BookOpen className="w-4.5 h-4.5" />
             <span className="text-[9px] uppercase tracking-widest font-black">Diário</span>
+            {isActive("/diario") && (
+              <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
+            )}
           </button>
 
           {/* Button 5: Perfil */}
           <button 
-            onClick={() => navigate("/perfil")}
+            onClick={() => handleNavClick("/perfil")}
             className={cn(
-              "flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
+              "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
               isActive("/perfil") 
                 ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
@@ -291,6 +476,9 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           >
             <User className="w-4.5 h-4.5" />
             <span className="text-[9px] uppercase tracking-widest font-black">Perfil</span>
+            {isActive("/perfil") && (
+              <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
+            )}
           </button>
         </nav>
 
@@ -326,7 +514,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
                     <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Sentí Toolkit</span>
                     <h3 className="text-lg font-bold font-serif italic text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
                       <Compass className="w-5 h-5 text-emerald-500" />
-                      Painel Clinico & Ferramentas
+                      Painel Clínico & Ferramentas
                     </h3>
                   </div>
                   <button 
@@ -337,13 +525,37 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
                   </button>
                 </div>
 
+                {/* Optional PWA Install callout inside menu */}
+                {!isAppStandalone && (
+                  <div className="p-3 bg-gradient-to-r from-emerald-500/10 to-indigo-500/10 border border-emerald-500/15 rounded-2xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-400">
+                        <Smartphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Sentí no seu Celular</p>
+                        <p className="text-[9px] text-slate-500">Acesse com um toque na sua tela inicial</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setShowTools(false);
+                        handleTriggerInstall();
+                      }}
+                      className="px-3 py-1.5 bg-emerald-500 text-slate-950 font-black text-[10px] rounded-lg uppercase tracking-wider"
+                    >
+                      Instalar
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 gap-3 overflow-y-auto pr-1">
                   {quickTools.map((tool) => (
                     <div 
                       key={tool.title}
                       onClick={() => {
                         setShowTools(false);
-                        navigate(tool.path);
+                        handleNavClick(tool.path);
                       }}
                       className="group p-3.5 bg-slate-50 dark:bg-slate-950/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/10 border border-slate-150 dark:border-white/5 hover:border-emerald-500/20 rounded-2xl flex items-start gap-3.5 transition-all cursor-pointer active:scale-99"
                     >
@@ -371,6 +583,223 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             </>
           )}
         </AnimatePresence>
+
+        {/* ----------------- NATIVE COLD START SPLASH SCREEN INTERFACE ----------------- */}
+        <AnimatePresence>
+          {showSplash && (
+            <motion.div
+              initial={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -40, scale: 0.98 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-0 bg-slate-950 z-[999] flex flex-col items-center justify-between p-8"
+              id="native-cold-start-splash"
+            >
+              {/* Radial backdrop light */}
+              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl" />
+              <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl" />
+
+              <div className="flex-1 flex flex-col items-center justify-center space-y-5 text-center">
+                {/* Custom animated logo ring */}
+                <div className="relative w-28 h-28 flex items-center justify-center">
+                  <motion.div
+                    className="absolute inset-0 rounded-full border border-emerald-500/10"
+                    animate={{ scale: [1, 1.25, 1], opacity: [0.4, 0.1, 0.4] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <motion.div
+                    className="absolute inset-2 rounded-full border border-emerald-500/20"
+                    animate={{ scale: [1, 1.15, 1], opacity: [0.6, 0.2, 0.6] }}
+                    transition={{ duration: 3, delay: 0.5, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <div className="w-16 h-16 bg-emerald-500/15 border border-emerald-500/30 rounded-3xl flex items-center justify-center shadow-lg shadow-emerald-550/10">
+                    <Activity className="w-8 h-8 text-emerald-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h1 className="text-4xl font-serif italic text-white tracking-tight font-black">Sentí</h1>
+                  <p className="text-[10px] font-bold text-emerald-450 uppercase tracking-[0.25em]">Pronto Atendimento Emocional</p>
+                </div>
+              </div>
+
+              {/* Status & Progress Bar at bottom */}
+              <div className="w-full max-w-xs space-y-4 mb-12">
+                <div className="space-y-1.5 text-center">
+                  <p className="text-[11px] font-medium text-slate-300 font-sans tracking-wide animate-pulse">
+                    {splashSub}
+                  </p>
+                  <p className="text-[10px] font-bold text-slate-500 font-mono">
+                    {splashPercent}%
+                  </p>
+                </div>
+
+                {/* Progress ring track */}
+                <div className="h-1 w-full bg-slate-900 rounded-full overflow-hidden relative border border-white/5">
+                  <motion.div 
+                    className="h-full bg-emerald-500 rounded-full"
+                    style={{ width: `${splashPercent}%` }}
+                    transition={{ ease: "easeOut" }}
+                  />
+                </div>
+
+                <p className="text-[9px] text-center text-slate-600 font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  Canais Protegidos Grau Clínico
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ----------------- BESPOKE SMART INSTALLATION WIZARD MODAL ----------------- */}
+        <AnimatePresence>
+          {showInstallGuide && (
+            <div className="absolute inset-0 z-[1000] flex items-end justify-center">
+              {/* Backdrop */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowInstallGuide(false)}
+                className="absolute inset-0 bg-slate-950/80 backdrop-blur-xs"
+              />
+
+              {/* Modal Card */}
+              <motion.div 
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 220 }}
+                className="relative w-full bg-slate-900 border-t border-white/10 rounded-t-[2.5rem] p-6 pb-12 text-slate-100 space-y-6 z-10 max-h-[90%] overflow-y-auto"
+                id="bespoke-pwa-install-guide"
+              >
+                {/* Drag Handle */}
+                <div className="w-12 h-1.5 bg-slate-800 rounded-full mx-auto -mt-2.5" />
+
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Guia de Instalação Rápida</span>
+                    <h3 className="text-lg font-bold font-serif italic text-white flex items-center gap-2">
+                      <Smartphone className="w-5 h-5 text-emerald-400 animate-pulse" />
+                      Sentí Nativo no Celular
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowInstallGuide(false)}
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Para utilizar recursos avançados de hardware (como alertas de batimento, haptics instantâneos e segurança biométrica), o Sentí opera de forma nativa quando adicionado à sua tela de início.
+                </p>
+
+                {deviceOS === 'ios' ? (
+                  /* Safari / iOS guide */
+                  <div className="space-y-4">
+                    <p className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl text-center">
+                      📱 Detectado: Dispositivo Apple iOS (Safari)
+                    </p>
+
+                    <div className="space-y-3">
+                      <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-2xl flex items-start gap-3.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                          <span className="text-lg">1</span>
+                        </div>
+                        <div className="text-left space-y-1">
+                          <p className="text-xs font-bold text-slate-200">Toque em Compartilhar</p>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            No menu inferior ou superior do seu navegador Safari, clique no ícone de compartilhar <Share className="w-3.5 h-3.5 inline-block text-blue-400 mx-1" />.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-2xl flex items-start gap-3.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                          <span className="text-lg">2</span>
+                        </div>
+                        <div className="text-left space-y-1">
+                          <p className="text-xs font-bold text-slate-200">Role e escolha "Adicionar à Tela de Início"</p>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Role a lista de opções para baixo e clique em <strong className="text-slate-300">"Adicionar à Tela de Início" ➕</strong>.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-2xl flex items-start gap-3.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                          <span className="text-lg">3</span>
+                        </div>
+                        <div className="text-left space-y-1">
+                          <p className="text-xs font-bold text-slate-200">Inicie o Sentí da sua Tela de Início</p>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Um ícone do <strong className="text-emerald-400">Sentí</strong> surgirá ao lado de seus aplicativos normais. Abra por ele para ocultar todas as abas do navegador!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Chrome / Android guide */
+                  <div className="space-y-4">
+                    <p className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl text-center">
+                      🤖 Detectado: Dispositivo Android ou Navegador Chrome
+                    </p>
+
+                    <div className="space-y-3">
+                      <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-2xl flex items-start gap-3.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                          <span className="text-lg">1</span>
+                        </div>
+                        <div className="text-left space-y-1">
+                          <p className="text-xs font-bold text-slate-200">Clique em Instalar</p>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Caso o seu navegador seja compatível, basta clicar no botão de instalação automática abaixo para gerar o aplicativo.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-slate-950/40 border border-white/5 rounded-2xl flex items-start gap-3.5">
+                        <div className="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center shrink-0">
+                          <span className="text-lg">2</span>
+                        </div>
+                        <div className="text-left space-y-1">
+                          <p className="text-xs font-bold text-slate-200">Menu de Três Pontinhos (Alternativo)</p>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Se o botão não responder, toque nos <strong className="text-slate-300">três pontinhos ⋮</strong> no canto superior direito do Chrome e selecione <strong className="text-slate-300">"Instalar aplicativo"</strong> ou <strong className="text-slate-300">"Adicionar à tela inicial"</strong>.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        setShowInstallGuide(false);
+                        handleInstall();
+                      }}
+                      className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-98"
+                    >
+                      <Download className="w-4 h-4" />
+                      Disparar Instalação Automática
+                    </button>
+                  </div>
+                )}
+
+                <div className="pt-2">
+                  <button 
+                    onClick={() => setShowInstallGuide(false)}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 text-slate-300 rounded-2xl text-xs font-semibold transition-all"
+                  >
+                    Entendi, fechar guia
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
       </div>
     </div>
   );

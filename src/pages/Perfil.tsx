@@ -900,6 +900,14 @@ export default function Perfil() {
         {/* Actions */}
         <div className="pt-8 space-y-4">
           <button 
+            onClick={() => navigate("/sobre")}
+            className="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl font-bold hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-3 cursor-pointer"
+          >
+            <HeartPulse className="w-4 h-4 text-emerald-450" />
+            Sobre o SentiPae
+          </button>
+
+          <button 
             onClick={logout}
             className="w-full py-4 bg-red-500/10 border border-red-500/20 text-red-500 rounded-2xl font-bold hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
           >

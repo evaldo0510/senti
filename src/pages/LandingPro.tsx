@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
+import { useAuth } from "../components/AuthProvider";
 import { 
   HeartPulse, 
   Shield, 
@@ -63,7 +64,14 @@ const FAQItem = ({ question, answer }: { question: string, answer: string }) => 
 export default function LandingPro() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable } = usePWA();
+  const { user, isAuthReady } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (isAuthReady && user) {
+      navigate("/dashboard");
+    }
+  }, [user, isAuthReady, navigate]);
 
   const abrirWhatsApp = () => {
     const numero = "5511999999999";

@@ -39,6 +39,7 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Security from "./pages/Security";
 import Contact from "./pages/Contact";
+import Sobre from "./pages/Sobre";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
@@ -66,6 +67,7 @@ function App() {
             <Route path="/privacidade" element={<Privacy />} />
             <Route path="/seguranca" element={<Security />} />
             <Route path="/contato" element={<Contact />} />
+            <Route path="/sobre" element={<ProtectedRoute><MobileDeviceWrapper><Sobre /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/lead" element={<LeadForm />} />
             <Route path="/vendas-empresa" element={<VendasEmpresa />} />
             <Route path="/triagem" element={<ProtectedRoute><MobileDeviceWrapper><Triagem /></MobileDeviceWrapper></ProtectedRoute>} />
