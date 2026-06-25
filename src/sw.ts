@@ -77,7 +77,21 @@ const swSelf = self as any;
 
 
 swSelf.addEventListener('push', (event: any) => {
-  const data = event.data ? event.data.json() : { title: 'SENTI', body: 'Você tem uma nova atualização.' };
+  let data = { title: 'SENTI Pronto-Socorro Emocional 🌿', body: 'Você tem uma nova mensagem de acolhimento.', url: '/' };
+  
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      // Fallback if not JSON
+      const text = event.data.text();
+      data = {
+        title: 'Sentí Lembrete 🌸',
+        body: text || 'Sua consistência é sua força. Que tal fazer uma pausa agora?',
+        url: '/'
+      };
+    }
+  }
   
   const options = {
     body: data.body,
@@ -86,7 +100,7 @@ swSelf.addEventListener('push', (event: any) => {
     data: data.url || '/',
     vibrate: [100, 50, 100],
     actions: [
-      { action: 'open', title: 'Ver Agora' }
+      { action: 'open', title: 'Acessar SENTÍ' }
     ]
   };
 

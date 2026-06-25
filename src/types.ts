@@ -16,6 +16,7 @@ export interface MoodEntry {
   note?: string;
   timestamp: Date;
   triggers?: string[];
+  synced?: boolean;
 }
 
 export interface Therapist {
@@ -130,6 +131,8 @@ export interface UserProfile {
   isPremium?: boolean;
   isComunidade?: boolean; // Se o paciente é da comunidade/centro
   journeyProgress?: number; // Current day in the 21-day journey
+  emergencyContacts?: Array<{ name: string; phone: string }>;
+  sosTemplateMessage?: string;
   pillOfTheWeek?: {
     dia: number;
     frase: string;

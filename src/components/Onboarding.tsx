@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, X, Sparkles, MessageCircle, Search, Activity } from "lucide-react";
+import { ArrowRight, X, Sparkles, MessageCircle, Search, Activity, Shield } from "lucide-react";
 
 interface Step {
   title: string;
@@ -12,27 +12,27 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Bem-vindo ao SENTI!",
-    description: "Vamos fazer um tour rápido pelas principais funcionalidades para você aproveitar ao máximo sua jornada.",
+    description: "Vamos fazer um tour rápido pelas principais ferramentas de acolhimento para você aproveitar ao máximo sua jornada de bem-estar.",
     targetId: "onboarding-welcome",
     icon: <Sparkles className="w-6 h-6 text-emerald-500" />
   },
   {
-    title: "Conheça a IARA",
-    description: "Nossa inteligência artificial está disponível 24/7 para conversar, acolher e te guiar em momentos difíceis.",
+    title: "Como usar o Chat IARA 💬",
+    description: "A IARA é sua assistente virtual disponível 24 horas por dia. Você pode acessá-la clicando no balão verde flutuante no canto inferior direito de qualquer tela. Converse com ela para desabafar, organizar seus pensamentos ou praticar exercícios de respiração.",
     targetId: "onboarding-iara",
-    icon: <MessageCircle className="w-6 h-6 text-blue-500" />
+    icon: <MessageCircle className="w-6 h-6 text-emerald-500" />
   },
   {
-    title: "Encontre o Terapeuta Ideal",
-    description: "Navegue pelo nosso diretório e encontre profissionais especializados para te acompanhar.",
-    targetId: "onboarding-therapists",
-    icon: <Search className="w-6 h-6 text-purple-500" />
+    title: "Como usar o Botão SOS 🛡️",
+    description: "Em momentos de crise aguda, ansiedade forte ou pânico, clique no botão SOS (o escudo vermelho flutuante). Ele abrirá um menu de emergência imediato com telefones úteis de suporte (como o CVV 188), exercícios de aterramento rápidos e canais de ajuda.",
+    targetId: "onboarding-sos",
+    icon: <Shield className="w-6 h-6 text-rose-500" />
   },
   {
     title: "Acompanhe seu Humor",
-    description: "Registre como você se sente diariamente para entender seus padrões emocionais e progredir.",
+    description: "Registre como você se sente diariamente no Diário de Bordo. Mesmo sem internet, seus registros são guardados de forma segura e sincronizados automaticamente quando você voltar a ficar online.",
     targetId: "onboarding-mood",
-    icon: <Activity className="w-6 h-6 text-orange-500" />
+    icon: <Activity className="w-6 h-6 text-indigo-500" />
   }
 ];
 

@@ -159,7 +159,18 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
 
         {/* App body scroll view inside the frame */}
         <div className="flex-1 w-full overflow-y-auto relative bg-slate-50 dark:bg-slate-950 pb-28">
-          {children}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="w-full min-h-full flex flex-col"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* ----------------- NATIVE BOTTOM NAV & TOOLBAR PANELS ----------------- */}

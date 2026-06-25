@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight, Zap, TrendingUp } from "lucide-react";
+import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight, Zap, TrendingUp, WifiOff } from "lucide-react";
 import { userService } from "../services/userService";
 import { MoodEntry } from "../types";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import { trackEvent } from "../services/analyticsService";
+import { usePWA } from "../contexts/PWAContext";
+import { auth } from "../services/firebase";
+import { offlineStorage } from "../services/offlineStorage";
 
 export default function Diario() {
   const navigate = useNavigate();
+  const { isOffline } = usePWA();
   const [humor, setHumor] = useState<number>(5);
   const [intensidade, setIntensidade] = useState<number>(5);
   const [nota, setNota] = useState("");
   const [historico, setHistorico] = useState<MoodEntry[]>([]);
+  const [offlineMoods, setOfflineMoods] = useState<any[]>([]);
   const [salvo, setSalvo] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
@@ -24,18 +29,99 @@ export default function Diario() {
     return () => unsubscribe();
   }, []);
 
+  // Sync / Load offline local moods
+  useEffect(() => {
+    const loadOfflineEntries = async () => {
+      try {
+        const userId = auth.currentUser?.uid || "guest";
+        const localMoods = await offlineStorage.getMoodsOffline(userId);
+        setOfflineMoods(localMoods);
+      } catch (e) {
+        console.error("Error loading offline moods", e);
+      }
+    };
+    loadOfflineEntries();
+  }, [historico, isOffline]);
+
+  // Combine firestore history and local offline unsynced moods
+  const combinedHistorico = React.useMemo(() => {
+    // Map firestore entries with synced = true
+    const firestoreEntries = historico.map((h) => ({
+      ...h,
+      synced: true,
+    }));
+
+    // Find unsynced local moods
+    const unsyncedLocal = offlineMoods.filter((o) => !o.synced);
+
+    // Map unsynced local moods to match MoodEntry interface
+    const formattedUnsynced = unsyncedLocal.map((u) => ({
+      id: u.id?.toString() || Math.random().toString(),
+      value: u.value,
+      intensity: u.intensity,
+      note: u.emotion, // matches "note" in types and "emotion" in IndexedDB schema
+      timestamp: u.timestamp,
+      triggers: u.triggers,
+      synced: false,
+    }));
+
+    // Merge and sort newest first
+    const merged = [...formattedUnsynced, ...firestoreEntries];
+    merged.sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      return timeB - timeA;
+    });
+
+    return merged as MoodEntry[];
+  }, [historico, offlineMoods]);
+
   const handleSalvar = async () => {
-    await userService.saveMood(humor, intensidade, nota, selectedTriggers);
+    const userId = auth.currentUser?.uid || "guest";
+    const timestamp = new Date().toISOString();
+
+    // 1. Save locally to IndexedDB first
+    try {
+      await offlineStorage.saveMoodOffline({
+        userId,
+        value: humor,
+        intensity: intensidade,
+        emotion: nota,
+        timestamp,
+        synced: !isOffline,
+        triggers: selectedTriggers,
+      });
+    } catch (e) {
+      console.error("Error saving mood offline", e);
+    }
+
+    // 2. If online, also write to Firestore
+    if (!isOffline) {
+      try {
+        await userService.saveMood(humor, intensidade, nota, selectedTriggers);
+      } catch (e) {
+        console.error("Error saving mood online", e);
+      }
+    }
+
     trackEvent("diary_saved", {
       humor,
       intensidade,
       numTriggers: selectedTriggers.length,
-      hasNote: !!nota
+      hasNote: !!nota,
+      offline: isOffline,
     });
+
     setSalvo(true);
     setNota("");
     setSelectedTriggers([]);
-    
+
+    // Force reload offline entries immediately
+    try {
+      const localMoods = await offlineStorage.getMoodsOffline(userId);
+      setOfflineMoods(localMoods);
+    } catch (e) {}
+
     setTimeout(() => {
       setSalvo(false);
     }, 3000);
@@ -200,8 +286,8 @@ export default function Diario() {
            date.getFullYear() === today.getFullYear();
   };
 
-  const filteredHistorico = historico.filter(entry => {
-    const entryDate = new Date(entry.timestamp);
+  const filteredHistorico = combinedHistorico.filter(entry => {
+          const entryDate = new Date(entry.timestamp);
     return entryDate.getDate() === selectedDate.getDate() &&
            entryDate.getMonth() === selectedDate.getMonth() &&
            entryDate.getFullYear() === selectedDate.getFullYear();
@@ -346,7 +432,7 @@ export default function Diario() {
         </motion.section>
 
         {/* Mood Evolution Chart Card */}
-        {historico.length >= 2 && (
+        {combinedHistorico.length >= 2 && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -371,7 +457,7 @@ export default function Diario() {
             <div className="h-60 w-full pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={[...historico]
+                  data={[...combinedHistorico]
                     .reverse()
                     .slice(-10) // Display last 10 entries for optimal clarity
                     .map(entry => {
@@ -571,6 +657,14 @@ export default function Diario() {
                               <Zap className="w-3 h-3 text-blue-400 fill-current" />
                               <span className="text-[10px] font-bold uppercase tracking-widest text-blue-400">
                                 Intensidade {entry.intensity}/10
+                              </span>
+                            </div>
+                          )}
+                          {entry.synced === false && (
+                            <div className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-500 rounded-lg border border-amber-500/20 animate-pulse">
+                              <WifiOff className="w-3 h-3" />
+                              <span className="text-[10px] font-bold uppercase tracking-widest">
+                                Offline
                               </span>
                             </div>
                           )}

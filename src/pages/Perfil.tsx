@@ -24,7 +24,9 @@ import {
   Crown,
   Star,
   MessageSquare,
-  X
+  X,
+  Phone,
+  ShieldAlert
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -57,6 +59,11 @@ export default function Perfil() {
   const [nome, setNome] = useState("");
   const [biografia, setBiografia] = useState("");
   const [cidade, setCidade] = useState("");
+  const [emergencyContacts, setEmergencyContacts] = useState<Array<{ name: string; phone: string }>>([
+    { name: "", phone: "" },
+    { name: "", phone: "" }
+  ]);
+  const [sosTemplateMessage, setSosTemplateMessage] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -72,6 +79,20 @@ export default function Perfil() {
         setNome(data.nome || "");
         setBiografia(data.biografia || "");
         setCidade(data.cidade || "");
+        
+        if (data.emergencyContacts && data.emergencyContacts.length > 0) {
+          const padded = [...data.emergencyContacts];
+          while (padded.length < 2) {
+            padded.push({ name: "", phone: "" });
+          }
+          setEmergencyContacts(padded);
+        } else {
+          setEmergencyContacts([
+            { name: "", phone: "" },
+            { name: "", phone: "" }
+          ]);
+        }
+        setSosTemplateMessage(data.sosTemplateMessage || "Olá, estou passando por uma crise de ansiedade/pânico agora e preciso de ajuda. Por favor, fale comigo assim que puder.");
       } catch (error) {
         console.error("Error loading profile:", error);
       } finally {
@@ -116,12 +137,22 @@ export default function Perfil() {
     if (!profile) return;
     setSaving(true);
     try {
+      const cleanContacts = emergencyContacts.filter(c => c.name.trim() !== "" || c.phone.trim() !== "");
       await userService.updateProfile(profile.uid, {
         nome,
         biografia,
-        cidade
+        cidade,
+        emergencyContacts: cleanContacts,
+        sosTemplateMessage: sosTemplateMessage.trim()
       });
-      setProfile({ ...profile, nome, biografia, cidade });
+      setProfile({ 
+        ...profile, 
+        nome, 
+        biografia, 
+        cidade, 
+        emergencyContacts: cleanContacts, 
+        sosTemplateMessage: sosTemplateMessage.trim() 
+      });
       setIsEditing(false);
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -341,6 +372,109 @@ export default function Perfil() {
               <span className="text-slate-300">
                 {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : "N/A"}
               </span>
+            </div>
+          </div>
+
+          {/* Contatos de Emergência & Mensagem SOS */}
+          <div id="sos-emergency-setup-card" className="space-y-4 pt-4 border-t border-white/5">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-red-500 animate-pulse" />
+              <label className="text-xs font-bold uppercase tracking-[0.2em] text-red-500">Contatos de Emergência & SOS</label>
+            </div>
+            <div className="bg-slate-900/30 border border-red-500/10 rounded-3xl p-6 space-y-6">
+              {isEditing ? (
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Adicione até 2 contatos para ajuda rápida:</p>
+                    {emergencyContacts.map((contact, index) => (
+                      <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-950/40 rounded-2xl border border-white/5">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Nome do Contato {index + 1}</label>
+                          <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                            <input
+                              type="text"
+                              value={contact.name}
+                              onChange={(e) => {
+                                const newContacts = [...emergencyContacts];
+                                newContacts[index].name = e.target.value;
+                                setEmergencyContacts(newContacts);
+                              }}
+                              placeholder="Ex: Mãe, Amigo"
+                              className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-red-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Telefone (com DDI e DDD)</label>
+                          <div className="relative">
+                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                            <input
+                              type="text"
+                              value={contact.phone}
+                              onChange={(e) => {
+                                const newContacts = [...emergencyContacts];
+                                newContacts[index].phone = e.target.value;
+                                setEmergencyContacts(newContacts);
+                              }}
+                              placeholder="Ex: 5511999999999"
+                              className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 pl-10 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-red-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mensagem pré-definida para WhatsApp</label>
+                    <textarea
+                      value={sosTemplateMessage}
+                      onChange={(e) => setSosTemplateMessage(e.target.value)}
+                      rows={3}
+                      className="w-full bg-slate-900 border border-white/10 rounded-2xl p-4 text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-red-500 transition-all text-sm resize-none"
+                      placeholder="Mensagem de socorro que será enviada..."
+                    />
+                    <p className="text-[10px] text-slate-500 leading-normal">
+                      Esta mensagem será pré-carregada no WhatsApp ao acionar o SOSButton para facilitar o envio rápido.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Contatos Cadastrados</p>
+                    {profile?.emergencyContacts && profile.emergencyContacts.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {profile.emergencyContacts.map((contact, index) => (
+                          <div key={index} className="bg-slate-950/40 border border-red-500/10 p-4 rounded-2xl flex items-center justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm font-bold text-slate-200">{contact.name}</p>
+                              <p className="text-xs text-slate-400 flex items-center gap-1">
+                                <Phone className="w-3 h-3 text-red-500/70" /> {contact.phone}
+                              </p>
+                            </div>
+                            <span className="text-[9px] font-bold px-2 py-1 bg-red-500/10 text-red-400 rounded-lg border border-red-500/20">SOS</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-slate-950/20 rounded-2xl text-center border border-dashed border-white/5">
+                        <p className="text-xs text-slate-500">Nenhum contato cadastrado. Clique no botão de editar no topo para cadastrar.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Sua Mensagem SOS</p>
+                    <div className="bg-slate-950/40 border border-white/5 rounded-2xl p-4">
+                      <p className="text-xs text-slate-300 leading-relaxed italic">
+                        "{profile?.sosTemplateMessage || sosTemplateMessage || "Nenhuma mensagem configurada."}"
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

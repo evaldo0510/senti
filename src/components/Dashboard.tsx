@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { useAuth } from "./AuthProvider";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
+import D3MoodHistory from "./D3MoodHistory";
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -68,6 +69,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isDemo, setIsDemo] = useState<boolean>(false);
   const [highContrast, setHighContrast] = useState<boolean>(false);
+  const [activeChartEngine, setActiveChartEngine] = useState<"d3" | "recharts">("d3");
 
   useEffect(() => {
     let unsubMoods: (() => void) | undefined;
@@ -371,128 +373,160 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Chart 1: Curva de Humor Semanal */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-5 space-y-3 shadow-sm">
-          <div className="space-y-1">
-            <h4 className="text-xs font-black uppercase text-slate-800 dark:text-slate-100 tracking-wider flex items-center gap-1.5">
-              <Smile className="w-4 h-4 text-emerald-500" />
-              Nível de Humor diário
-            </h4>
-            <p className="text-[11px] text-slate-500">Mapeamento dinâmico do bem-estar psicológico nesta semana</p>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-3xl p-5 space-y-3 shadow-sm flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-50 dark:border-white/5 pb-3">
+            <div className="space-y-1">
+              <h4 className="text-xs font-black uppercase text-slate-800 dark:text-slate-100 tracking-wider flex items-center gap-1.5">
+                <Smile className="w-4 h-4 text-emerald-500" />
+                Histórico de Humor
+              </h4>
+              <p className="text-[11px] text-slate-500">Mapeamento dinâmico do bem-estar psicológico</p>
+            </div>
+            
+            {/* Chart Engine Switcher */}
+            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-xl shrink-0 self-start sm:self-center border border-slate-200/50 dark:border-white/5">
+              <button
+                onClick={() => setActiveChartEngine("d3")}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                  activeChartEngine === "d3"
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5"
+                    : "text-slate-450 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                D3.js (Histórico)
+              </button>
+              <button
+                onClick={() => setActiveChartEngine("recharts")}
+                className={`px-3 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                  activeChartEngine === "recharts"
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5"
+                    : "text-slate-450 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                Recharts (Semana)
+              </button>
+            </div>
           </div>
 
-          <div className="h-56 w-full text-xs font-mono">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weeklyMoodData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorHumor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={highContrast ? "#2563eb" : "#10b981"} stopOpacity={highContrast ? 0.45 : 0.2}/>
-                    <stop offset="95%" stopColor={highContrast ? "#2563eb" : "#10b981"} stopOpacity={0.01}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={highContrast ? "rgba(148, 163, 184, 0.45)" : "rgba(148, 163, 184, 0.08)"} vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke={highContrast ? "#334155" : "rgba(148, 163, 184, 0.45)"} 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false}
-                  dy={5}
-                />
-                <YAxis 
-                  domain={[0, 10]} 
-                  stroke={highContrast ? "#334155" : "rgba(148, 163, 184, 0.45)"} 
-                  fontSize={10} 
-                  tickLine={false} 
-                  axisLine={false}
-                  dx={-5}
-                  ticks={[0, 2, 4, 6, 8, 10]}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      if (data.humor === null) return null;
-                      const support = getSupportiveMessage(data.humor);
-                      return (
-                        <div className="bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-white/10 p-4 rounded-2xl shadow-2xl space-y-3 font-sans text-xs max-w-[280px] text-slate-800 dark:text-slate-200">
-                          {/* Header: Date */}
-                          <div className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-1.5">
-                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">{data.formattedDate}</span>
-                            <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
-                              Humor diário
-                            </span>
-                          </div>
+          <div className="flex-1 mt-2">
+            {activeChartEngine === "d3" ? (
+              <D3MoodHistory data={activeMoodList} />
+            ) : (
+              <div className="h-56 w-full text-xs font-mono">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={weeklyMoodData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorHumor" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={highContrast ? "#2563eb" : "#10b981"} stopOpacity={highContrast ? 0.45 : 0.2}/>
+                        <stop offset="95%" stopColor={highContrast ? "#2563eb" : "#10b981"} stopOpacity={0.01}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={highContrast ? "rgba(148, 163, 184, 0.45)" : "rgba(148, 163, 184, 0.08)"} vertical={false} />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke={highContrast ? "#334155" : "rgba(148, 163, 184, 0.45)"} 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                      dy={5}
+                    />
+                    <YAxis 
+                      domain={[0, 10]} 
+                      stroke={highContrast ? "#334155" : "rgba(148, 163, 184, 0.45)"} 
+                      fontSize={10} 
+                      tickLine={false} 
+                      axisLine={false}
+                      dx={-5}
+                      ticks={[0, 2, 4, 6, 8, 10]}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          if (data.humor === null) return null;
+                          const support = getSupportiveMessage(data.humor);
+                          return (
+                            <div className="bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-white/10 p-4 rounded-2xl shadow-2xl space-y-3 font-sans text-xs max-w-[280px] text-slate-800 dark:text-slate-200">
+                              {/* Header: Date */}
+                              <div className="flex justify-between items-center border-b border-slate-100 dark:border-white/5 pb-1.5">
+                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">{data.formattedDate}</span>
+                                <span className="text-[9px] px-2 py-0.5 rounded-full font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
+                                  Humor diário
+                                </span>
+                              </div>
 
-                          {/* Level & Emoji Badge */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xl">{getMoodEmoji(data.humor)}</span>
-                              <div>
-                                <p className="text-xs font-black text-slate-900 dark:text-slate-100">
-                                  {getMoodDescription(data.humor)}
-                                </p>
-                                <p className="text-[9px] text-slate-400 font-medium">Nota de bem-estar</p>
+                              {/* Level & Emoji Badge */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xl">{getMoodEmoji(data.humor)}</span>
+                                  <div>
+                                    <p className="text-xs font-black text-slate-900 dark:text-slate-100">
+                                      {getMoodDescription(data.humor)}
+                                    </p>
+                                    <p className="text-[9px] text-slate-400 font-medium">Nota de bem-estar</p>
+                                  </div>
+                                </div>
+                                <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-black text-sm px-2.5 py-1 rounded-xl border border-emerald-100 dark:border-emerald-950/50">
+                                  {data.humor}<span className="text-[9px] font-normal text-emerald-400/80">/10</span>
+                                </div>
+                              </div>
+
+                              {/* Triggers if registered */}
+                              {data.triggers && data.triggers.length > 0 && (
+                                <div className="space-y-1">
+                                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Fatores e Gatilhos</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {data.triggers.map((trigger: string, i: number) => (
+                                      <span 
+                                        key={i} 
+                                        className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50"
+                                      >
+                                        {trigger}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Note if registered */}
+                              {data.note && (
+                                <div className="space-y-1">
+                                  <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Anotação pessoal</p>
+                                  <p className="text-[11px] italic text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-white/5">
+                                    "{data.note}"
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Supportive / Contextual message */}
+                              <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed flex gap-2 items-start ${support.bgColor}`}>
+                                <span className="text-base shrink-0 select-none mt-0.5">{support.emoji}</span>
+                                <div className="space-y-0.5">
+                                  <p className="font-bold text-[9px] uppercase tracking-wider">Dica / Mensagem</p>
+                                  <p className="opacity-95 font-medium">{support.text}</p>
+                                </div>
                               </div>
                             </div>
-                            <div className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 font-black text-sm px-2.5 py-1 rounded-xl border border-emerald-100 dark:border-emerald-950/50">
-                              {data.humor}<span className="text-[9px] font-normal text-emerald-400/80">/10</span>
-                            </div>
-                          </div>
-
-                          {/* Triggers if registered */}
-                          {data.triggers && data.triggers.length > 0 && (
-                            <div className="space-y-1">
-                              <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Fatores e Gatilhos</p>
-                              <div className="flex flex-wrap gap-1">
-                                {data.triggers.map((trigger: string, i: number) => (
-                                  <span 
-                                    key={i} 
-                                    className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50"
-                                  >
-                                    {trigger}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Note if registered */}
-                          {data.note && (
-                            <div className="space-y-1">
-                              <p className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Anotação pessoal</p>
-                              <p className="text-[11px] italic text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50/50 dark:bg-slate-900/50 p-2 rounded-xl border border-slate-100 dark:border-white/5">
-                                "{data.note}"
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Supportive / Contextual message */}
-                          <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed flex gap-2 items-start ${support.bgColor}`}>
-                            <span className="text-base shrink-0 select-none mt-0.5">{support.emoji}</span>
-                            <div className="space-y-0.5">
-                              <p className="font-bold text-[9px] uppercase tracking-wider">Dica / Mensagem</p>
-                              <p className="opacity-95 font-medium">{support.text}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="humor" 
-                  stroke={highContrast ? "#2563eb" : "#10b981"} 
-                  strokeWidth={highContrast ? 4.5 : 2.5}
-                  fillOpacity={1} 
-                  fill="url(#colorHumor)" 
-                  connectNulls
-                  dot={{ r: highContrast ? 5 : 3, strokeWidth: highContrast ? 2.5 : 1.5, fill: highContrast ? "#2563eb" : "#10b981" }}
-                  activeDot={{ r: highContrast ? 7 : 5, strokeWidth: 0, fill: highContrast ? "#2563eb" : "#10b981" }}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="humor" 
+                      stroke={highContrast ? "#2563eb" : "#10b981"} 
+                      strokeWidth={highContrast ? 4.5 : 2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorHumor)" 
+                      connectNulls
+                      dot={{ r: highContrast ? 5 : 3, strokeWidth: highContrast ? 2.5 : 1.5, fill: highContrast ? "#2563eb" : "#10b981" }}
+                      activeDot={{ r: highContrast ? 7 : 5, strokeWidth: 0, fill: highContrast ? "#2563eb" : "#10b981" }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </div>
 
