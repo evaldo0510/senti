@@ -1,5 +1,6 @@
 {
   "name": "Sentí",
   "description": "Sentí: Pronto atendimento emocional. Inteligência de acolhimento, regulação emocional e conexão com especialistas.",
-  "requestFramePermissions": ["microphone"]
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

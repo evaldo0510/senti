@@ -26,7 +26,9 @@ import {
   MessageSquare,
   X,
   Phone,
-  ShieldAlert
+  ShieldAlert,
+  History,
+  Trash2
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -54,6 +56,29 @@ export default function Perfil() {
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [sosLogs, setSosLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadLogs = () => {
+      try {
+        const logsStr = localStorage.getItem("sos_button_triggers") || "[]";
+        const logs = JSON.parse(logsStr);
+        setSosLogs(logs.reverse());
+      } catch (e) {
+        console.error("Error loading SOS logs:", e);
+      }
+    };
+    loadLogs();
+  }, []);
+
+  const handleClearSosLogs = () => {
+    try {
+      localStorage.setItem("sos_button_triggers", "[]");
+      setSosLogs([]);
+    } catch (e) {
+      console.error("Error clearing SOS logs:", e);
+    }
+  };
 
   // Form state
   const [nome, setNome] = useState("");
@@ -473,6 +498,110 @@ export default function Perfil() {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Histórico de Ativações SOS */}
+          <div id="sos-regulation-logs" className="space-y-4 pt-4 border-t border-white/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-indigo-400" />
+                <label className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400">Histórico de Regulação Rápida (SOS)</label>
+              </div>
+              {sosLogs.length > 0 && (
+                <button 
+                  onClick={handleClearSosLogs}
+                  className="text-[10px] font-bold text-slate-500 hover:text-red-400 transition-colors uppercase tracking-wider flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" /> Limpar
+                </button>
+              )}
+            </div>
+
+            <div className="bg-slate-900/30 border border-white/5 rounded-3xl p-6 space-y-6">
+              {sosLogs.length === 0 ? (
+                <div className="text-center py-6 space-y-2">
+                  <HeartPulse className="w-8 h-8 text-indigo-500/40 mx-auto animate-pulse" />
+                  <p className="text-sm font-medium text-slate-300">Nenhum SOS acionado recentemente</p>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    Excelente! Continue usando as pílulas diárias e os diários para manter o equilíbrio emocional.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Summary Bento Stats */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-3 bg-slate-950/40 rounded-2xl border border-white/5">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ativações</p>
+                      <p className="text-lg font-bold text-indigo-400 mt-1">
+                        {sosLogs.filter(l => l.type === 'click').length}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-950/40 rounded-2xl border border-white/5">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Ligações</p>
+                      <p className="text-lg font-bold text-red-400 mt-1">
+                        {sosLogs.filter(l => l.type === 'dial' || l.type === 'long_press').length}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-slate-950/40 rounded-2xl border border-white/5">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Calmados</p>
+                      <p className="text-lg font-bold text-emerald-400 mt-1">
+                        {sosLogs.filter(l => l.type === 'grounding_complete').length}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* List of events */}
+                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                    {sosLogs.slice(0, 5).map((log, index) => {
+                      let typeLabel = "Acionamento";
+                      let typeColor = "text-slate-300 bg-slate-500/10 border-slate-500/20";
+                      let LogIcon = ShieldAlert;
+
+                      if (log.type === 'click') {
+                        typeLabel = "Pronto-Socorro Rápido";
+                        typeColor = "text-indigo-400 bg-indigo-500/10 border-indigo-500/20";
+                        LogIcon = ShieldAlert;
+                      } else if (log.type === 'long_press' || log.type === 'dial') {
+                        typeLabel = "Chamada Iniciada";
+                        typeColor = "text-red-400 bg-red-500/10 border-red-500/20";
+                        LogIcon = Phone;
+                      } else if (log.type === 'grounding_complete') {
+                        typeLabel = "Grounding Concluído";
+                        typeColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+                        LogIcon = HeartPulse;
+                      }
+
+                      const date = new Date(log.timestamp);
+                      const formattedTime = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                      const formattedDate = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+                      return (
+                        <div key={log.id || index} className="p-3 bg-slate-950/40 border border-white/5 rounded-2xl flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-xl border ${typeColor.split(' ')[1]} ${typeColor.split(' ')[2]}`}>
+                              <LogIcon className={`w-3.5 h-3.5 ${typeColor.split(' ')[0]}`} />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-200">{typeLabel}</p>
+                              <p className="text-[10px] text-slate-500">A partir de {log.page === '/' ? 'Início' : (log.page || 'Página Inicial')}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-300">{formattedTime}</p>
+                            <p className="text-[10px] text-slate-500">{formattedDate}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {sosLogs.length > 5 && (
+                    <p className="text-[10px] text-center text-slate-500 italic mt-2">
+                      Mostrando os últimos 5 acionamentos de regulação.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

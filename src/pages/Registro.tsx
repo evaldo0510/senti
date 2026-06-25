@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Save, FileText, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, Save, FileText, Clock, AlertCircle, Sparkles } from "lucide-react";
 import { userService } from "../services/userService";
-import { Appointment, UserProfile } from "../types";
+import { chatService } from "../services/chatService";
+import { auth } from "../services/firebase";
+import { Appointment, UserProfile, DirectMessage } from "../types";
 
 export default function Registro() {
   const navigate = useNavigate();
@@ -21,6 +23,61 @@ export default function Registro() {
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [patient, setPatient] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorGenerating, setErrorGenerating] = useState("");
+
+  useEffect(() => {
+    if (appointmentId && appointmentId !== 'new' && appointment) {
+      const unsubscribe = chatService.listenMessagesByAppointment(
+        appointmentId,
+        appointment.sharedSecret,
+        (msgs) => {
+          setMessages(msgs);
+        }
+      );
+      return () => unsubscribe();
+    }
+  }, [appointmentId, appointment]);
+
+  const gerarResumoPorIA = async () => {
+    setIsGenerating(true);
+    setErrorGenerating("");
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error("Usuário não autenticado no aplicativo.");
+      }
+
+      const response = await fetch("/api/generate-summary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          notes: nota,
+          messages: messages,
+          patientName: appointment?.patientNome || patient?.nome || "Paciente"
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || "Falha ao gerar o resumo.");
+      }
+
+      const data = await response.json();
+      if (data.summary) {
+        setStructuredSummary(data.summary);
+      }
+    } catch (error: any) {
+      console.error("Erro ao gerar resumo:", error);
+      setErrorGenerating(error.message || "Erro de conexão com o serviço de inteligência artificial.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -170,7 +227,34 @@ export default function Registro() {
 
             {/* Structured Summary Textarea */}
             <div className="space-y-3">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Sumário Estruturado</label>
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Sumário Estruturado</label>
+                <button
+                  type="button"
+                  onClick={gerarResumoPorIA}
+                  disabled={isGenerating}
+                  className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:bg-slate-800 disabled:opacity-50 text-emerald-400 rounded-lg text-xs font-bold transition-all border border-emerald-500/20 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isGenerating ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-emerald-400/20 border-t-emerald-400 rounded-full animate-spin" />
+                      <span>Gerando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Gerar com IA (Gemini)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              {errorGenerating && (
+                <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-xl">
+                  {errorGenerating}
+                </p>
+              )}
+
               <textarea
                 rows={4}
                 value={structuredSummary}

@@ -10,6 +10,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import webpush from "web-push";
 import rateLimit from "express-rate-limit";
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -672,6 +673,66 @@ app.post("/api/push/send-reminders", sensitiveActionLimiter, async (req, res) =>
   } catch (error: any) {
     console.error("Erro ao enviar lembretes em massa:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/generate-summary", requireAuth, async (req: any, res: any) => {
+  const { notes, messages, patientName } = req.body;
+  
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor de desenvolvimento." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    // Construct the clinical summary prompt
+    let prompt = `Você é um assistente clínico de psicologia de alta qualidade.
+Seu objetivo é criar um resumo clínico de evolução estruturado, sucinto, profissional e compassivo em português (pt-BR) após um atendimento.
+Nome do Paciente: ${patientName || "Paciente"}
+
+`;
+
+    if (notes && notes.trim()) {
+      prompt += `Notas clínicas preliminares anotadas pelo terapeuta:\n"${notes.trim()}"\n\n`;
+    }
+
+    if (messages && messages.length > 0) {
+      prompt += `Mensagens trocadas no chat do atendimento:\n`;
+      messages.forEach((m: any) => {
+        const sender = m.senderId === req.user.uid ? "Terapeuta" : "Paciente";
+        if (m.text) {
+          prompt += `- [${sender}]: ${m.text}\n`;
+        }
+      });
+      prompt += `\n`;
+    }
+
+    prompt += `Com base nas informações fornecidas acima, escreva um sumário clínico estruturado. O sumário DEVE ser dividido em exatamente 3 seções curtas, usando bullet points para cada uma:
+- **Pontos Principais Discutidos:** (descreva os principais temas tratados na sessão)
+- **Estado Emocional e Humor:** (descreva o estado emocional, regulação emocional e humor observados)
+- **Plano e Recomendações:** (plano terapêutico para as próximas sessões ou orientações)
+
+Mantenha a resposta extremamente objetiva, profissional, sem lero-lero. Responda em português (pt-BR).`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+    });
+
+    const summaryText = response.text || "";
+    res.json({ summary: summaryText.trim() });
+  } catch (error: any) {
+    console.error("Erro ao gerar resumo da sessão com Gemini:", error);
+    res.status(500).json({ error: error.message || "Falha interna ao gerar o resumo estruturado." });
   }
 });
 
