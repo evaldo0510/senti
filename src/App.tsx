@@ -43,6 +43,7 @@ import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
 import { DiagnosticPanel } from "./components/DiagnosticPanel";
+import NetworkStatusIndicator from "./components/NetworkStatusIndicator";
 import { ProtectedRoute } from "./components/AuthProvider";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -95,6 +96,7 @@ function App() {
           <IARAChatBubble />
           <SOSButton />
           <DiagnosticPanel />
+          <NetworkStatusIndicator />
         </Router>
       </PWAProvider>
     </ThemeProvider>
