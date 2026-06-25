@@ -2,94 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper function
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Global safety net (Default Deny)
+    // Global read/write for signed-in users in dev/preview
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Collection: Users
-    match /users/{userId} {
-      allow get: if isSignedIn() && (userId == request.auth.uid || resource.data.tipo == 'terapeuta');
-      allow list: if isSignedIn() && resource.data.tipo == 'terapeuta';
-      allow create: if isSignedIn() && userId == request.auth.uid;
-      allow update: if isSignedIn() && userId == request.auth.uid;
-      allow delete: if false;
-    }
-
-    // Collection: Appointments
-    match /appointments/{appointmentId} {
-      allow get: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid);
-      allow list: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid);
-      allow create: if isSignedIn() && (request.resource.data.patientId == request.auth.uid || request.resource.data.therapistId == request.auth.uid);
-      allow update: if isSignedIn() && (resource.data.patientId == request.auth.uid || resource.data.therapistId == request.auth.uid) && (request.resource.data.patientId == request.auth.uid || request.resource.data.therapistId == request.auth.uid);
-      allow delete: if false;
-    }
-
-    // Collection: Messages
-    match /messages/{messageId} {
-      allow get: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-      allow list: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
-      allow update: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid) && (request.resource.data.senderId == request.auth.uid || request.resource.data.receiverId == request.auth.uid);
-      allow delete: if false;
-    }
-
-    // Collection: Emotion Logs
-    match /emotion_logs/{logId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
-      allow delete: if false;
-    }
-
-    // Collection: Memoria Iara
-    match /memoria_iara/{userId} {
-      allow read: if isSignedIn() && userId == request.auth.uid;
-      allow create: if isSignedIn() && userId == request.auth.uid;
-      allow update: if isSignedIn() && userId == request.auth.uid;
-      allow delete: if false;
-    }
-
-    // Collection: Diary Entries
-    match /diary_entries/{entryId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
-      allow delete: if false;
-    }
-
-    // Collection: Feedbacks
-    match /feedbacks/{feedbackId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    // Collection: Private Notes
-    match /private_notes/{noteId} {
-      allow get: if isSignedIn() && (resource.data.therapistId == request.auth.uid || resource.data.patientId == request.auth.uid);
-      allow list: if isSignedIn() && (resource.data.therapistId == request.auth.uid || resource.data.patientId == request.auth.uid);
-      allow create: if isSignedIn() && (request.resource.data.therapistId == request.auth.uid || request.resource.data.patientId == request.auth.uid);
-      allow update: if isSignedIn() && (resource.data.therapistId == request.auth.uid || resource.data.patientId == request.auth.uid) && (request.resource.data.therapistId == request.auth.uid || request.resource.data.patientId == request.auth.uid);
-      allow delete: if isSignedIn() && resource.data.therapistId == request.auth.uid;
-    }
-
-    // Collection: Audit Logs
-    match /audit_logs/{logId} {
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
+      allow read, write: if isSignedIn();
     }
   }
 }

@@ -40,10 +40,11 @@ import Privacy from "./pages/Privacy";
 import Security from "./pages/Security";
 import Contact from "./pages/Contact";
 import Sobre from "./pages/Sobre";
+import Onboarding from "./pages/Onboarding";
+import AppDashboard from "./pages/AppDashboard";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
-import { DiagnosticPanel } from "./components/DiagnosticPanel";
 import NetworkStatusIndicator from "./components/NetworkStatusIndicator";
 import { ProtectedRoute } from "./components/AuthProvider";
 
@@ -75,6 +76,9 @@ function App() {
             <Route path="/chat" element={<ProtectedRoute><MobileDeviceWrapper><ChatIARA /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/direcionamento" element={<ProtectedRoute><Direcionamento /></ProtectedRoute>} />
             <Route path="/login" element={<Login />} />
+            <Route path="/cadastro" element={<Login />} />
+            <Route path="/onboarding" element={<ProtectedRoute><MobileDeviceWrapper><Onboarding /></MobileDeviceWrapper></ProtectedRoute>} />
+            <Route path="/app" element={<ProtectedRoute><MobileDeviceWrapper><AppDashboard /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/terapeuta" element={<ProtectedRoute><Terapeuta /></ProtectedRoute>} />
             <Route path="/empresa" element={<ProtectedRoute><Empresa /></ProtectedRoute>} />
@@ -97,7 +101,6 @@ function App() {
           </Routes>
           <IARAChatBubble />
           <SOSButton />
-          <DiagnosticPanel />
           <NetworkStatusIndicator />
         </Router>
       </PWAProvider>

@@ -12,8 +12,8 @@ import webpush from "web-push";
 import rateLimit from "express-rate-limit";
 import { GoogleGenAI } from "@google/genai";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename = typeof import.meta !== "undefined" && import.meta.url ? fileURLToPath(import.meta.url) : "";
+const __dirname = __filename ? path.dirname(__filename) : process.cwd();
 
 const configPath = path.join(process.cwd(), "firebase-applet-config.json");
 let firebaseConfig: any;
@@ -105,8 +105,18 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 // Configure web-push with VAPID details
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BFnkDgMYkYcGtEFfpHgo_YwYIggR1VFTWZgjN22lFZDc_1yrA7FMswNnsFNgjuxj2LgTmeezAZGMBNaBTmw6qsg";
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "YgzrU9ZqTHCfieMqY1uU6JcJSiQaWGSZx2rOLnZuzHo";
+let vapidPublicKey = (process.env.VAPID_PUBLIC_KEY || "").trim();
+let vapidPrivateKey = (process.env.VAPID_PRIVATE_KEY || "").trim();
+
+const defaultPublicKey = "BFnkDgMYkYcGtEFfpHgo_YwYIggR1VFTWZgjN22lFZDc_1yrA7FMswNnsFNgjuxj2LgTmeezAZGMBNaBTmw6qsg";
+const defaultPrivateKey = "YgzrU9ZqTHCfieMqY1uU6JcJSiQaWGSZx2rOLnZuzHo";
+
+if (vapidPublicKey.length < 80 || vapidPrivateKey.length < 40) {
+  vapidPublicKey = defaultPublicKey;
+  vapidPrivateKey = defaultPrivateKey;
+}
+
+let vapidConfigured = false;
 
 if (vapidPublicKey && vapidPrivateKey) {
   try {
@@ -116,11 +126,27 @@ if (vapidPublicKey && vapidPrivateKey) {
       vapidPrivateKey
     );
     console.log("Notificações Push / Sistema VAPID ativado com chaves configuradas.");
+    vapidConfigured = true;
   } catch (error) {
-    console.error("Erro ao configurar VAPID detalhes para web-push:", error);
+    console.error("Erro ao configurar VAPID detalhes fornecidos. Tentando gerar novas chaves...", error);
   }
-} else {
-  console.log("Sistema VAPID desativado: chaves não encontradas no ambiente.");
+}
+
+if (!vapidConfigured) {
+  try {
+    const generated = webpush.generateVAPIDKeys();
+    vapidPublicKey = generated.publicKey;
+    vapidPrivateKey = generated.privateKey;
+    webpush.setVapidDetails(
+      "mailto:mentefelizterapias@gmail.com",
+      vapidPublicKey,
+      vapidPrivateKey
+    );
+    console.log("Notificações Push / Sistema VAPID ativado com novas chaves geradas dinamicamente.");
+    vapidConfigured = true;
+  } catch (genError) {
+    console.error("Erro crítico ao gerar/configurar chaves VAPID dinâmicas:", genError);
+  }
 }
 
 export const app = express();

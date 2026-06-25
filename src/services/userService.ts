@@ -49,6 +49,11 @@ export const userService = {
         console.warn("Erro ao salvar no cache local IndexedDB", localErr);
       }
 
+      // Check achievements in background
+      import('./gamificationService').then(({ checkAndAwardBadges }) => {
+        checkAndAwardBadges(userId).catch(console.error);
+      });
+
       // Webhook para Google Sheets (Looker Studio)
       try {
         const webhookUrl = import.meta.env.VITE_GOOGLE_SHEETS_WEBHOOK_URL;
@@ -77,6 +82,22 @@ export const userService = {
     } catch (error) {
       console.warn("Firestore indisponível ou erro de permissão. Salvando em modo offline.", error);
       
+      if (userId === 'guest_demo_user' || userId.startsWith('simulated_')) {
+        try {
+          const stored = localStorage.getItem("simulated_emotion_logs") || "[]";
+          const logs = JSON.parse(stored);
+          logs.push(newEntry);
+          localStorage.setItem("simulated_emotion_logs", JSON.stringify(logs));
+        } catch (e) {
+          console.error("Error saving simulated emotion log:", e);
+        }
+      }
+
+      // Check achievements in background for offline/simulated fallback
+      import('./gamificationService').then(({ checkAndAwardBadges }) => {
+        checkAndAwardBadges(userId).catch(console.error);
+      });
+
       // Save locally to IndexedDB as UNSYNCED so it can be uploaded when connection recovers
       try {
         await offlineStorage.saveMoodOffline({
@@ -248,7 +269,7 @@ export const userService = {
   },
 
   getUser: async (uid: string): Promise<UserProfile | null> => {
-    if (uid === 'guest_demo_user') {
+    if (uid.startsWith('simulated_') || uid === 'guest_demo_user') {
       const simProfileStr = localStorage.getItem("simulatedProfile");
       if (simProfileStr) {
         try {
@@ -258,7 +279,7 @@ export const userService = {
         }
       }
       return {
-        uid: "guest_demo_user",
+        uid: uid,
         nome: "Paciente de Demonstração",
         email: "mentefelizterapias@gmail.com",
         tipo: "usuario",
@@ -764,6 +785,20 @@ export const userService = {
   },
 
   updateProfile: async (uid: string, data: Partial<UserProfile>) => {
+    if (uid.startsWith('simulated_') || uid === 'guest_demo_user') {
+      const simProfileStr = localStorage.getItem("simulatedProfile");
+      if (simProfileStr) {
+        try {
+          const simProfile = JSON.parse(simProfileStr);
+          const updated = { ...simProfile, ...data };
+          localStorage.setItem("simulatedProfile", JSON.stringify(updated));
+          return;
+        } catch (e) {
+          console.error("Error updating simulated profile:", e);
+        }
+      }
+      return;
+    }
     const path = `users/${uid}`;
     try {
       await updateDoc(doc(db, 'users', uid), data);
@@ -773,6 +808,9 @@ export const userService = {
   },
 
   updateOnlineStatus: async (uid: string, online: boolean) => {
+    if (uid.startsWith('simulated_') || uid === 'guest_demo_user') {
+      return;
+    }
     const path = `users/${uid}`;
     try {
       await updateDoc(doc(db, 'users', uid), { online });

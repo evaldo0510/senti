@@ -17,7 +17,7 @@ export default function Dashboard() {
     switch (tipo) {
       case "usuario":
       case "paciente":
-        navigate("/home");
+        navigate("/app");
         break;
       case "terapeuta":
         navigate("/terapeuta");

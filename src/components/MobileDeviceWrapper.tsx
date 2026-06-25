@@ -22,7 +22,9 @@ import {
   Share,
   Check,
   ShieldAlert,
-  Heart
+  Heart,
+  Users,
+  Calendar
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { usePWA } from "../contexts/PWAContext";
@@ -169,55 +171,62 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
     localStorage.setItem("senti_install_dismissed", "true");
   };
 
-  // Tools list for Toolbar
+  // Tools list for Toolbar representing the internal application menu
   const quickTools = [
     {
-      title: "Respiração Guiada",
-      description: "Pratique respiração quadrada para aliviar de imediato a ansiedade.",
-      icon: Wind,
+      title: "Início",
+      description: "Seu painel pessoal de regulação emocional e atalhos.",
+      icon: Home,
       color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
-      path: "/respiracao"
+      path: "/app"
     },
     {
-      title: "IARA Chat",
-      description: "Desabafe e receba orientações com nossa IA especializada.",
+      title: "Atendimento IA",
+      description: "Desabafe e receba orientações com a IARA 24 horas por dia.",
       icon: MessageSquare,
       color: "text-blue-500 bg-blue-500/10 border-blue-500/20",
       path: "/chat"
     },
     {
-      title: "Plantão Live (Vídeo)",
-      description: "Chame um profissional de plantão para suporte virtual.",
-      icon: Video,
-      color: "text-purple-500 bg-purple-500/10 border-purple-500/20",
-      path: "/live-iara"
-    },
-    {
-      title: "Triagem Sentí",
-      description: "Faça uma rápida autoavaliação emocional e receba direcionamento.",
-      icon: Brain,
-      color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
-      path: "/triagem"
-    },
-    {
-      title: "SOS Emergência",
-      description: "Suporte crítico de contingência para crises agudas.",
-      icon: AlertOctagon,
-      color: "text-rose-500 bg-rose-500/10 border-rose-500/20",
-      path: "/emergencia"
-    },
-    {
-      title: "Desafio 21 Dias",
-      description: "Recondicionamento mental diário com pílulas de evolução.",
-      icon: Sparkles,
+      title: "Terapeutas",
+      description: "Encontre e conecte-se com nossa equipe profissional qualificada.",
+      icon: Users,
       color: "text-indigo-500 bg-indigo-500/10 border-indigo-500/20",
-      path: "/reset"
+      path: "/profissionais"
+    },
+    {
+      title: "Agendamento",
+      description: "Consulte ou agende sessões e atendimentos virtuais.",
+      icon: Calendar,
+      color: "text-amber-500 bg-amber-500/10 border-amber-500/20",
+      path: "/pronto-atendimento"
+    },
+    {
+      title: "Minha Evolução",
+      description: "Acompanhe seus registros diários, humor e reflexões.",
+      icon: BookOpen,
+      color: "text-purple-500 bg-purple-500/10 border-purple-500/20",
+      path: "/diario"
+    },
+    {
+      title: "Conteúdos",
+      description: "Práticas recomendadas, artigos clínicos e feeds.",
+      icon: Sparkles,
+      color: "text-teal-500 bg-teal-500/10 border-teal-500/20",
+      path: "/home"
+    },
+    {
+      title: "Perfil",
+      description: "Suas configurações, conquistas de nível e dados pessoais.",
+      icon: User,
+      color: "text-slate-550 bg-slate-500/10 border-slate-500/20",
+      path: "/perfil"
     },
     {
       title: "Sobre o SentiPae",
-      description: "Conheça nosso propósito, metodologia e canais de segurança.",
+      description: "História da plataforma, nosso propósito e metodologia.",
       icon: Heart,
-      color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+      color: "text-rose-500 bg-rose-500/10 border-rose-500/20",
       path: "/sobre"
     }
   ];
@@ -389,10 +398,10 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           
           {/* Button 1: Início */}
           <button 
-            onClick={() => handleNavClick("/home")}
+            onClick={() => handleNavClick("/app")}
             className={cn(
               "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
-              isActive("/home") 
+              isActive("/app") 
                 ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             )}
@@ -400,7 +409,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           >
             <Home className="w-4.5 h-4.5" />
             <span className="text-[9px] uppercase tracking-widest font-black">Início</span>
-            {isActive("/home") && (
+            {isActive("/app") && (
               <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
             )}
           </button>

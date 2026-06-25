@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Activity, Wind, Heart, ArrowLeft, Play, Square, Flame, Sparkles, CheckCircle2 } from "lucide-react";
 import { offlineStorage, BreathingTechnique } from "../services/offlineStorage";
 import { trackEvent } from "../services/analyticsService";
+import { auth } from "../services/firebase";
+import { logBreathingActivity } from "../services/gamificationService";
 
 export default function Respiracao() {
   const location = useLocation();
@@ -198,6 +200,14 @@ export default function Respiracao() {
         technique_name: tech.name,
         completed_cycles: tech.cycles
       });
+
+      // Log activity and award XP / check badges
+      const user = auth.currentUser;
+      const simUserStr = localStorage.getItem("simulatedUser");
+      const simUser = simUserStr ? JSON.parse(simUserStr) : null;
+      const userId = user?.uid || simUser?.uid || 'guest_demo_user';
+      logBreathingActivity(userId, tech.id, tech.cycles).catch(console.error);
+
       // Wait and redirect to chat/home
       setTimeout(() => {
         navigate("/home");

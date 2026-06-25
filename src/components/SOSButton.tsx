@@ -27,11 +27,7 @@ const SOSButton: React.FC = () => {
   const [breathingPhase, setBreathingPhase] = useState<'in' | 'hold' | 'out'>('in');
   const [breathingSec, setBreathingSec] = useState(3);
 
-  // Hide on pages where it's redundant or distracting
   const hiddenPaths = ['/emergencia', '/chat', '/respiracao', '/triagem', '/live-iara', '/atendimento'];
-  if (hiddenPaths.includes(location.pathname)) {
-    return null;
-  }
 
   // Preload user's emergency contacts
   useEffect(() => {
@@ -189,6 +185,10 @@ const SOSButton: React.FC = () => {
     logSOSTrigger('grounding_complete');
     setShowGroundingModal(false);
   };
+
+  if (hiddenPaths.includes(location.pathname)) {
+    return null;
+  }
 
   return (
     <>

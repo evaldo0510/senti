@@ -47,6 +47,8 @@ export default function Login() {
       const currentUser = userCredential.user;
       
       if (currentUser) {
+        localStorage.removeItem("simulatedUser");
+        localStorage.removeItem("simulatedProfile");
         console.log("Login digital efetuado, atualizando nome de exibição...");
         await updateProfile(currentUser, {
           displayName: nome,
@@ -60,6 +62,8 @@ export default function Login() {
         }, tipoSelecionado);
         
         console.log("Sessão e perfil criados com sucesso!", profile);
+        localStorage.removeItem("simulatedUser");
+        localStorage.removeItem("simulatedProfile");
         localStorage.setItem("tipo", profile?.tipo || tipoSelecionado);
         
         try {
@@ -162,6 +166,8 @@ export default function Login() {
       console.log("Iniciando login com Google...");
       const user = await loginWithGoogle();
       if (user) {
+        localStorage.removeItem("simulatedUser");
+        localStorage.removeItem("simulatedProfile");
         console.log("Login com Google bem-sucedido, sincronizando perfil...");
         const profile = await userService.syncProfile(user, tipoSelecionado);
         console.log("Perfil sincronizado:", profile);

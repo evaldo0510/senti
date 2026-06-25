@@ -142,6 +142,9 @@ export interface UserProfile {
   instagram?: string;
   website?: string;
   customKey?: string;
+  onboardingCompleted?: boolean;
+  preferredService?: string;
+  lastAccess?: string;
 }
 
 export interface NewsCardProps {

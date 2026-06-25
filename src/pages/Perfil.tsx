@@ -28,7 +28,9 @@ import {
   Phone,
   ShieldAlert,
   History,
-  Trash2
+  Trash2,
+  Wind,
+  Award
 } from "lucide-react";
 import { auth, logout } from "../services/firebase";
 import { userService } from "../services/userService";
@@ -38,6 +40,7 @@ import { usePWA } from "../contexts/PWAContext";
 import { NotificationService } from "../services/notificationService";
 import { analysisService, TreatmentAnalysis } from "../services/analysisService";
 import { getPillOfDay, Pill } from "../services/pillService";
+import { GAMIFICATION_BADGES, Badge } from "../services/gamificationService";
 
 export default function Perfil() {
   const navigate = useNavigate();
@@ -327,7 +330,9 @@ export default function Perfil() {
               <Activity className="w-4 h-4 text-blue-400" />
             </div>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Nível</p>
-            <p className="text-sm font-medium text-slate-200">Iniciante</p>
+            <p className="text-xs font-medium text-slate-200 truncate">
+              {profile?.level || "Iniciante"} {profile?.xp ? `(${profile.xp} XP)` : ""}
+            </p>
           </div>
           <div className="bg-slate-900/50 border border-white/5 p-4 rounded-3xl text-center space-y-1">
             <div className="w-8 h-8 bg-amber-500/10 rounded-xl flex items-center justify-center mx-auto mb-2">
@@ -335,6 +340,70 @@ export default function Perfil() {
             </div>
             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Saúde</p>
             <p className="text-sm font-medium text-slate-200">Estável</p>
+          </div>
+        </div>
+
+        {/* Achievements / Badges Section */}
+        <div className="space-y-4 pt-2">
+          <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 ml-2">Minhas Conquistas</label>
+          <div className="grid grid-cols-2 gap-4">
+            {GAMIFICATION_BADGES.map((badge) => {
+              const isUnlocked = profile?.achievements?.includes(badge.id);
+              
+              // Map badge icons
+              let BadgeIcon = Award;
+              if (badge.icon === "Wind") BadgeIcon = Wind;
+              else if (badge.icon === "Activity") BadgeIcon = Activity;
+              else if (badge.icon === "HeartPulse") BadgeIcon = HeartPulse;
+              else if (badge.icon === "Crown") BadgeIcon = Crown;
+
+              return (
+                <div 
+                  key={badge.id}
+                  className={cn(
+                    "p-5 rounded-3xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-36 group",
+                    isUnlocked 
+                      ? "bg-slate-900/60 border-emerald-500/30 shadow-lg shadow-emerald-500/5" 
+                      : "bg-slate-950/40 border-white/5 opacity-60"
+                  )}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className={cn(
+                      "w-10 h-10 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 duration-300",
+                      isUnlocked 
+                        ? badge.category === 'breathing' 
+                          ? "bg-sky-500/20 text-sky-400" 
+                          : "bg-amber-500/20 text-amber-400"
+                        : "bg-slate-800 text-slate-600"
+                    )}>
+                      <BadgeIcon className="w-5 h-5" />
+                    </div>
+                    {isUnlocked ? (
+                      <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Ativa
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-slate-600 bg-slate-800/50 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        Bloqueada
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-slate-200 transition-colors group-hover:text-white">{badge.title}</h4>
+                    <p className="text-[10px] text-slate-500 leading-tight line-clamp-2">
+                      {isUnlocked ? badge.description : `Critério: ${badge.criteria}`}
+                    </p>
+                  </div>
+                  {isUnlocked && (
+                    <div className={cn(
+                      "absolute -right-3 -bottom-3 w-12 h-12 rounded-full blur-xl opacity-20",
+                      badge.category === 'breathing' ? "bg-sky-500" : "bg-amber-500"
+                    )} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
