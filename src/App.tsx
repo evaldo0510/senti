@@ -58,9 +58,7 @@ function App() {
           <Router>
             <Routes>
             <Route path="/" element={<LandingPro />} />
-            <Route path="/home" element={<ProtectedRoute><MobileDeviceWrapper><DashboardPaciente /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/assinatura" element={<Subscription />} />
-            <Route path="/reset" element={<ProtectedRoute><MobileDeviceWrapper><Reset /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/reset21" element={<Reset21 />} />
             <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />
             <Route path="/reset-21/sales" element={<Reset21Sales />} />
@@ -68,36 +66,42 @@ function App() {
             <Route path="/privacidade" element={<Privacy />} />
             <Route path="/seguranca" element={<Security />} />
             <Route path="/contato" element={<Contact />} />
-            <Route path="/sobre" element={<ProtectedRoute><MobileDeviceWrapper><Sobre /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/lead" element={<LeadForm />} />
             <Route path="/vendas-empresa" element={<VendasEmpresa />} />
-            <Route path="/triagem" element={<ProtectedRoute><MobileDeviceWrapper><Triagem /></MobileDeviceWrapper></ProtectedRoute>} />
-            <Route path="/respiracao" element={<ProtectedRoute><MobileDeviceWrapper><Respiracao /></MobileDeviceWrapper></ProtectedRoute>} />
-            <Route path="/chat" element={<ProtectedRoute><MobileDeviceWrapper><ChatIARA /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/direcionamento" element={<ProtectedRoute><Direcionamento /></ProtectedRoute>} />
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Login />} />
-            <Route path="/onboarding" element={<ProtectedRoute><MobileDeviceWrapper><Onboarding /></MobileDeviceWrapper></ProtectedRoute>} />
-            <Route path="/app" element={<ProtectedRoute><MobileDeviceWrapper><AppDashboard /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/terapeuta" element={<ProtectedRoute><Terapeuta /></ProtectedRoute>} />
             <Route path="/empresa" element={<ProtectedRoute><Empresa /></ProtectedRoute>} />
             <Route path="/prefeitura" element={<ProtectedRoute><Prefeitura /></ProtectedRoute>} />
-            <Route path="/profissionais" element={<ProtectedRoute><MobileDeviceWrapper><Profissionais /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/agendamento/:id" element={<ProtectedRoute><Agendamento /></ProtectedRoute>} />
             <Route path="/terapeuta-perfil/:id" element={<ProtectedRoute><TerapeutaPerfil /></ProtectedRoute>} />
-            <Route path="/diario" element={<ProtectedRoute><MobileDeviceWrapper><Diario /></MobileDeviceWrapper></ProtectedRoute>} />
-            <Route path="/perfil" element={<ProtectedRoute><MobileDeviceWrapper><Perfil /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/gerenciar-dados" element={<ProtectedRoute><GerenciamentoDados /></ProtectedRoute>} />
-            <Route path="/emergencia" element={<ProtectedRoute><MobileDeviceWrapper><Emergencia /></MobileDeviceWrapper></ProtectedRoute>} />
-            <Route path="/pronto-atendimento" element={<ProtectedRoute><MobileDeviceWrapper><ProntoAtendimento /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/terapeuta-setup" element={<ProtectedRoute><TerapeutaSetup /></ProtectedRoute>} />
-            <Route path="/live-iara" element={<ProtectedRoute><MobileDeviceWrapper><LiveIARA /></MobileDeviceWrapper></ProtectedRoute>} />
             <Route path="/clinica" element={<ProtectedRoute><Clinica /></ProtectedRoute>} />
             <Route path="/hospital" element={<ProtectedRoute><Hospital /></ProtectedRoute>} />
             <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Atendimento /></ProtectedRoute>} />
             <Route path="/registro/:appointmentId" element={<ProtectedRoute><Registro /></ProtectedRoute>} />
             <Route path="/terapeuta/paciente/:id" element={<ProtectedRoute><ProntuarioPaciente /></ProtectedRoute>} />
+
+            {/* Layout Route with Persistent Mobile Shell for Beautiful Page Transitions */}
+            <Route element={<ProtectedRoute><MobileDeviceWrapper /></ProtectedRoute>}>
+              <Route path="/home" element={<DashboardPaciente />} />
+              <Route path="/reset" element={<Reset />} />
+              <Route path="/sobre" element={<Sobre />} />
+              <Route path="/triagem" element={<Triagem />} />
+              <Route path="/respiracao" element={<Respiracao />} />
+              <Route path="/chat" element={<ChatIARA />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/app" element={<AppDashboard />} />
+              <Route path="/profissionais" element={<Profissionais />} />
+              <Route path="/diario" element={<Diario />} />
+              <Route path="/perfil" element={<Perfil />} />
+              <Route path="/emergencia" element={<Emergencia />} />
+              <Route path="/pronto-atendimento" element={<ProntoAtendimento />} />
+              <Route path="/live-iara" element={<LiveIARA />} />
+            </Route>
           </Routes>
           <IARAChatBubble />
           <SOSButton />

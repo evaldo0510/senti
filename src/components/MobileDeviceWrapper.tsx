@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Home, 
@@ -30,7 +30,7 @@ import { cn } from "../lib/utils";
 import { usePWA } from "../contexts/PWAContext";
 
 interface MobileDeviceWrapperProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperProps) {
@@ -316,7 +316,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} // smooth native-like spring curve
               className="w-full min-h-full flex flex-col"
             >
-              {children}
+              {children || <Outlet />}
             </motion.div>
           </AnimatePresence>
         </div>

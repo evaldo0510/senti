@@ -29,7 +29,7 @@ export default function Emergencia() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable, isOffline } = usePWA();
   const [showAllResources, setShowAllResources] = useState(false);
-  const [activeTab, setActiveTab] = useState<"coping" | "breathing" | "grounding">("coping");
+  const [activeTab, setActiveTab] = useState<"coping" | "breathing" | "grounding" | "socorro">("coping");
   const [offlineActionAttempted, setOfflineActionAttempted] = useState<string | null>(null);
 
   // --- COPING STATEMENTS STATE ---
@@ -284,36 +284,46 @@ export default function Emergencia() {
             </div>
 
             {/* Offline Tab Selection */}
-            <div className="grid grid-cols-3 gap-1 bg-slate-900/60 p-1 rounded-xl">
+            <div className="grid grid-cols-4 gap-1 bg-slate-900/60 p-1 rounded-xl">
               <button
                 onClick={() => setActiveTab("coping")}
-                className={`py-2 text-[10px] font-bold rounded-lg transition-all text-center ${
+                className={`py-2 text-[9px] font-bold rounded-lg transition-all text-center ${
                   activeTab === "coping" 
                     ? "bg-emerald-600 text-white shadow" 
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                Acolhimento
+                Calma
               </button>
               <button
                 onClick={() => setActiveTab("breathing")}
-                className={`py-2 text-[10px] font-bold rounded-lg transition-all text-center ${
+                className={`py-2 text-[9px] font-bold rounded-lg transition-all text-center ${
                   activeTab === "breathing" 
                     ? "bg-emerald-600 text-white shadow" 
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                Respiração
+                Respirar
               </button>
               <button
                 onClick={() => setActiveTab("grounding")}
-                className={`py-2 text-[10px] font-bold rounded-lg transition-all text-center ${
+                className={`py-2 text-[9px] font-bold rounded-lg transition-all text-center ${
                   activeTab === "grounding" 
                     ? "bg-emerald-600 text-white shadow" 
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                Aterramento
+                Aterrar
+              </button>
+              <button
+                onClick={() => setActiveTab("socorro")}
+                className={`py-2 text-[9px] font-bold rounded-lg transition-all text-center ${
+                  activeTab === "socorro" 
+                    ? "bg-emerald-600 text-white shadow" 
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                Socorro
               </button>
             </div>
 
@@ -455,6 +465,44 @@ export default function Emergencia() {
                       Voltar ao Início
                     </button>
                   )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Tab 4: Direct Crisis First Aid Checklist */}
+            {activeTab === "socorro" && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-4 pt-1"
+              >
+                <div className="space-y-3">
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider font-extrabold">Passo a Passo de Primeiros Socorros</p>
+                  
+                  <div className="space-y-2.5">
+                    {[
+                      { step: "1", title: "Estabilize seu corpo", desc: "Sente-se confortavelmente, apoie as costas e coloque os dois pés firmes no chão para recuperar a noção de gravidade e limite físico." },
+                      { step: "2", title: "Regule a respiração", desc: "Inspire por 4 segundos, segure por 4, expire por 4 e segure por 4 (conforme a aba 'Respirar'). Isso reduzirá os batimentos cardíacos." },
+                      { step: "3", title: "Reconheça o presente", desc: "Fale em voz alta três objetos neutros ao seu redor. Isso quebra o ciclo de pensamentos de catástrofe na mente." },
+                      { step: "4", title: "Lembrete de segurança", desc: "A ansiedade aguda atinge o pico em 10 minutos e depois decai naturalmente. O que você está sentindo vai passar em breve." }
+                    ].map((item) => (
+                      <div key={item.step} className="p-3 bg-slate-900/40 border border-white/5 rounded-2xl flex gap-3 items-start">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                          {item.step}
+                        </span>
+                        <div className="space-y-0.5">
+                          <h5 className="text-xs font-bold text-white">{item.title}</h5>
+                          <p className="text-[11px] text-slate-400 leading-relaxed font-light">{item.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5">
+                  <p className="text-[10px] text-center text-slate-500 leading-relaxed font-light italic">
+                    "Você é incrivelmente forte por respirar através disso tudo. Estamos com você."
+                  </p>
                 </div>
               </motion.div>
             )}
