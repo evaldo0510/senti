@@ -272,6 +272,40 @@ export default function Respiracao() {
     }
   };
 
+  const getBreathingScale = () => {
+    const minScale = 0.85;
+    const maxScale = 1.85;
+    const diff = maxScale - minScale;
+
+    switch (fase) {
+      case "inspira":
+        return minScale + diff * smoothProgress;
+      case "sustemPreso":
+        return maxScale;
+      case "solta":
+        return maxScale - diff * smoothProgress;
+      case "sustemVazio":
+        return minScale;
+      default:
+        return 1.0;
+    }
+  };
+
+  const getPhaseBorderColor = () => {
+    switch (fase) {
+      case "inspira":
+        return "border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_60px_rgba(16,185,129,0.2)]";
+      case "sustemPreso":
+        return "border-cyan-500/30 bg-cyan-500/10 shadow-[0_0_60px_rgba(6,182,212,0.2)]";
+      case "solta":
+        return "border-blue-500/30 bg-blue-500/10 shadow-[0_0_60px_rgba(59,130,246,0.2)]";
+      case "sustemVazio":
+        return "border-indigo-500/30 bg-indigo-500/10 shadow-[0_0_60px_rgba(99,102,241,0.2)]";
+      default:
+        return "border-slate-500/10 bg-slate-500/5";
+    }
+  };
+
   const getPhaseLabelPortuguese = () => {
     switch (fase) {
       case "inspira":
@@ -382,25 +416,44 @@ export default function Respiracao() {
             {/* Visual breathing bellows circle & geometric layout */}
             <div className="relative w-72 h-72 flex items-center justify-center">
               
-              {/* Outer pulsing ring */}
-              <AnimatePresence>
-                <motion.div
-                  key={fase}
-                  className={`absolute rounded-full -z-10 ${getPhaseColorGlow()}`}
-                  initial={{ scale: 0.8, opacity: 0.1 }}
-                  animate={{ 
-                    scale: fase === "inspira" ? 1.45 : 
-                           fase === "sustemPreso" ? 1.45 : 
-                           fase === "solta" ? 0.95 : 0.95,
-                    opacity: [0.15, 0.35, 0.15]
-                  }}
-                  transition={{ 
-                    duration: timeLeftInPhase > 0 ? timeLeftInPhase : 1, 
-                    ease: "easeInOut" 
-                  }}
-                  style={{ width: "240px", height: "240px" }}
-                />
-              </AnimatePresence>
+              {/* Dynamic Smooth Expanding/Shrinking Breathing Circle (Bellows) */}
+              <div 
+                id="breathing-guide-circle"
+                className={`absolute rounded-full -z-10 border transition-all duration-100 ease-linear ${getPhaseBorderColor()}`}
+                style={{
+                  width: "140px",
+                  height: "140px",
+                  transform: `scale(${getBreathingScale()})`,
+                }}
+              />
+
+              {/* Secondary Concentric Ripple for Therapeutic Wave effect */}
+              <div 
+                id="breathing-guide-ripple-1"
+                className={`absolute rounded-full -z-10 border border-dashed transition-all duration-150 ease-linear opacity-25`}
+                style={{
+                  width: "140px",
+                  height: "140px",
+                  transform: `scale(${getBreathingScale() * 1.25})`,
+                  borderColor: fase === "inspira" ? "#10b981" : 
+                               fase === "sustemPreso" ? "#06b6d4" : 
+                               fase === "solta" ? "#3b82f6" : "#6366f1",
+                }}
+              />
+
+              {/* Outer soft aura ripple */}
+              <div 
+                id="breathing-guide-ripple-2"
+                className={`absolute rounded-full -z-10 border border-dotted transition-all duration-200 ease-linear opacity-10`}
+                style={{
+                  width: "140px",
+                  height: "140px",
+                  transform: `scale(${getBreathingScale() * 1.5})`,
+                  borderColor: fase === "inspira" ? "#10b981" : 
+                               fase === "sustemPreso" ? "#06b6d4" : 
+                               fase === "solta" ? "#3b82f6" : "#6366f1",
+                }}
+              />
 
               {/* Dynamic SVG Guide paths for tracking box / triangle / wave */}
               <svg className="absolute inset-0 w-full h-full p-2 z-0 overflow-visible" viewBox="0 0 240 240">

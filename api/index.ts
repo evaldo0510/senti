@@ -104,8 +104,8 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 // Configure web-push with VAPID details
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BGlKxO68fwIFc_DCMSkAKMsaEnY5IV5mjp8A4KDMlYdcUCK7brY2qG3zVXBO-esLIqUa9Dh2-QQX4J3xl3lP-Uw";
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "uYaBVvFyVTSfCU3oB4j4o4J-wCJplzY5U1SsOotAHt0";
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || "BFnkDgMYkYcGtEFfpHgo_YwYIggR1VFTWZgjN22lFZDc_1yrA7FMswNnsFNgjuxj2LgTmeezAZGMBNaBTmw6qsg";
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || "YgzrU9ZqTHCfieMqY1uU6JcJSiQaWGSZx2rOLnZuzHo";
 
 if (vapidPublicKey && vapidPrivateKey) {
   try {
