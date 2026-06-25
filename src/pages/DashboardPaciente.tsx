@@ -57,6 +57,10 @@ import { Onboarding } from "../components/Onboarding";
 import { AffirmationToast } from "../components/AffirmationToast";
 import { generateTherapistAvatar } from "../services/imageService";
 import DashboardAnalytics from "../components/Dashboard";
+import CrisisResources from "../components/CrisisResources";
+import { sentimentService } from "../services/sentimentService";
+import { healthService } from "../services/healthService";
+import { Dumbbell, Download, ToggleLeft, ToggleRight, FileText } from "lucide-react";
 
 export default function DashboardPaciente() {
   const navigate = useNavigate();
@@ -90,7 +94,36 @@ export default function DashboardPaciente() {
   // Emotional history for Recharts
   const [moodHistory, setMoodHistory] = useState<any[]>([]);
   const [chartPeriod, setChartPeriod] = useState<'7' | '30' | 'all'>('7');
-  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'humor' | 'completo'>('humor');
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'humor' | 'completo' | 'sentimento' | 'crise'>('humor');
+  const [diaryEntries, setDiaryEntries] = useState<any[]>([]);
+  const [selectedDiaryEntryForAI, setSelectedDiaryEntryForAI] = useState<any | null>(null);
+  const [aiSentimentReport, setAiSentimentReport] = useState<any | null>(null);
+  const [loadingAISentiment, setLoadingAISentiment] = useState<boolean>(false);
+
+  // Health sync states
+  const [isGoogleFitLinked, setIsGoogleFitLinked] = useState<boolean>(
+    localStorage.getItem("health_linked_googlefit") === "true"
+  );
+  const [isHealthKitLinked, setIsHealthKitLinked] = useState<boolean>(
+    localStorage.getItem("health_linked_healthkit") === "true"
+  );
+  const [healthData, setHealthData] = useState<any[]>([]);
+  const [syncingHealth, setSyncingHealth] = useState<boolean>(false);
+  
+  // Custom sleep/steps input state for today
+  const [sleepInput, setSleepInput] = useState<number>(7.5);
+  const [stepsInput, setStepsInput] = useState<number>(6000);
+  const [showManualHealthInput, setShowManualHealthInput] = useState<boolean>(false);
+
+  // Scheduled Notification State
+  const [notificationScheduled, setNotificationScheduled] = useState<boolean>(
+    localStorage.getItem("reminder_active") === "true"
+  );
+  const [notificationTime, setNotificationTime] = useState<string>(
+    localStorage.getItem("reminder_time") || "20:00"
+  );
+  const [savingNotification, setSavingNotification] = useState<boolean>(false);
+  const [showNotificationSavedToast, setShowNotificationSavedToast] = useState<boolean>(false);
 
   const loadMoreNews = () => {
     setVisibleNewsCount(prev => prev + 3);
@@ -124,6 +157,7 @@ export default function DashboardPaciente() {
   useEffect(() => {
     let unsubAppointments: (() => void) | undefined;
     let unsubMood: (() => void) | undefined;
+    let unsubDiary: (() => void) | undefined;
 
     const loadData = async () => {
       const simUserStr = localStorage.getItem("simulatedUser");
@@ -301,6 +335,11 @@ export default function DashboardPaciente() {
           }
         });
 
+        // Get diary entries
+        unsubDiary = userService.getDiaryEntries((entries) => {
+          setDiaryEntries(entries);
+        });
+
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
@@ -313,14 +352,310 @@ export default function DashboardPaciente() {
     return () => {
       if (unsubAppointments) unsubAppointments();
       if (unsubMood) unsubMood();
+      if (unsubDiary) unsubDiary();
     };
   }, [navigate]);
+
+  // Load health data if linked
+  useEffect(() => {
+    const provider = isGoogleFitLinked ? "googlefit" : isHealthKitLinked ? "healthkit" : null;
+    if (provider) {
+      const data = healthService.getSyncedData(provider);
+      setHealthData(data);
+    } else {
+      setHealthData([]);
+    }
+  }, [isGoogleFitLinked, isHealthKitLinked]);
+
+  // Background check for scheduled notifications
+  useEffect(() => {
+    if (!notificationScheduled) return;
+
+    const checkNotification = () => {
+      const now = new Date();
+      const [hours, minutes] = notificationTime.split(":").map(Number);
+      
+      // If matches time
+      if (now.getHours() === hours && now.getMinutes() === minutes) {
+        // Check if already notified today to prevent double-firing
+        const lastNotified = localStorage.getItem("last_notified_date");
+        const todayStr = now.toDateString();
+        
+        if (lastNotified !== todayStr) {
+          localStorage.setItem("last_notified_date", todayStr);
+          
+          // Trigger Notification
+          if (Notification.permission === "granted") {
+            new Notification("Sentí - Diário de Bordo", {
+              body: "Hora do seu registro emocional! Como foi seu dia hoje? Dedique 2 minutos para registrar no diário.",
+              icon: "/icon.png"
+            });
+          } else {
+            console.log("Notificação programada agendada para agora, mas permissão não foi concedida.");
+          }
+        }
+      }
+    };
+
+    // Check immediately and then every 30 seconds
+    checkNotification();
+    const interval = setInterval(checkNotification, 30000);
+    return () => clearInterval(interval);
+  }, [notificationScheduled, notificationTime]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Bom dia";
     if (hour < 18) return "Boa tarde";
     return "Boa noite";
+  };
+
+  const handleAIAnalysis = async (entry: any) => {
+    setSelectedDiaryEntryForAI(entry);
+    setLoadingAISentiment(true);
+    setAiSentimentReport(null);
+    try {
+      const report = await sentimentService.analyzeWithAI(entry.content);
+      setAiSentimentReport(report);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingAISentiment(false);
+    }
+  };
+
+  const handleCloseAIAnalysis = () => {
+    setSelectedDiaryEntryForAI(null);
+    setAiSentimentReport(null);
+  };
+
+  const handleToggleGoogleFit = () => {
+    setSyncingHealth(true);
+    setTimeout(() => {
+      if (isGoogleFitLinked) {
+        healthService.unlinkProvider("googlefit");
+        setIsGoogleFitLinked(false);
+      } else {
+        healthService.linkProvider("googlefit");
+        setIsGoogleFitLinked(true);
+        // Unlink other to keep only one active
+        healthService.unlinkProvider("healthkit");
+        setIsHealthKitLinked(false);
+      }
+      setSyncingHealth(false);
+    }, 1200);
+  };
+
+  const handleToggleHealthKit = () => {
+    setSyncingHealth(true);
+    setTimeout(() => {
+      if (isHealthKitLinked) {
+        healthService.unlinkProvider("healthkit");
+        setIsHealthKitLinked(false);
+      } else {
+        healthService.linkProvider("healthkit");
+        setIsHealthKitLinked(true);
+        // Unlink other
+        healthService.unlinkProvider("googlefit");
+        setIsGoogleFitLinked(false);
+      }
+      setSyncingHealth(false);
+    }, 1200);
+  };
+
+  const handleSaveManualHealth = () => {
+    const provider = isGoogleFitLinked ? "googlefit" : isHealthKitLinked ? "healthkit" : null;
+    if (!provider) return;
+    
+    const todayStr = new Date().toISOString().split("T")[0];
+    healthService.updateDayData(provider, todayStr, sleepInput, stepsInput);
+    
+    // Refresh state
+    const data = healthService.getSyncedData(provider);
+    setHealthData(data);
+    setShowManualHealthInput(false);
+  };
+
+  const handleSaveNotificationSetting = async () => {
+    setSavingNotification(true);
+    try {
+      if (notificationScheduled) {
+        const permission = await NotificationService.requestPermission();
+        if (permission === "granted") {
+          localStorage.setItem("reminder_active", "true");
+          localStorage.setItem("reminder_time", notificationTime);
+        } else {
+          localStorage.setItem("reminder_active", "false");
+          setNotificationScheduled(false);
+          alert("Por favor, habilite as notificações no seu navegador para receber os lembretes do diário.");
+        }
+      } else {
+        localStorage.setItem("reminder_active", "false");
+      }
+      
+      setShowNotificationSavedToast(true);
+      setTimeout(() => setShowNotificationSavedToast(false), 4000);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingNotification(false);
+    }
+  };
+
+  const handleExportSentimentPDF = async (period: 'weekly' | 'monthly') => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+
+      // Filter entries based on period
+      const daysLimit = period === 'weekly' ? 7 : 30;
+      const now = new Date();
+      const cutoffDate = new Date(now.getTime() - daysLimit * 24 * 60 * 60 * 1000);
+
+      const filteredDiaries = diaryEntries.filter(entry => {
+        if (!entry.timestamp) return false;
+        return new Date(entry.timestamp) >= cutoffDate;
+      });
+
+      const weeklyTrendData = sentimentService.getWeeklySentimentTrend(filteredDiaries);
+      const validScores = weeklyTrendData.filter(d => d.score !== null).map(d => d.score as number);
+      const avgSentiment = validScores.length > 0 
+        ? (validScores.reduce((a, b) => a + b, 0) / validScores.length).toFixed(1)
+        : "N/A";
+
+      const correlation = healthService.analyzeCorrelation(filteredDiaries, healthData);
+
+      // Styles
+      const emeraldColor = [16, 185, 129];
+      const slateColor = [30, 41, 59];
+      const grayColor = [100, 116, 139];
+
+      // Header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(22);
+      doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+      doc.text("Sentí", 20, 20);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text(`Relatório de Evolução Emocional & Saúde (${period === 'weekly' ? 'Semanal' : 'Mensal'})`, 20, 26);
+      doc.text(`Gerado em: ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`, 130, 20);
+
+      // Divider
+      doc.setDrawColor(226, 232, 240);
+      doc.line(20, 32, 190, 32);
+
+      // Patient metadata
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+      doc.text(`Paciente: ${userProfile?.nome || "Paciente"}`, 20, 40);
+      doc.text(`Período de Análise: Últimos ${daysLimit} dias`, 20, 46);
+
+      // Section 1: Dashboard Stats
+      doc.setFillColor(248, 250, 252); // soft grey card bg
+      doc.rect(20, 52, 170, 32, "F");
+
+      doc.setFontSize(9);
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text("ÍNDICE EMOCIONAL MÉDIO", 25, 60);
+      doc.text("REGISTROS TEXTUAIS", 85, 60);
+      doc.text("CONEXÃO SAÚDE", 140, 60);
+
+      doc.setFontSize(16);
+      doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+      doc.text(`${avgSentiment} / 10`, 25, 70);
+
+      doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+      doc.text(`${filteredDiaries.length} escritos`, 85, 70);
+
+      const healthConnected = isGoogleFitLinked ? "Google Fit" : isHealthKitLinked ? "HealthKit" : "Nenhum";
+      doc.setFontSize(12);
+      doc.text(healthConnected, 140, 70);
+
+      // Section 2: Health correlations
+      let y = 94;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+      doc.text("Cruzamento de Dados de Saúde & Bem-Estar", 20, y);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+      
+      y += 8;
+      const splitSleepCorr = doc.splitTextToSize(`• Sono vs Humor: ${correlation.sleepCorrelation}`, 170);
+      doc.text(splitSleepCorr, 20, y);
+      y += splitSleepCorr.length * 5;
+
+      const splitActCorr = doc.splitTextToSize(`• Exercício vs Humor: ${correlation.activityCorrelation}`, 170);
+      doc.text(splitActCorr, 20, y);
+      y += splitActCorr.length * 5 + 4;
+
+      // Divider
+      doc.setDrawColor(241, 245, 249);
+      doc.line(20, y, 190, y);
+      y += 8;
+
+      // Section 3: Diary details
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(13);
+      doc.text("Detalhamento Diário", 20, y);
+      y += 8;
+
+      if (filteredDiaries.length === 0) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(10);
+        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+        doc.text("Nenhuma reflexão salva no diário de bordo neste período.", 20, y);
+      } else {
+        filteredDiaries.forEach((entry, idx) => {
+          if (y > 250) {
+            doc.addPage();
+            y = 20;
+          }
+
+          const entryDate = entry.timestamp ? new Date(entry.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : "Data N/A";
+          const sentiment = sentimentService.analyzeDiarySentiment(entry.content, entry.moodValue);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+          doc.text(`${entryDate} - ${entry.title || "Sem Título"}`, 20, y);
+
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+          doc.text(`Tom: ${sentiment.emoji} ${sentiment.label} (${sentiment.dominantEmotion})`, 130, y);
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+          y += 5;
+          const splitContent = doc.splitTextToSize(`"${entry.content}"`, 170);
+          doc.text(splitContent, 20, y);
+          y += splitContent.length * 5 + 6;
+
+          // Draw item line
+          doc.setDrawColor(241, 245, 249);
+          doc.line(20, y - 3, 190, y - 3);
+        });
+      }
+
+      // Footer
+      if (y > 265) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+      doc.text("Este documento destina-se apenas para fins informativos e de acompanhamento terapêutico. Sentí App 2026.", 20, 285);
+
+      doc.save(`Senti_Relatorio_Saude_Mental_${period}.pdf`);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const getActiveUser = () => {
@@ -729,6 +1064,100 @@ export default function DashboardPaciente() {
           </motion.div>
         )}
 
+        {/* Dica do Dia Card */}
+        {(() => {
+          const tip = (() => {
+            const defaultTip = {
+              title: "Ancoragem no Presente (5-4-3-2-1)",
+              category: "Mindfulness",
+              text: "Olhe ao redor e identifique: 5 coisas que pode ver, 4 que pode tocar, 3 que pode ouvir, 2 que pode cheirar e 1 que pode provar. É excelente para acalmar mentes agitadas.",
+              icon: Lightbulb
+            };
+
+            if (!moodHistory || moodHistory.length === 0) {
+              return defaultTip;
+            }
+
+            const validEntries = moodHistory.slice(0, 5);
+            const avgMood = validEntries.reduce((sum, item) => sum + item.value, 0) / validEntries.length;
+            
+            let hasAnxietyTrigger = false;
+            let hasSleepTrigger = false;
+            let hasWorkTrigger = false;
+
+            validEntries.forEach(entry => {
+              if (entry.triggers && Array.isArray(entry.triggers)) {
+                if (entry.triggers.includes("sono")) hasSleepTrigger = true;
+                if (entry.triggers.includes("trabalho")) hasWorkTrigger = true;
+                if (entry.triggers.includes("ansiedade")) hasAnxietyTrigger = true;
+              }
+            });
+
+            if (avgMood < 5) {
+              return {
+                title: "Ativação Comportamental de 5 Minutos",
+                category: "Cognitivo-Comportamental",
+                text: "Quando o desânimo bater, mova-se. Faça uma pequena arrumação em uma gaveta ou dê uma volta rápida pelo cômodo. Quebrar a inércia física ajuda a reconfigurar o ânimo.",
+                icon: Activity
+              };
+            } else if (hasAnxietyTrigger || hasWorkTrigger) {
+              return {
+                title: "Técnica de Respiração Quadrada (4-4-4-4)",
+                category: "Regulação do Estresse",
+                text: "Inspire pelo nariz por 4 segundos, segure o ar por 4 segundos, expire suavemente pela boca por 4 segundos e permaneça com os pulmões vazios por mais 4 segundos. Repita 3 vezes para acalmar o sistema nervoso.",
+                icon: Wind
+              };
+            } else if (hasSleepTrigger) {
+              return {
+                title: "Higiene do Sono: Desconexão Gradual",
+                category: "Qualidade de Vida",
+                text: "Desligue as telas (celular e TV) pelo menos 30 minutos antes de dormir. Reduzir a luz azul sinaliza ao cérebro para produzir melatonina, garantindo um sono restaurador.",
+                icon: Moon
+              };
+            } else if (avgMood >= 7.5) {
+              return {
+                title: "Multiplique sua Alegria: Pote da Gratidão",
+                category: "Psicologia Positiva",
+                text: "Escreva ou pense em 3 coisas simples que deram certo hoje, não importa o quão pequenas. Celebrar intencionalmente suas vitórias treina seu cérebro para focar no bem-estar.",
+                icon: Sparkles
+              };
+            }
+
+            return defaultTip;
+          })();
+
+          const TipIcon = tip.icon;
+
+          return (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-500/15 rounded-[2.5rem] p-6 shadow-lg shadow-indigo-500/5 space-y-3"
+            >
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <TipIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500">Dica do Dia</h4>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold">{tip.category}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
+                  {tip.title}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed">
+                  {tip.text}
+                </p>
+              </div>
+            </motion.div>
+          );
+        })()}
+
         {/* Interactive Daily Mood Tracker */}
         <section className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none space-y-4">
           <div className="space-y-1">
@@ -915,7 +1344,7 @@ export default function DashboardPaciente() {
               <p className="text-xs text-slate-500 font-medium">Visualização em tempo real das suas oscilações emocionais e atividade</p>
             </div>
             
-            <div className="flex bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/5 select-none self-start sm:self-center">
+            <div className="flex flex-wrap bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/5 select-none self-start sm:self-center gap-1">
               <button
                 onClick={() => setActiveAnalyticsTab('humor')}
                 className={cn(
@@ -928,6 +1357,17 @@ export default function DashboardPaciente() {
                 Histórico Simples
               </button>
               <button
+                onClick={() => setActiveAnalyticsTab('sentimento')}
+                className={cn(
+                  "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                  activeAnalyticsTab === 'sentimento' 
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                Sentimento
+              </button>
+              <button
                 onClick={() => setActiveAnalyticsTab('completo')}
                 className={cn(
                   "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
@@ -936,7 +1376,18 @@ export default function DashboardPaciente() {
                     : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 )}
               >
-                Estatísticas Completas
+                Estatísticas
+              </button>
+              <button
+                onClick={() => setActiveAnalyticsTab('crise')}
+                className={cn(
+                  "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                  activeAnalyticsTab === 'crise' 
+                    ? "bg-red-600 text-white shadow-sm font-extrabold" 
+                    : "text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-extrabold"
+                )}
+              >
+                Canais de Apoio (SOS)
               </button>
             </div>
           </div>
@@ -944,6 +1395,500 @@ export default function DashboardPaciente() {
           {activeAnalyticsTab === 'completo' ? (
             <div className="pt-2">
               <DashboardAnalytics />
+            </div>
+          ) : activeAnalyticsTab === 'crise' ? (
+            <div className="pt-2">
+              <CrisisResources />
+            </div>
+          ) : activeAnalyticsTab === 'sentimento' ? (
+            <div className="space-y-6 pt-4">
+              {(() => {
+                const weeklyTrendData = sentimentService.getWeeklySentimentTrend(diaryEntries);
+                const joinedTrendData = weeklyTrendData.map(d => {
+                  const healthDay = healthData.find(h => h.date === d.date);
+                  return {
+                    ...d,
+                    sleep: healthDay ? healthDay.sleep : 0,
+                    steps: healthDay ? healthDay.steps : 0
+                  };
+                });
+                
+                const hasTrendData = weeklyTrendData.some(d => d.score !== null);
+                const correlation = healthService.analyzeCorrelation(diaryEntries, healthData);
+
+                return (
+                  <>
+                    {/* 1. Integração com HealthKit / Google Fit */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-slate-100 dark:shadow-none">
+                      <div className="flex items-center gap-2">
+                        <Dumbbell className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <div>
+                          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Integração com Sensores de Saúde</h3>
+                          <p className="text-[11px] text-slate-500">Conecte seus dados físicos para cruzar com seu estado de espírito</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          onClick={handleToggleGoogleFit}
+                          disabled={syncingHealth}
+                          className={cn(
+                            "p-4 rounded-3xl border text-left transition-all active:scale-95 flex items-center justify-between cursor-pointer min-h-[56px]",
+                            isGoogleFitLinked
+                              ? "bg-emerald-500/10 border-emerald-500/35 text-emerald-600 dark:text-emerald-400"
+                              : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">🤖</span>
+                            <div>
+                              <span className="text-xs font-bold block">Google Fit</span>
+                              <span className="text-[10px] text-slate-400">{isGoogleFitLinked ? "Conectado" : "Desconectado"}</span>
+                            </div>
+                          </div>
+                          {isGoogleFitLinked ? <ToggleRight className="w-6 h-6 text-emerald-500" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                        </button>
+
+                        <button
+                          onClick={handleToggleHealthKit}
+                          disabled={syncingHealth}
+                          className={cn(
+                            "p-4 rounded-3xl border text-left transition-all active:scale-95 flex items-center justify-between cursor-pointer min-h-[56px]",
+                            isHealthKitLinked
+                              ? "bg-emerald-500/10 border-emerald-500/35 text-emerald-600 dark:text-emerald-400"
+                              : "bg-slate-50 dark:bg-slate-950 border-slate-150 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-100"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">🍎</span>
+                            <div>
+                              <span className="text-xs font-bold block">Apple HealthKit</span>
+                              <span className="text-[10px] text-slate-400">{isHealthKitLinked ? "Conectado" : "Desconectado"}</span>
+                            </div>
+                          </div>
+                          {isHealthKitLinked ? <ToggleRight className="w-6 h-6 text-emerald-500" /> : <ToggleLeft className="w-6 h-6 text-slate-400" />}
+                        </button>
+                      </div>
+
+                      {(isGoogleFitLinked || isHealthKitLinked) && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase">Métricas de Hoje</p>
+                            <button
+                              onClick={() => setShowManualHealthInput(!showManualHealthInput)}
+                              className="text-[10px] text-indigo-500 hover:text-indigo-600 font-bold cursor-pointer"
+                            >
+                              {showManualHealthInput ? "Fechar Ajustes" : "Simular / Ajustar Métricas de Hoje"}
+                            </button>
+                          </div>
+
+                          {showManualHealthInput ? (
+                            <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-150 dark:border-white/5 space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                  <label className="text-[10px] text-slate-500 font-bold block">Horas de Sono</label>
+                                  <input
+                                    type="number"
+                                    step="0.5"
+                                    min="2"
+                                    max="15"
+                                    value={sleepInput}
+                                    onChange={(e) => setSleepInput(parseFloat(e.target.value) || 0)}
+                                    className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl text-xs focus:outline-none"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[10px] text-slate-500 font-bold block">Passos Caminhados</label>
+                                  <input
+                                    type="number"
+                                    step="500"
+                                    min="0"
+                                    max="30000"
+                                    value={stepsInput}
+                                    onChange={(e) => setStepsInput(parseInt(e.target.value) || 0)}
+                                    className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-xl text-xs focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                              <button
+                                onClick={handleSaveManualHealth}
+                                className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-widest rounded-xl transition-all active:scale-95 cursor-pointer"
+                              >
+                                Gravar Métricas de Hoje
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border border-slate-150 dark:border-white/5 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-555">🌙 Horas de Sono</span>
+                                <span className="text-xs font-bold text-indigo-500">{healthData[healthData.length - 1]?.sleep || "7.2"}h</span>
+                              </div>
+                              <div className="bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl border border-slate-150 dark:border-white/5 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-555">🏃 Passos</span>
+                                <span className="text-xs font-bold text-emerald-500">{healthData[healthData.length - 1]?.steps || "5.800"}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2. Tendência com Cruzamento de Dados (Recharts) */}
+                    <div className="bg-slate-50 dark:bg-slate-950/45 border border-slate-200/50 dark:border-white/5 rounded-[2.5rem] p-6 space-y-4 shadow-inner">
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                          <span>📊 Tendência Emocional & Dados de Saúde</span>
+                        </h4>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Visualização integrada do índice de sentimento do diário cruzado com sono (colunas) e atividade física (passos).
+                        </p>
+                      </div>
+
+                      <div className="h-64 w-full pt-4 font-sans">
+                        {!hasTrendData ? (
+                          <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-white dark:bg-slate-900 border border-dashed border-slate-200 dark:border-white/5 rounded-3xl space-y-3">
+                            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/30 rounded-2xl flex items-center justify-center text-indigo-500">
+                              <BookOpen className="w-5 h-5" />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Nenhum registro de diário esta semana</p>
+                              <p className="text-xs text-slate-500 max-w-xs leading-relaxed">
+                                Escreva suas reflexões diárias no diário para cruzar seus sentimentos com dados de sono!
+                              </p>
+                            </div>
+                            <button 
+                              onClick={() => navigate('/diario')}
+                              className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-semibold shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+                            >
+                              Escrever no Diário
+                            </button>
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={joinedTrendData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
+                              <XAxis 
+                                dataKey="dateLabel" 
+                                stroke="rgba(148, 163, 184, 0.45)" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false}
+                                dy={10}
+                              />
+                              <YAxis 
+                                domain={[1, 10]} 
+                                stroke="rgba(148, 163, 184, 0.45)" 
+                                fontSize={10} 
+                                tickLine={false} 
+                                axisLine={false}
+                                dx={-10}
+                              />
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (active && payload && payload.length) {
+                                    const data = payload[0].payload;
+                                    
+                                    return (
+                                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-xl space-y-1.5 font-sans max-w-[240px]">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase">{data.dateLabel}</p>
+                                        <div className="space-y-1">
+                                          <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex justify-between gap-4">
+                                            <span>Média Sentimento:</span>
+                                            <span>{data.score || "N/A"}/10</span>
+                                          </p>
+                                          <p className="text-xs text-slate-650 dark:text-slate-350 flex justify-between gap-4">
+                                            <span>🌙 Horas Sono:</span>
+                                            <span>{data.sleep || "N/A"}h</span>
+                                          </p>
+                                          <p className="text-xs text-slate-650 dark:text-slate-350 flex justify-between gap-4">
+                                            <span>🏃 Passos:</span>
+                                            <span>{data.steps || "N/A"}</span>
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                }}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="score" 
+                                stroke="url(#lineGradientSentiment)" 
+                                strokeWidth={3}
+                                connectNulls={true}
+                                dot={{ r: 4, strokeWidth: 2, fill: "#8b5cf6" }}
+                                activeDot={{ r: 6, strokeWidth: 0, fill: "#8b5cf6" }}
+                              />
+                              <defs>
+                                <linearGradient id="lineGradientSentiment" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%" stopColor="#8b5cf6" />
+                                  <stop offset="100%" stopColor="#6366f1" />
+                                </linearGradient>
+                              </defs>
+                            </LineChart>
+                          </ResponsiveContainer>
+                        )}
+                      </div>
+
+                      {hasTrendData && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 justify-center items-center text-[9px] uppercase font-bold text-slate-500 tracking-wider pt-2 border-t border-slate-200/50 dark:border-white/5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                            <span>Índice Sentimento Diário (1-10)</span>
+                          </div>
+                          {(isGoogleFitLinked || isHealthKitLinked) && (
+                            <>
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-blue-400" />
+                                <span>Sono Conectado</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                <span>Passos Sincronizados</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 3. Card de Correlação Emocional/Física */}
+                    <div className="bg-gradient-to-br from-indigo-55/10 via-emerald-55/5 to-transparent border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 space-y-3 shadow-md">
+                      <div className="flex items-center gap-2">
+                        <Brain className="w-5 h-5 text-indigo-500 shrink-0" />
+                        <h4 className="text-xs font-bold uppercase tracking-widest text-indigo-500">Análise de Correlação Física & Mental</h4>
+                      </div>
+                      
+                      <div className="space-y-2 text-xs">
+                        <div className="p-3 bg-white/40 dark:bg-slate-900/30 rounded-2xl border border-indigo-500/10 space-y-1">
+                          <span className="font-bold text-slate-700 dark:text-slate-300 block">🌙 Impacto do Sono no Humor</span>
+                          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            {correlation.sleepCorrelation}
+                          </p>
+                        </div>
+                        
+                        <div className="p-3 bg-white/40 dark:bg-slate-900/30 rounded-2xl border border-indigo-500/10 space-y-1">
+                          <span className="font-bold text-slate-700 dark:text-slate-300 block">🏃 Impacto da Atividade Física no Humor</span>
+                          <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                            {correlation.activityCorrelation}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Sistema de Lembretes Agendados do Paciente */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-slate-100 dark:shadow-none">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-5 h-5 text-indigo-500 shrink-0" />
+                          <div>
+                            <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Lembretes Diários do Diário</h3>
+                            <p className="text-[11px] text-slate-500">Defina o melhor momento do dia para sua escrita terapêutica</p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => setNotificationScheduled(!notificationScheduled)}
+                          className={cn(
+                            "p-2 rounded-xl border transition-all cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center",
+                            notificationScheduled
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-500"
+                              : "bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5 text-slate-450"
+                          )}
+                          title={notificationScheduled ? "Lembretes Ativados" : "Lembretes Desativados"}
+                        >
+                          <Check className={cn("w-4 h-4", notificationScheduled ? "opacity-100" : "opacity-30")} />
+                        </button>
+                      </div>
+
+                      {notificationScheduled && (
+                        <div className="pt-2 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-600">Disparar Lembrete Diário às:</span>
+                            <input
+                              type="time"
+                              value={notificationTime}
+                              onChange={(e) => setNotificationTime(e.target.value)}
+                              className="p-2 border border-slate-200 dark:border-white/5 rounded-xl bg-slate-50 dark:bg-slate-950 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <button
+                            onClick={handleSaveNotificationSetting}
+                            disabled={savingNotification}
+                            className="px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-200 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md shadow-indigo-500/10 cursor-pointer text-center"
+                          >
+                            {savingNotification ? "Gravando..." : "Salvar Agendamento"}
+                          </button>
+                        </div>
+                      )}
+
+                      {showNotificationSavedToast && (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+                          <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>Notificação agendada com sucesso! Você receberá um alerta diariamente às {notificationTime}.</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 5. Exportar Relatório em PDF */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-slate-100 dark:shadow-none">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-indigo-500 shrink-0" />
+                        <div>
+                          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Exportar Progresso para Especialistas</h3>
+                          <p className="text-[11px] text-slate-500">Gere um documento PDF completo e seguro com todo o seu histórico emocional</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <button
+                          onClick={() => handleExportSentimentPDF('weekly')}
+                          className="py-3 bg-slate-50 dark:bg-slate-950 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
+                        >
+                          <Download className="w-4 h-4 shrink-0" />
+                          Baixar Semanal
+                        </button>
+                        
+                        <button
+                          onClick={() => handleExportSentimentPDF('monthly')}
+                          className="py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] shadow-md shadow-indigo-500/10"
+                        >
+                          <Download className="w-4 h-4 shrink-0" />
+                          Baixar Mensal
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Registros do Diário e Sentimentos */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        Registros do Diário e Sentimentos
+                      </h4>
+
+                      {diaryEntries.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">Nenhum registro encontrado no diário.</p>
+                      ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                          {diaryEntries.slice(0, 5).map((entry) => {
+                            const sentiment = sentimentService.analyzeDiarySentiment(entry.content, entry.moodValue);
+                            const isSelectedForAI = selectedDiaryEntryForAI?.id === entry.id;
+
+                            return (
+                              <div 
+                                key={entry.id} 
+                                className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-150 dark:border-white/5 rounded-3xl p-4 space-y-3 transition-all"
+                              >
+                                <div className="flex justify-between items-start gap-2">
+                                  <div>
+                                    <h5 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                      {entry.title || "Sem título"}
+                                    </h5>
+                                    <span className="text-[10px] text-slate-400">
+                                      {entry.timestamp ? new Date(entry.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ""}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-col items-end gap-1">
+                                    <span className={cn(
+                                      "text-[10px] font-bold px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-white/5 flex items-center gap-1 shadow-sm",
+                                      sentiment.color
+                                    )}>
+                                      <span>{sentiment.emoji}</span>
+                                      <span>{sentiment.label}</span>
+                                    </span>
+                                    <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">
+                                      {sentiment.dominantEmotion}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                                  {entry.content}
+                                </p>
+
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-200/40 dark:border-white/5">
+                                  {entry.triggers && entry.triggers.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {entry.triggers.map((t: string) => (
+                                        <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-medium">
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div />
+                                  )}
+
+                                  <button
+                                    onClick={() => handleAIAnalysis(entry)}
+                                    className="text-[10px] text-indigo-500 hover:text-indigo-600 font-bold flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Sparkles className="w-3 h-3 animate-pulse" />
+                                    Análise Avançada IA
+                                  </button>
+                                </div>
+
+                                {/* Inline AI Analysis result */}
+                                {isSelectedForAI && (
+                                  <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-3.5 space-y-2 text-xs relative mt-2">
+                                    <button 
+                                      onClick={handleCloseAIAnalysis}
+                                      className="absolute top-2 right-2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                    
+                                    <div className="flex items-center gap-1.5">
+                                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                                      <span className="font-bold text-indigo-600 dark:text-indigo-400">Insights Clínicos de Sentimento (IA)</span>
+                                    </div>
+
+                                    {loadingAISentiment ? (
+                                      <div className="flex items-center gap-2 text-slate-500 py-2">
+                                        <div className="w-3 h-3 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                                        <span>IARA está analisando a escrita...</span>
+                                      </div>
+                                    ) : aiSentimentReport ? (
+                                      <div className="space-y-2.5 pt-1">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide">Pontuação do Tom</span>
+                                          <span className="font-mono font-bold text-indigo-500 text-sm">{aiSentimentReport.score}/10</span>
+                                        </div>
+                                        <p className="text-slate-600 dark:text-slate-350 italic leading-relaxed">
+                                          "{aiSentimentReport.explanation}"
+                                        </p>
+                                        <div className="bg-white dark:bg-slate-900 border border-indigo-500/10 p-2.5 rounded-xl space-y-1">
+                                          <span className="text-[9px] font-bold uppercase tracking-wider text-indigo-500">Recomendação</span>
+                                          <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                            {aiSentimentReport.advice}
+                                          </p>
+                                        </div>
+                                        {aiSentimentReport.keywords && aiSentimentReport.keywords.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 pt-1">
+                                            {aiSentimentReport.keywords.map((kw: string) => (
+                                              <span key={kw} className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-150 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                                #{kw}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p className="text-slate-500 italic">Ocorreu um erro na análise de IA.</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <div className="space-y-4">

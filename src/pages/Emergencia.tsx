@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, AlertTriangle, Heart, ArrowLeft, ShieldAlert, Activity, Smartphone } from "lucide-react";
-import { motion } from "motion/react";
+import { Phone, AlertTriangle, Heart, ArrowLeft, ShieldAlert, Activity, Smartphone, ChevronDown, ChevronUp } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import { usePWA } from "../contexts/PWAContext";
+import CrisisResources from "../components/CrisisResources";
 
 export default function Emergencia() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable } = usePWA();
+  const [showAllResources, setShowAllResources] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#0a0502] flex flex-col items-center justify-center p-6 text-slate-100 relative overflow-hidden">
@@ -65,6 +67,29 @@ export default function Emergencia() {
             Falar com a Iara (IA)
           </button>
         </div>
+
+        <div className="pt-2">
+          <button
+            onClick={() => setShowAllResources(!showAllResources)}
+            className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 rounded-[24px] font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+          >
+            {showAllResources ? "Esconder canais adicionais" : "Ver todos os canais de apoio (SAMU, CAPS...)"}
+            {showAllResources ? <ChevronUp className="w-4 h-4 text-emerald-400" /> : <ChevronDown className="w-4 h-4 text-emerald-400" />}
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {showAllResources && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="w-full text-left overflow-hidden pt-2"
+            >
+              <CrisisResources />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="pt-8 space-y-4">
           <div className="p-6 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-[32px] space-y-4">

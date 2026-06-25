@@ -15,6 +15,9 @@ export default defineConfig(({mode}) => {
         srcDir: 'src',
         filename: 'sw.ts',
         registerType: 'autoUpdate',
+        injectManifest: {
+          maximumFileSizeToCacheInBytes: 5242880, // 5 MiB
+        },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
         manifest: {
           name: 'SENTI',
@@ -41,8 +44,11 @@ export default defineConfig(({mode}) => {
     },
     build: {
       outDir: 'dist',
+      assetsDir: 'assets',
+      minify: 'esbuild',
+      emptyOutDir: true,
       sourcemap: false,
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {
           manualChunks: {

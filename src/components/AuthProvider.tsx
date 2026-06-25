@@ -5,6 +5,7 @@ import { UserProfile } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LoadingScreen } from './LoadingScreen';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { Navigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -104,4 +105,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen message="Verificando permissões..." />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
 };
