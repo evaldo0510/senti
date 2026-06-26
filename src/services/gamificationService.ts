@@ -164,12 +164,28 @@ export const GAMIFICATION_BADGES: Badge[] = [
     criteria: "Concluir 1 exercício de respiração"
   },
   {
+    id: "breathing_3",
+    title: "Foco & Harmonia",
+    description: "Completou exercícios de respiração por 3 dias seguidos.",
+    icon: "Flame",
+    category: "breathing",
+    criteria: "Completar respiração por 3 dias seguidos"
+  },
+  {
     id: "breathing_7",
     title: "Respirador Consistente",
     description: "Concluiu exercícios de respiração por 7 dias seguidos.",
     icon: "Activity",
     category: "breathing",
     criteria: "Completar exercícios de respiração por 7 dias seguidos"
+  },
+  {
+    id: "breathing_10",
+    title: "Mestre da Calma",
+    description: "Completou 10 ou mais sessões de respiração no total.",
+    icon: "Award",
+    category: "breathing",
+    criteria: "Praticar respiração 10 vezes"
   },
   {
     id: "emotion_1",
@@ -180,12 +196,28 @@ export const GAMIFICATION_BADGES: Badge[] = [
     criteria: "Registrar 1 humor no diário"
   },
   {
+    id: "emotion_3",
+    title: "Hábito Saudável",
+    description: "Registrou sentimentos no diário por 3 dias seguidos.",
+    icon: "Calendar",
+    category: "emotion",
+    criteria: "Registrar no diário por 3 dias seguidos"
+  },
+  {
     id: "emotion_7",
     title: "Mente Clara",
     description: "Registrou sentimentos no diário por 7 dias seguidos.",
     icon: "Crown",
     category: "emotion",
     criteria: "Completar registros no diário por 7 dias seguidos"
+  },
+  {
+    id: "emotion_15",
+    title: "Alquimista Emocional",
+    description: "Registrou 15 ou mais sentimentos no diário no total.",
+    icon: "Compass",
+    category: "emotion",
+    criteria: "Registrar humor 15 vezes"
   }
 ];
 
@@ -321,10 +353,14 @@ export const checkAndAwardBadges = async (uid: string) => {
   
   const unlockedIds: string[] = [];
   if (emotionDates.length >= 1) unlockedIds.push("emotion_1");
+  if (emotionStreak >= 3) unlockedIds.push("emotion_3");
   if (emotionStreak >= 7) unlockedIds.push("emotion_7");
+  if (emotionDates.length >= 15) unlockedIds.push("emotion_15");
   
   if (breathingDates.length >= 1) unlockedIds.push("breathing_1");
+  if (breathingStreak >= 3) unlockedIds.push("breathing_3");
   if (breathingStreak >= 7) unlockedIds.push("breathing_7");
+  if (breathingDates.length >= 10) unlockedIds.push("breathing_10");
   
   if (unlockedIds.length === 0) return [];
   

@@ -52,7 +52,7 @@ import { NewsCard } from "../components/NewsCard";
 import StarRating from "../components/StarRating";
 import Especialidades from "../components/Especialidades";
 import { getPillOfDay, Pill, pillService } from "../services/pillService";
-import { addXp, updateStreak, XP_ACTIONS, getLevelByXp, getNextLevel, LEVELS } from "../services/gamificationService";
+import { addXp, updateStreak, XP_ACTIONS, getLevelByXp, getNextLevel, LEVELS, GAMIFICATION_BADGES } from "../services/gamificationService";
 import { Onboarding } from "../components/Onboarding";
 import { AffirmationToast } from "../components/AffirmationToast";
 import { generateTherapistAvatar } from "../services/imageService";
@@ -60,7 +60,8 @@ import DashboardAnalytics from "../components/Dashboard";
 import CrisisResources from "../components/CrisisResources";
 import { sentimentService } from "../services/sentimentService";
 import { healthService } from "../services/healthService";
-import { Dumbbell, Download, ToggleLeft, ToggleRight, FileText } from "lucide-react";
+import { AchievementsWidget } from "../components/AchievementsWidget";
+import { Dumbbell, Download, ToggleLeft, ToggleRight, FileText, Flame, Award, Compass, Lock, Unlock, Medal } from "lucide-react";
 
 export default function DashboardPaciente() {
   const navigate = useNavigate();
@@ -2159,6 +2160,13 @@ export default function DashboardPaciente() {
             </div>
           </div>
         )}
+
+        {/* Sistema de Badges e Conquistas */}
+        <AchievementsWidget 
+          userAchievements={userProfile?.achievements || []} 
+          xp={userProfile?.xp || 0}
+          streak={userProfile?.streak || 0}
+        />
 
         {/* Daily Pill */}
         {dailyPill && (
