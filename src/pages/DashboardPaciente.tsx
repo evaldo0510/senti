@@ -96,7 +96,119 @@ export default function DashboardPaciente() {
   // Emotional history for Recharts
   const [moodHistory, setMoodHistory] = useState<any[]>([]);
   const [chartPeriod, setChartPeriod] = useState<'7' | '30' | 'all'>('7');
-  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'humor' | 'completo' | 'sentimento' | 'crise'>('humor');
+  const [activeAnalyticsTab, setActiveAnalyticsTab] = useState<'progresso' | 'humor' | 'completo' | 'sentimento' | 'crise'>('progresso');
+
+  const get30DaysProgressData = () => {
+    const result: { date: string; displayDate: string; bemEstar: number; ansiedade: number; count: number }[] = [];
+    const now = new Date();
+    
+    // Generate last 30 days keys (YYYY-MM-DD)
+    const last30DaysKeys: string[] = [];
+    const dateToLabel: { [key: string]: string } = {};
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateKey = d.toISOString().split('T')[0];
+      last30DaysKeys.push(dateKey);
+      dateToLabel[dateKey] = `${d.getDate()}/${d.getMonth() + 1}`;
+    }
+
+    // Group mood logs (moodHistory) and diary entries by day
+    const dailyMoods: { [key: string]: number[] } = {};
+    const dailyIntensities: { [key: string]: number[] } = {};
+
+    (moodHistory || []).forEach(entry => {
+      if (entry.timestamp) {
+        const key = new Date(entry.timestamp).toISOString().split('T')[0];
+        if (!dailyMoods[key]) dailyMoods[key] = [];
+        if (!dailyIntensities[key]) dailyIntensities[key] = [];
+        
+        dailyMoods[key].push(entry.value);
+        dailyIntensities[key].push(entry.intensity || 5);
+      }
+    });
+
+    (diaryEntries || []).forEach(entry => {
+      const dateSrc = entry.timestamp || entry.date;
+      if (dateSrc) {
+        const key = new Date(dateSrc).toISOString().split('T')[0];
+        if (!dailyMoods[key]) dailyMoods[key] = [];
+        if (!dailyIntensities[key]) dailyIntensities[key] = [];
+        
+        if (entry.moodValue !== undefined && entry.moodValue !== null) {
+          dailyMoods[key].push(entry.moodValue);
+        }
+        if (entry.intensity !== undefined && entry.intensity !== null) {
+          dailyIntensities[key].push(entry.intensity);
+        }
+      }
+    });
+
+    // Merge and compute averages for each day
+    let lastKnownMood = 6.0; // standard healthy baseline
+    let lastKnownIntensity = 4.0; // standard calm baseline
+
+    last30DaysKeys.forEach(key => {
+      const moods = dailyMoods[key] || [];
+      const intensities = dailyIntensities[key] || [];
+
+      let bemEstarValue = lastKnownMood;
+      let ansiedadeValue = lastKnownIntensity;
+
+      if (moods.length > 0) {
+        bemEstarValue = moods.reduce((a, b) => a + b, 0) / moods.length;
+        lastKnownMood = bemEstarValue;
+      }
+      if (intensities.length > 0) {
+        ansiedadeValue = intensities.reduce((a, b) => a + b, 0) / intensities.length;
+        lastKnownIntensity = ansiedadeValue;
+      }
+
+      result.push({
+        date: key,
+        displayDate: dateToLabel[key],
+        bemEstar: Math.round(bemEstarValue * 10) / 10,
+        ansiedade: Math.round(ansiedadeValue * 10) / 10,
+        count: moods.length + intensities.length
+      });
+    });
+
+    return result;
+  };
+
+  const get30DaysMetrics = () => {
+    const data = get30DaysProgressData();
+    const recordedDays = data.filter(d => d.count > 0).length;
+    
+    let totalBemEstar = 0;
+    let totalAnsiedade = 0;
+    data.forEach(d => {
+      totalBemEstar += d.bemEstar;
+      totalAnsiedade += d.ansiedade;
+    });
+
+    const avgBemEstar = data.length > 0 ? (totalBemEstar / data.length) : 6.0;
+    const avgAnsiedade = data.length > 0 ? (totalAnsiedade / data.length) : 4.0;
+
+    // Determine tendency
+    let trend = "Estável";
+    if (data.length >= 7) {
+      const firstWeek = data.slice(0, 7);
+      const lastWeek = data.slice(-7);
+      const firstAvg = firstWeek.reduce((acc, d) => acc + d.bemEstar, 0) / 7;
+      const lastAvg = lastWeek.reduce((acc, d) => acc + d.bemEstar, 0) / 7;
+      const diff = lastAvg - firstAvg;
+      if (diff > 0.3) trend = "Melhoria Contínua 📈";
+      else if (diff < -0.3) trend = "Atenção Requerida ⚠️";
+    }
+
+    return {
+      recordedDays,
+      avgBemEstar: Math.round(avgBemEstar * 10) / 10,
+      avgAnsiedade: Math.round(avgAnsiedade * 10) / 10,
+      trend
+    };
+  };
+
   const [diaryEntries, setDiaryEntries] = useState<any[]>([]);
   const [selectedDiaryEntryForAI, setSelectedDiaryEntryForAI] = useState<any | null>(null);
   const [aiSentimentReport, setAiSentimentReport] = useState<any | null>(null);
@@ -1533,6 +1645,17 @@ export default function DashboardPaciente() {
             
             <div className="flex flex-wrap bg-slate-100 dark:bg-slate-950 p-1 rounded-2xl border border-slate-200 dark:border-white/5 select-none self-start sm:self-center gap-1">
               <button
+                onClick={() => setActiveAnalyticsTab('progresso')}
+                className={cn(
+                  "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
+                  activeAnalyticsTab === 'progresso' 
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-white/5" 
+                    : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                Progresso (30 dias) 📈
+              </button>
+              <button
                 onClick={() => setActiveAnalyticsTab('humor')}
                 className={cn(
                   "px-3 py-1.5 text-[9px] font-bold uppercase rounded-xl transition-all cursor-pointer",
@@ -1579,7 +1702,141 @@ export default function DashboardPaciente() {
             </div>
           </div>
 
-          {activeAnalyticsTab === 'completo' ? (
+          {activeAnalyticsTab === 'progresso' ? (
+            <div className="space-y-6 pt-4 font-sans">
+              {(() => {
+                const data = get30DaysProgressData();
+                const metrics = get30DaysMetrics();
+                return (
+                  <div className="space-y-6">
+                    {/* Metrics grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-white/5 rounded-3xl space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bem-estar Médio (30 dias)</span>
+                        <p className="text-2xl font-black text-indigo-500 font-mono">
+                          {metrics.avgBemEstar}/10
+                        </p>
+                        <p className="text-[10px] text-slate-500">Autoavaliação de humor e diário</p>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-white/5 rounded-3xl space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ansiedade/Intensidade</span>
+                        <p className="text-2xl font-black text-blue-500 font-mono">
+                          {metrics.avgAnsiedade}/10
+                        </p>
+                        <p className="text-[10px] text-slate-500">Média de oscilações agudas</p>
+                      </div>
+
+                      <div className="p-4 bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-white/5 rounded-3xl space-y-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tendência de Progresso</span>
+                        <p className="text-lg font-black text-emerald-500">
+                          {metrics.trend}
+                        </p>
+                        <p className="text-[10px] text-slate-500">Análise de consistência recente</p>
+                      </div>
+                    </div>
+
+                    {/* Chart Container */}
+                    <div className="h-72 w-full pt-4">
+                      {data.length === 0 ? (
+                        <div className="h-full w-full flex flex-col items-center justify-center text-center p-8 bg-slate-50/50 dark:bg-slate-950/20 border border-dashed border-slate-200 dark:border-white/5 rounded-3xl space-y-2">
+                          <Activity className="w-5 h-5 text-slate-400 animate-pulse" />
+                          <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Aguardando dados</p>
+                        </div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.08)" vertical={false} />
+                            <XAxis 
+                              dataKey="displayDate" 
+                              stroke="rgba(148, 163, 184, 0.45)" 
+                              fontSize={9} 
+                              tickLine={false} 
+                              axisLine={false}
+                              dy={10}
+                            />
+                            <YAxis 
+                              domain={[0, 10]} 
+                              stroke="rgba(148, 163, 184, 0.45)" 
+                              fontSize={9} 
+                              tickLine={false} 
+                              axisLine={false}
+                              dx={-10}
+                            />
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  const item = payload[0].payload;
+                                  return (
+                                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3 rounded-2xl shadow-xl space-y-1.5 font-sans max-w-[200px]">
+                                      <p className="text-[9px] text-slate-400 font-bold uppercase">{new Date(item.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</p>
+                                      <div className="space-y-1 text-xs">
+                                        <p className="font-bold text-indigo-500 flex justify-between gap-4">
+                                          <span>Humor/Bem-estar:</span>
+                                          <span>{item.bemEstar}/10</span>
+                                        </p>
+                                        <p className="font-bold text-blue-500 flex justify-between gap-4">
+                                          <span>Ansiedade/Sintomas:</span>
+                                          <span>{item.ansiedade}/10</span>
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="bemEstar" 
+                              stroke="url(#progressLineGradient)" 
+                              strokeWidth={3}
+                              dot={{ r: 2, fill: "#6366f1" }}
+                              activeDot={{ r: 4, strokeWidth: 0, fill: "#6366f1" }}
+                              name="Humor / Bem-estar"
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="ansiedade" 
+                              stroke="#3b82f6" 
+                              strokeWidth={2}
+                              strokeDasharray="3 3"
+                              dot={false}
+                              name="Nível de Ansiedade"
+                            />
+                            <defs>
+                              <linearGradient id="progressLineGradient" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0%" stopColor="#6366f1" />
+                                <stop offset="100%" stopColor="#4f46e5" />
+                              </linearGradient>
+                            </defs>
+                          </LineChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+
+                    <div className="flex gap-4 justify-center items-center text-[9px] uppercase font-bold text-slate-500 tracking-wider">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                        <span>Curva de Bem-estar</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full border border-dashed border-blue-500" />
+                        <span>Grau de Ansiedade</span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl flex items-start gap-3">
+                      <Sparkles className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        Seu <strong>Resumo de Progresso</strong> consolida check-ins de humor e registros no diário escrito dos últimos 30 dias. Manter a regularidade das anotações ajuda a IARA a construir uma linha de tendência mais precisa sobre sua jornada de melhora emocional.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          ) : activeAnalyticsTab === 'completo' ? (
             <div className="pt-2">
               <DashboardAnalytics />
             </div>

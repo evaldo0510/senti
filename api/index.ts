@@ -712,6 +712,16 @@ app.post("/api/push/send-reminders", sensitiveActionLimiter, async (req, res) =>
   }
 });
 
+// API route to trigger morning breathing tip manually for demo or administrative dispatch
+app.post("/api/push/send-morning-tip", sensitiveActionLimiter, async (req, res) => {
+  try {
+    const sentCount = await sendMorningBreathingTip();
+    res.json({ success: true, message: "Dica de Respiração do Dia enviada com sucesso para os usuários.", count: sentCount });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Erro interno ao enviar notificação matinal." });
+  }
+});
+
 app.post("/api/generate-summary", requireAuth, async (req: any, res: any) => {
   const { notes, messages, patientName } = req.body;
   
@@ -1106,6 +1116,7 @@ async function sendPushNotification(userId: string, title: string, body: string,
 // Scheduled tasks
 let checkAppointmentsInterval: NodeJS.Timeout | null = null;
 let sendDailyContentInterval: NodeJS.Timeout | null = null;
+let morningTipInterval: NodeJS.Timeout | null = null;
 
 async function checkUpcomingAppointments() {
   console.log(`Checking for upcoming appointments in project: ${firebaseConfig.projectId}...`);
@@ -1252,6 +1263,66 @@ async function sendDailyContent() {
   }
 }
 
+const BREATHING_TIPS_OF_THE_DAY = [
+  "Dica de Respiração: Pratique a Respiração Quadrada (4s inspirar, 4s reter, 4s expirar, 4s reter) por 2 minutos para iniciar sua manhã com foco absoluto. 🧘",
+  "Dica de Respiração: Experimente a técnica de Respiração 4-7-8 antes do café da manhã para acalmar os batimentos cardíacos e estabilizar os pensamentos. 🌬️",
+  "Dica de Respiração: Faça 5 respirações profundas expandindo totalmente o abdômen. Isso oxigena o cérebro e ativa seu sistema parassimpático protetor. 🍃",
+  "Dica de Respiração: Comece o dia com a Respiração Alternada pelas Narinas (Nadi Shodhana) para equilibrar os canais de energia e reduzir a ansiedade matinal. 🧘‍♀️",
+  "Dica de Respiração: Use o ritmo de Respiração Coerente (5s inspirar, 5s expirar) para alinhar a frequência cardíaca com as ondas cerebrais de relaxamento. ✨",
+  "Dica de Respiração: Ao acordar, expire lentamente o dobro do tempo da inspiração para sinalizar paz profunda ao seu sistema nervoso autônomo. 🌅"
+];
+
+let lastMorningTipSentDate: string | null = null;
+
+async function sendMorningBreathingTip(): Promise<number> {
+  const todayStr = new Date().toLocaleDateString('pt-BR');
+  if (lastMorningTipSentDate === todayStr) {
+    console.log(`Matinal breathing tip already sent today (${todayStr}). Skipping.`);
+    return 0;
+  }
+
+  console.log("Scheduling and dispatching morning 'Dica de Respiração do Dia'...");
+  try {
+    if (!db) {
+      console.log("Firestore not initialized. Cannot fetch users list.");
+      return 0;
+    }
+    const usersSnapshot = await db.collection("users").get();
+    const tip = BREATHING_TIPS_OF_THE_DAY[Math.floor(Math.random() * BREATHING_TIPS_OF_THE_DAY.length)];
+    
+    let sentCount = 0;
+    for (const doc of usersSnapshot.docs) {
+      const userId = doc.id;
+      await sendPushNotification(
+        userId,
+        "Dica de Respiração do Dia 🧘",
+        tip,
+        "/respiracao"
+      );
+      sentCount++;
+    }
+    
+    lastMorningTipSentDate = todayStr;
+    console.log(`Morning tip sent successfully to ${sentCount} users.`);
+    return sentCount;
+  } catch (err) {
+    console.error("Error sending morning breathing tip:", err);
+    throw err;
+  }
+}
+
+function checkAndTriggerMorningTip() {
+  const now = new Date();
+  const hour = now.getHours();
+  
+  // Morning range: 07:00 AM to 09:00 AM
+  if (hour >= 7 && hour <= 9) {
+    sendMorningBreathingTip().catch(err => {
+      console.error("Error triggering scheduled morning tip:", err);
+    });
+  }
+}
+
 async function startServer() {
   await configureVite();
 
@@ -1261,10 +1332,14 @@ async function startServer() {
     // Use Vercel Cron Jobs for scheduled tasks.
     checkAppointmentsInterval = setInterval(checkUpcomingAppointments, 5 * 60 * 1000); // Every 5 minutes
     sendDailyContentInterval = setInterval(sendDailyContent, 24 * 60 * 60 * 1000); // Every 24 hours (simulated)
+    morningTipInterval = setInterval(checkAndTriggerMorningTip, 30 * 60 * 1000); // Check every 30 minutes
     
     // Run once on startup for demo
     setTimeout(checkUpcomingAppointments, 10000);
     setTimeout(sendDailyContent, 20000);
+    setTimeout(() => {
+      sendMorningBreathingTip().catch(err => console.error("Error sending startup morning tip:", err));
+    }, 30000);
 
     const httpServer = createServer(app);
     const io = new Server(httpServer, {

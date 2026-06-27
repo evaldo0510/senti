@@ -19,10 +19,17 @@ import {
   ArrowLeft,
   CalendarDays,
   Activity,
-  HelpCircle
+  HelpCircle,
+  Award,
+  Wind,
+  Flame,
+  Crown,
+  Zap,
+  X
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Onboarding } from "../components/Onboarding";
+import { GAMIFICATION_BADGES, checkAndAwardBadges, Badge } from "../services/gamificationService";
 
 export default function AppDashboard() {
   const navigate = useNavigate();
@@ -32,6 +39,7 @@ export default function AppDashboard() {
   const [upcomingAppointments, setUpcomingAppointments] = useState<any[]>([]);
   const [recentMood, setRecentMood] = useState<any>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
 
   // Check onboarding status on load
   useEffect(() => {
@@ -43,7 +51,7 @@ export default function AppDashboard() {
     }
   }, [isAuthReady, profile, navigate]);
 
-  // Load user data (appointments and mood)
+  // Load user data (appointments and mood) and check achievements
   useEffect(() => {
     let unsubAppts: (() => void) | undefined;
     let unsubMood: (() => void) | undefined;
@@ -51,6 +59,11 @@ export default function AppDashboard() {
     if (isAuthReady && user) {
       setLoadingData(true);
       try {
+        // Evaluate and award achievements on load
+        checkAndAwardBadges(user.uid).catch((err) => {
+          console.error("Error evaluating achievements:", err);
+        });
+
         // Fetch appointments
         unsubAppts = userService.getMyAppointments((appts) => {
           const pendingOrConfirmed = appts.filter(a => a.status === 'pending' || a.status === 'confirmed');
@@ -236,6 +249,89 @@ export default function AppDashboard() {
           })}
         </div>
 
+        {/* System of Achievements (Conquistas) */}
+        <div className="bg-white dark:bg-slate-900/40 border border-slate-200/50 dark:border-white/5 p-5 rounded-[2rem] space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Award className="w-4 h-4 text-emerald-500 animate-pulse" />
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Conquistas do Paciente</h3>
+            </div>
+            <button 
+              onClick={() => navigate("/perfil")}
+              className="text-[10px] font-black text-emerald-500 uppercase tracking-widest hover:underline cursor-pointer"
+            >
+              Ver Todas
+            </button>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-950/30 p-4 rounded-2xl border border-slate-150 dark:border-white/5 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-500 dark:text-slate-400">Progresso de Emblemas</span>
+              <span className="font-bold text-emerald-500 dark:text-emerald-400">
+                {(profile?.achievements || []).length} de {GAMIFICATION_BADGES.length} Ativos
+              </span>
+            </div>
+            <div className="w-full h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                style={{ width: `${((profile?.achievements || []).length / GAMIFICATION_BADGES.length) * 100}%` }}
+              />
+            </div>
+            {profile?.streak && profile.streak > 0 ? (
+              <p className="text-[10px] text-slate-400 flex items-center gap-1 font-light pt-0.5">
+                <Zap className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                Uso consistente: Você está em uma sequência de <span className="font-bold text-slate-700 dark:text-slate-200">{profile.streak} dias</span>!
+              </p>
+            ) : (
+              <p className="text-[10px] text-slate-400 font-light pt-0.5">
+                Use consistentemente o Diário e Exercícios de Respiração para desbloquear novos emblemas!
+              </p>
+            )}
+          </div>
+
+          {/* Badges Mini-Grid */}
+          <div className="grid grid-cols-4 gap-2.5">
+            {GAMIFICATION_BADGES.map((badge) => {
+              const isUnlocked = profile?.achievements?.includes(badge.id);
+              
+              const getBadgeIcon = (iconName: string) => {
+                switch (iconName) {
+                  case "Wind": return <Wind className="w-4 h-4" />;
+                  case "Flame": return <Flame className="w-4 h-4" />;
+                  case "Activity": return <Activity className="w-4 h-4" />;
+                  case "Award": return <Award className="w-4 h-4" />;
+                  case "HeartPulse": return <HeartPulse className="w-4 h-4" />;
+                  case "Calendar": return <Calendar className="w-4 h-4" />;
+                  case "Crown": return <Crown className="w-4 h-4" />;
+                  case "Compass": return <Compass className="w-4 h-4" />;
+                  default: return <Award className="w-4 h-4" />;
+                }
+              };
+
+              return (
+                <button
+                  key={badge.id}
+                  onClick={() => setSelectedBadge(badge)}
+                  title={`${badge.title} - ${isUnlocked ? 'Conquistado' : 'Bloqueado'}`}
+                  className={cn(
+                    "p-3 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all relative group cursor-pointer active:scale-95 select-none h-16",
+                    isUnlocked
+                      ? badge.category === 'breathing'
+                        ? "bg-sky-500/10 border-sky-500/20 text-sky-500 hover:bg-sky-500/15"
+                        : "bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/15"
+                      : "bg-slate-50 dark:bg-slate-950/20 border-slate-200/50 dark:border-white/5 text-slate-300 dark:text-slate-700 hover:border-slate-300 dark:hover:border-white/10"
+                  )}
+                >
+                  {getBadgeIcon(badge.icon)}
+                  {isUnlocked && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 border border-white dark:border-slate-950 rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Live Status Cards (Mood & Appointments) */}
         <div className="grid grid-cols-1 gap-4">
           
@@ -318,6 +414,90 @@ export default function AppDashboard() {
       </main>
 
       <Onboarding />
+
+      {/* Achievement Detail Modal */}
+      <AnimatePresence>
+        {selectedBadge && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedBadge(null)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl relative text-slate-800 dark:text-slate-100"
+            >
+              <button
+                onClick={() => setSelectedBadge(null)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex flex-col items-center text-center space-y-3 pt-2">
+                <div className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center border shadow-lg transition-all duration-500",
+                  profile?.achievements?.includes(selectedBadge.id)
+                    ? selectedBadge.category === 'breathing'
+                      ? "bg-sky-500/15 border-sky-500/30 text-sky-500 shadow-sky-500/10"
+                      : "bg-amber-500/15 border-amber-500/30 text-amber-500 shadow-amber-500/10"
+                    : "bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-white/5 text-slate-400 dark:text-slate-600"
+                )}>
+                  {(() => {
+                    switch (selectedBadge.icon) {
+                      case "Wind": return <Wind className="w-6 h-6" />;
+                      case "Flame": return <Flame className="w-6 h-6" />;
+                      case "Activity": return <Activity className="w-6 h-6" />;
+                      case "Award": return <Award className="w-6 h-6" />;
+                      case "HeartPulse": return <HeartPulse className="w-6 h-6" />;
+                      case "Calendar": return <Calendar className="w-6 h-6" />;
+                      case "Crown": return <Crown className="w-6 h-6" />;
+                      case "Compass": return <Compass className="w-6 h-6" />;
+                      default: return <Award className="w-6 h-6" />;
+                    }
+                  })()}
+                </div>
+
+                <div className="space-y-1">
+                  <span className={cn(
+                    "text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full border",
+                    profile?.achievements?.includes(selectedBadge.id)
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/5"
+                  )}>
+                    {profile?.achievements?.includes(selectedBadge.id) ? "Conquistado" : "Bloqueado"}
+                  </span>
+                  <h4 className="text-lg font-serif italic font-bold text-slate-850 dark:text-white pt-1">{selectedBadge.title}</h4>
+                </div>
+
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-light leading-relaxed">
+                  {selectedBadge.description}
+                </p>
+
+                <div className="w-full bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-150 dark:border-white/5 text-left">
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Critério de Conquista</p>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium mt-0.5">{selectedBadge.criteria}</p>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    setSelectedBadge(null);
+                    navigate(selectedBadge.category === 'breathing' ? '/respiracao' : '/diario');
+                  }}
+                  className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-xs font-bold transition shadow-lg shadow-emerald-500/25 mt-2 cursor-pointer"
+                >
+                  {selectedBadge.category === 'breathing' ? "Praticar Respiração" : "Registrar no Diário"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

@@ -45,6 +45,8 @@ import Contact from "./pages/Contact";
 import Sobre from "./pages/Sobre";
 import Onboarding from "./pages/Onboarding";
 import AppDashboard from "./pages/AppDashboard";
+import DashboardInstitucional from "./pages/DashboardInstitucional";
+import { TenantRoute } from "./components/TenantRoute";
 import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
@@ -78,8 +80,9 @@ function App() {
             <Route path="/cadastro" element={<Login />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/terapeuta" element={<ProtectedRoute><Terapeuta /></ProtectedRoute>} />
-            <Route path="/empresa" element={<ProtectedRoute><Empresa /></ProtectedRoute>} />
-            <Route path="/prefeitura" element={<ProtectedRoute><Prefeitura /></ProtectedRoute>} />
+            <Route path="/empresa" element={<ProtectedRoute><TenantRoute><Empresa /></TenantRoute></ProtectedRoute>} />
+            <Route path="/prefeitura" element={<ProtectedRoute><TenantRoute><Prefeitura /></TenantRoute></ProtectedRoute>} />
+            <Route path="/dashboard-institucional" element={<ProtectedRoute><TenantRoute requireAdmin><DashboardInstitucional /></TenantRoute></ProtectedRoute>} />
             <Route path="/agendamento/:id" element={<ProtectedRoute><Agendamento /></ProtectedRoute>} />
             <Route path="/terapeuta-perfil/:id" element={<ProtectedRoute><TerapeutaPerfil /></ProtectedRoute>} />
             <Route path="/gerenciar-dados" element={<ProtectedRoute><GerenciamentoDados /></ProtectedRoute>} />

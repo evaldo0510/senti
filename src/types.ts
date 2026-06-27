@@ -57,6 +57,7 @@ export interface Appointment {
   sharedSecret?: string; // For E2EE chat
   e2eeEnabled?: boolean; // Toggle state for end-to-end encryption
   googleSynced?: boolean; // Persistent marker for Google Calendar sync
+  tenantId?: string; // Multitenancy
 }
 
 export interface DirectMessage {
@@ -199,5 +200,6 @@ export interface PrivateNote {
   encryptedContent: string;
   createdAt: string;
   updatedAt: string;
+  tenantId?: string; // Multitenancy
 }
 

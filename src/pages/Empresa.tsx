@@ -81,6 +81,10 @@ export default function Empresa() {
             <FileText className="w-5 h-5" />
             Relatórios
           </a>
+          <button onClick={() => navigate("/dashboard-institucional")} className="flex items-center gap-3 px-4 py-3 w-full text-left text-emerald-400 hover:bg-emerald-950/20 rounded-xl transition-colors font-bold">
+            <Activity className="w-5 h-5" />
+            Métricas Multitenant
+          </button>
         </nav>
         <div className="p-4 border-t border-white/5">
           <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full text-slate-400 hover:text-red-400 hover:bg-red-900/10 rounded-xl transition-colors">
@@ -106,6 +110,14 @@ export default function Empresa() {
                 <h2 className="text-3xl font-light tracking-tight text-slate-200">Painel RH</h2>
                 <p className="text-slate-400 mt-1">Gestão de saúde emocional corporativa.</p>
               </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => navigate("/dashboard-institucional")}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-500/25"
+              >
+                Abrir Portal B2B Completo
+              </button>
             </div>
             <button onClick={handleLogout} className="md:hidden p-2 text-slate-400 hover:text-red-400 rounded-lg">
               <LogOut className="w-5 h-5" />

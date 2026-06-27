@@ -992,11 +992,23 @@ export const userService = {
     const path = 'private_notes';
     try {
       const timestamp = new Date().toISOString();
+
+      let tenantId: string | undefined = undefined;
+      try {
+        const patientProfile = await userService.getUser(patientId);
+        if (patientProfile?.tenantId) {
+          tenantId = patientProfile.tenantId;
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar tenantId do paciente:", e);
+      }
+
       const noteData = {
         therapistId,
         patientId,
         encryptedContent,
-        updatedAt: timestamp
+        updatedAt: timestamp,
+        ...(tenantId ? { tenantId } : {})
       };
 
       if (noteId) {

@@ -280,6 +280,13 @@ export default function Prefeitura() {
             <BookOpen className="w-4.5 h-4.5" />
             Pílulas do Dia (CMS)
           </button>
+          <button 
+            onClick={() => navigate("/dashboard-institucional")}
+            className="flex items-center gap-3 px-4 py-3.5 w-full text-sm font-bold rounded-xl transition-all cursor-pointer text-left text-emerald-400 hover:bg-emerald-950/20"
+          >
+            <Activity className="w-4.5 h-4.5" />
+            Portal B2B Completo
+          </button>
         </nav>
 
         {/* Logged profile metadata */}

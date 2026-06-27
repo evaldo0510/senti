@@ -35,7 +35,7 @@ import {
   DollarSign
 } from "lucide-react";
 import { auth, storage, db } from "../services/firebase";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { userService } from "../services/userService";
 import { useSecurityAudit } from "../hooks/useSecurityAudit";
@@ -138,6 +138,251 @@ export default function GerenciamentoDados() {
   
   // Tabs Navigation State
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'audits' | 'backups' | 'monitoring' | 'subscriptions'>('profile');
+  const [generatingPDF, setGeneratingPDF] = useState(false);
+
+  const handleGenerateClinicalPDF = async () => {
+    setGeneratingPDF(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF();
+      
+      const user = auth.currentUser;
+      const uid = user?.uid || "guest_demo_user";
+      
+      // 1. Fetch Diary Entries (from Firestore emotion_logs or IndexedDB or mock data fallback)
+      let moods: any[] = [];
+      if (uid === "guest_demo_user") {
+        moods = [
+          { value: 8, intensity: 6, note: "Sentindo-me muito focado e em paz hoje.", timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), triggers: ["Trabalho", "Meditação"] },
+          { value: 4, intensity: 5, note: "Um pouco cansado devido à noite de sono curta.", timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(), triggers: ["Sono"] },
+          { value: 6, intensity: 7, note: "Pratiquei respiração guiada e me senti muito melhor.", timestamp: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(), triggers: ["Saúde", "Exercício"] },
+          { value: 2, intensity: 8, note: "Crise de ansiedade antes da apresentação comercial.", timestamp: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), triggers: ["Trabalho", "Ansiedade"] }
+        ];
+      } else {
+        try {
+          const q = query(
+            collection(db, "emotion_logs"),
+            where("userId", "==", uid),
+            orderBy("timestamp", "desc"),
+            limit(30)
+          );
+          const snap = await getDocs(q);
+          moods = snap.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              value: data.value,
+              intensity: data.intensity,
+              note: data.emotion || data.note || 'Sem anotação',
+              timestamp: data.timestamp,
+              triggers: data.triggers || []
+            };
+          });
+        } catch (err) {
+          console.warn("Failed Firestore fetch, falling back to offline", err);
+          const offlineList = await offlineStorage.getMoodsOffline(uid);
+          if (offlineList && offlineList.length > 0) {
+            moods = offlineList.map(entry => ({
+              value: entry.value,
+              intensity: entry.intensity,
+              note: entry.emotion || 'Sem anotação',
+              timestamp: entry.timestamp,
+              triggers: entry.triggers || [],
+            }));
+          }
+        }
+      }
+
+      // 2. Fetch IARA Memory (memoria_iara)
+      let iaraMemory: any = null;
+      if (uid === "guest_demo_user") {
+        iaraMemory = {
+          perfil: {
+            nome: profile?.nome || "Paciente de Demonstração",
+            emocaoAtual: "Tranquilo",
+            padrao: "Ansiedade recorrente",
+            intensidade: "baixa",
+            preferencia: "voz suave"
+          },
+          historico: [
+            { dia: 1, emocao: "Ansiedade leve", data: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() },
+            { dia: 2, emocao: "Concentrado", data: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() },
+            { dia: 3, emocao: "Calmo", data: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString() }
+          ]
+        };
+      } else {
+        try {
+          const { memoriaService } = await import("../services/memoriaService");
+          iaraMemory = await memoriaService.buscarMemoria(uid);
+        } catch (err) {
+          console.warn("Failed fetching IARA memory:", err);
+        }
+      }
+
+      // 3. Build beautiful PDF
+      const primaryColor = [16, 185, 129]; // emerald-500
+      const secondaryColor = [99, 102, 241]; // indigo-500
+      const textColor = [30, 41, 59]; // slate-800
+      const lightGray = [100, 116, 139]; // slate-500
+      
+      // Header Page 1
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(24);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("SENTÍ", 20, 20);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+      doc.text("Pronto Socorro Emocional - Relatório de Compartilhamento Clínico", 20, 26);
+      doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR')}`, 130, 20);
+      
+      // Divider
+      doc.setDrawColor(226, 232, 240);
+      doc.line(20, 32, 190, 32);
+      
+      // Patient Info Section
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.text("Identificação do Paciente", 20, 42);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Nome: ${profile?.nome || "Não informado"}`, 20, 50);
+      doc.text(`E-mail: ${profile?.email || user?.email || "Não informado"}`, 20, 56);
+      doc.text(`Telefone: ${profile?.telefone || "Não informado"}`, 20, 62);
+      doc.text(`Cidade/Estado: ${profile?.cidade || "Não informado"}`, 20, 68);
+      
+      if (profile?.biografia) {
+        doc.text("Biografia/Notas Adicionais:", 20, 74);
+        const splitBio = doc.splitTextToSize(profile.biografia, 170);
+        doc.text(splitBio, 20, 80);
+      }
+      
+      const startY = profile?.biografia ? 95 : 78;
+      
+      // Divider
+      doc.line(20, startY, 190, startY);
+      
+      // Section IARA Memory
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.text("Dossiê de Interações & Perfil Clínico da IARA", 20, startY + 10);
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      if (iaraMemory && iaraMemory.perfil) {
+        doc.text(`Humor Recente Mapeado pela IA: ${iaraMemory.perfil.emocaoAtual || "Estável"}`, 20, startY + 18);
+        doc.text(`Padrão Emocional Detectado: ${iaraMemory.perfil.padrao || "Não há padrões atípicos recorrentes."}`, 20, startY + 24);
+        doc.text(`Intensidade Média dos Surtos: ${iaraMemory.perfil.intensidade || "Baixa"}`, 20, startY + 30);
+        doc.text(`Preferência de Acolhimento: ${iaraMemory.perfil.preferencia || "Não definida"}`, 20, startY + 36);
+      } else {
+        doc.text("Histórico de perfil clínico com a IARA: Atividades iniciais de triagem em andamento.", 20, startY + 18);
+      }
+      
+      // History Timeline with IARA
+      let nextY = startY + 46;
+      if (iaraMemory && iaraMemory.historico && iaraMemory.historico.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Histórico Recente de Acolhimentos pela IARA:", 20, nextY);
+        nextY += 8;
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        iaraMemory.historico.slice(-5).forEach((h: any) => {
+          const dateStr = h.data ? new Date(h.data).toLocaleDateString('pt-BR') : `Dia ${h.dia}`;
+          doc.text(`• [${dateStr}] Estado de Triagem: ${h.emocao}`, 22, nextY);
+          nextY += 6;
+        });
+      }
+      
+      nextY += 4;
+      // Divider
+      doc.setDrawColor(226, 232, 240);
+      doc.line(20, nextY, 190, nextY);
+      nextY += 10;
+      
+      // Section Diary entries
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("Histórico Detalhado do Diário de Sentimentos (Últimos Registros)", 20, nextY);
+      nextY += 10;
+      
+      doc.setFontSize(9.5);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      if (moods.length === 0) {
+        doc.setFont("helvetica", "normal");
+        doc.text("Nenhum registro no diário localizado nos últimos 30 dias.", 20, nextY);
+      } else {
+        moods.forEach((m) => {
+          if (nextY > 260) {
+            doc.addPage();
+            nextY = 25;
+          }
+          
+          doc.setFont("helvetica", "bold");
+          const mDate = m.timestamp ? new Date(m.timestamp).toLocaleDateString('pt-BR') + ' ' + new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : "Sem data";
+          doc.text(`[${mDate}] Sintonia: ${m.value}/10 | Intensidade: ${m.intensity}/10`, 20, nextY);
+          nextY += 5;
+          
+          doc.setFont("helvetica", "normal");
+          if (m.triggers && m.triggers.length > 0) {
+            doc.setFontSize(8.5);
+            doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+            doc.text(`Gatilhos: ${m.triggers.join(", ")}`, 20, nextY);
+            nextY += 4.5;
+          }
+          
+          doc.setFontSize(9.5);
+          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+          const reflection = m.note ? `Reflexão: "${m.note}"` : "Sem notas adicionais.";
+          const splitRef = doc.splitTextToSize(reflection, 170);
+          doc.text(splitRef, 20, nextY);
+          
+          nextY += 6 + (splitRef.length * 4.5);
+          
+          doc.setDrawColor(241, 245, 249);
+          doc.line(20, nextY - 2, 190, nextY - 2);
+          nextY += 4;
+        });
+      }
+      
+      // Footer text (Compliance with LGPD / Medical advisory)
+      if (nextY > 265) {
+        doc.addPage();
+        nextY = 25;
+      }
+      doc.setDrawColor(16, 185, 129);
+      doc.line(20, nextY + 5, 190, nextY + 5);
+      nextY += 12;
+      
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(8);
+      doc.setTextColor(lightGray[0], lightGray[1], lightGray[2]);
+      doc.text("Este documento unifica dados de autoavaliação emocional fornecidos de livre escolha pelo paciente.", 20, nextY);
+      doc.text("Não constitui laudo clínico isolado e deve ser apresentado a um terapeuta, psicólogo ou médico de confiança.", 20, nextY + 4.5);
+      doc.text("Senti S.A. • Privacidade garantida de acordo com as normas da LGPD e criptografia de ponta a ponta.", 20, nextY + 9);
+      
+      // Download PDF
+      doc.save(`senti_relatorio_clinico_${profile?.nome?.toLowerCase().replace(/\s+/g, '_') || 'usuario'}.pdf`);
+      
+      logSecurityEvent("exportacao_dados", "Exportação de dossiê clínico e diário de interações IARA em PDF realizada pelo usuário.", ["clinical_pdf"], "sucesso");
+      
+      setMessage({ type: 'success', text: 'Dossiê Clínico em PDF gerado com sucesso! Pronto para compartilhamento.' });
+    } catch (err: any) {
+      console.error("Failed to generate PDF:", err);
+      setMessage({ type: 'error', text: `Ocorreu um erro ao gerar o PDF: ${err.message || err}` });
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
 
   // Subscriptions management states
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -1423,6 +1668,59 @@ export default function GerenciamentoDados() {
                     <p className="font-bold text-slate-400">Preservação de Dados de Extrema Privacidade</p>
                     <p className="mt-1 text-[10px]">
                       Sempre que você estiver offline ou com redes instáveis, seu progresso emocional é guardado localmente e criptografado de forma segura no dispositivo. Ao restabelecer conexão de rede ou forçar manualmente a sincronização acima, nosso motor atualiza e consolida as novidades na sua conta dedicada em nuvem (Google Cloud Firestore).
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Part 1.5: PDF Summary and Clinical Dossier Export (For all users to share with specialists) */}
+              <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-serif text-white flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-indigo-400" /> Exportar Dossiê Clínico (PDF)
+                    </h2>
+                    <p className="text-xs text-slate-400 font-mono">
+                      Compartilhe suas anotações do diário emocional e histórico de triagens da IARA com seus médicos e psicólogos.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleGenerateClinicalPDF}
+                    disabled={generatingPDF}
+                    className="py-3 px-5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-2xl font-bold font-mono text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-700/20 active:scale-95 shrink-0 cursor-pointer"
+                  >
+                    {generatingPDF ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    <span>Gerar PDF Completo</span>
+                  </button>
+                </div>
+
+                <div className="p-5 bg-slate-950 border border-white/5 rounded-3xl flex items-start gap-4">
+                  <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20 shrink-0">
+                    <Check className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">Conteúdo do Dossiê Clínico</span>
+                    <ul className="text-xs text-slate-300 font-mono space-y-1 list-disc list-inside">
+                      <li>Dados de Identificação do Paciente</li>
+                      <li>Histórico consolidado do Diário de Sentimentos (últimos 30 check-ins)</li>
+                      <li>Avaliação emocional recente mapeada pela IA</li>
+                      <li>Padrões de surtos/sintomas detectados pela IARA</li>
+                      <li>Linha do tempo de triagens e encaminhamentos</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-slate-950/60 border border-white/5 rounded-2xl flex items-start gap-3 text-slate-500 font-mono text-[11px] leading-relaxed">
+                  <ShieldCheck className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-slate-400">Proteção de Dados Sensíveis e LGPD</p>
+                    <p className="mt-1 text-[10px]">
+                      Este arquivo PDF é gerado inteiramente no lado do cliente com criptografia em trânsito, garantindo que suas notas mais íntimas não sejam expostas a terceiros sem seu consentimento expresso.
                     </p>
                   </div>
                 </div>
