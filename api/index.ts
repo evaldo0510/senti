@@ -216,15 +216,25 @@ app.post("/api/webhook", express.raw({ type: "application/json" }), async (req, 
       }
     }
 
-    if ((productType === "journey_21_days" || productType === "subscription_monthly") && userId) {
-      console.log(`Activating premium for user: ${userId}`);
+    if ((productType === "journey_21_days" || productType === "subscription_monthly" || productType === "subscription") && userId) {
+      console.log(`Activating premium/subscription for user: ${userId}`);
+      const plan = session.metadata?.plan || "premium";
+      const nextBilling = new Date();
+      nextBilling.setDate(nextBilling.getDate() + 30);
+
       try {
         await db.collection("users").doc(userId).update({
+          subscriptionStatus: "active",
+          subscriptionPlan: plan,
+          paymentProvider: "stripe",
+          subscriptionId: session.subscription || session.id,
+          lastPayment: new Date().toISOString(),
+          nextBilling: nextBilling.toISOString(),
           isPremium: true,
           premiumSince: new Date().toISOString()
         });
       } catch (error) {
-        console.error("Error updating user premium status:", error);
+        console.error("Error updating user subscription status:", error);
       }
     }
   }
@@ -909,22 +919,48 @@ app.post("/api/create-journey-checkout-session", sensitiveActionLimiter, async (
 });
 
 app.post("/api/create-subscription-checkout-session", sensitiveActionLimiter, async (req, res) => {
-  const { userId, userEmail } = req.body;
+  const { userId, userEmail, plan, provider } = req.body;
 
-  if (!stripe) {
-    console.log("Stripe not configured, using mock success for subscription");
+  const chosenPlan = plan || "premium";
+  const chosenProvider = provider || "stripe";
+
+  let priceCents = 3990;
+  let planName = "SentiPae Plano Premium";
+  let planDescription = "Acesso Premium: IA ilimitada, diário completo, relatórios e conteúdos exclusivos.";
+
+  if (chosenPlan === "professional") {
+    priceCents = 9990;
+    planName = "SentiPae Plano Profissional";
+    planDescription = "Acesso Profissional: Cadastro profissional, agenda, gestão de pacientes, atendimento online.";
+  } else if (chosenPlan === "enterprise") {
+    priceCents = 49990;
+    planName = "SentiPae Plano Empresa";
+    planDescription = "Acesso Empresa: Vários terapeutas, funcionários, dashboard corporativo e relatórios.";
+  }
+
+  if (!stripe || chosenProvider === "mercadopago") {
+    console.log(`Using mock subscription payment for plan: ${chosenPlan} via ${chosenProvider}`);
     if (userId) {
       try {
+        const nextBilling = new Date();
+        nextBilling.setDate(nextBilling.getDate() + 30);
+
         await db.collection("users").doc(userId).update({
+          subscriptionStatus: "active",
+          subscriptionPlan: chosenPlan,
+          paymentProvider: chosenProvider,
+          subscriptionId: "sub_" + chosenProvider.substring(0, 2) + "_" + Math.random().toString(36).substring(2, 15),
+          lastPayment: new Date().toISOString(),
+          nextBilling: nextBilling.toISOString(),
           isPremium: true,
           premiumSince: new Date().toISOString()
         });
       } catch (error) {
-        console.error("Error updating mock user premium:", error);
+        console.error("Error updating mock user subscription:", error);
       }
     }
     return res.json({ 
-      url: `${process.env.APP_URL || 'http://localhost:3000'}/home?success=true`,
+      url: `${process.env.APP_URL || 'http://localhost:3000'}/home?success=true&plan=${chosenPlan}&provider=${chosenProvider}`,
       mock: true 
     });
   }
@@ -938,11 +974,11 @@ app.post("/api/create-subscription-checkout-session", sensitiveActionLimiter, as
           price_data: {
             currency: "brl",
             product_data: {
-              name: "Licença Completa SENTI",
-              description: "Acesso total e ilimitado a todas as ferramentas da sede SENTI.",
+              name: planName,
+              description: planDescription,
               images: ["https://ais-dev-ut4rkwmwg2rhaa2m3b3zm7-16381127341.us-west2.run.app/logo192.png"],
             },
-            unit_amount: 4990, // R$ 49,90
+            unit_amount: priceCents,
             recurring: {
               interval: "month"
             }
@@ -951,11 +987,12 @@ app.post("/api/create-subscription-checkout-session", sensitiveActionLimiter, as
         },
       ],
       mode: "subscription",
-      success_url: `${process.env.APP_URL || 'http://localhost:3000'}/home?success=true`,
+      success_url: `${process.env.APP_URL || 'http://localhost:3000'}/home?success=true&plan=${chosenPlan}&provider=stripe`,
       cancel_url: `${process.env.APP_URL || 'http://localhost:3000'}/assinatura`,
       metadata: {
         userId,
-        productType: "subscription_monthly"
+        plan: chosenPlan,
+        productType: "subscription"
       }
     });
 

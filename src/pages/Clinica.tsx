@@ -12,7 +12,7 @@ export default function Clinica() {
 
   React.useEffect(() => {
     if (isAuthReady && !loading) {
-      if (!profile || (profile.tipo !== 'clinica' && profile.tipo !== 'admin')) {
+      if (!profile || (profile.tipo !== 'clinica' && profile.tipo !== 'admin' && profile.tipo !== 'super_admin')) {
         navigate("/login");
       }
     }

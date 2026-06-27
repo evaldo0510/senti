@@ -157,67 +157,67 @@ export interface Badge {
 export const GAMIFICATION_BADGES: Badge[] = [
   {
     id: "breathing_1",
-    title: "Sopro de Vida",
-    description: "Concluiu o 1º exercício de respiração.",
+    title: "Sopro PCH Inicial",
+    description: "Iniciou sua jornada de regulação afetiva com sua primeira prática de ancoragem hipnótica.",
     icon: "Wind",
     category: "breathing",
-    criteria: "Concluir 1 exercício de respiração"
+    criteria: "Concluir 1 prática de respiração reguladora PCH"
   },
   {
     id: "breathing_3",
-    title: "Foco & Harmonia",
-    description: "Completou exercícios de respiração por 3 dias seguidos.",
+    title: "Ritmo e Transe Leve",
+    description: "Sintonizou seu ritmo biológico por 3 dias seguidos com exercícios de respiração guiada PCH.",
     icon: "Flame",
     category: "breathing",
-    criteria: "Completar respiração por 3 dias seguidos"
+    criteria: "Completar respiração guiada por 3 dias seguidos"
   },
   {
     id: "breathing_7",
-    title: "Respirador Consistente",
-    description: "Concluiu exercícios de respiração por 7 dias seguidos.",
+    title: "Arquitetura do Silêncio",
+    description: "Consolidou um estado profundo de calma e foco hipnótico praticando a ancoragem por 7 dias seguidos.",
     icon: "Activity",
     category: "breathing",
-    criteria: "Completar exercícios de respiração por 7 dias seguidos"
+    criteria: "Praticar ancoragem respiratória por 7 dias seguidos"
   },
   {
     id: "breathing_10",
-    title: "Mestre da Calma",
-    description: "Completou 10 ou mais sessões de respiração no total.",
+    title: "Mestre da Regulação",
+    description: "Desenvolveu maestria na autogestão emocional, acumulando mais de 10 sessões de ancoragem hipnótica PCH.",
     icon: "Award",
     category: "breathing",
-    criteria: "Praticar respiração 10 vezes"
+    criteria: "Completar 10 sessões de ancoragem respiratória"
   },
   {
     id: "emotion_1",
-    title: "Mente Aberta",
-    description: "Registrou seu 1º sentimento no diário.",
+    title: "Poesia do Sentir",
+    description: "Deu forma e voz às suas emoções com seu primeiro registro no diário sob a ótica da Poesia Cognitiva.",
     icon: "HeartPulse",
     category: "emotion",
-    criteria: "Registrar 1 humor no diário"
+    criteria: "Registrar 1 emoção no Diário de Poesia Cognitiva"
   },
   {
     id: "emotion_3",
-    title: "Hábito Saudável",
-    description: "Registrou sentimentos no diário por 3 dias seguidos.",
+    title: "Versos da Consciência",
+    description: "Desenvolveu constância na auto-observação poética registrando seus sentimentos por 3 dias seguidos.",
     icon: "Calendar",
     category: "emotion",
-    criteria: "Registrar no diário por 3 dias seguidos"
+    criteria: "Registrar reflexão poética por 3 dias seguidos"
   },
   {
     id: "emotion_7",
-    title: "Mente Clara",
-    description: "Registrou sentimentos no diário por 7 dias seguidos.",
+    title: "Alquimia das Palavras",
+    description: "Transformou sentimentos em narrativas poéticas curadoras por 7 dias seguidos de reflexão ativa PCH.",
     icon: "Crown",
     category: "emotion",
-    criteria: "Completar registros no diário por 7 dias seguidos"
+    criteria: "Registrar reflexão poética por 7 dias seguidos"
   },
   {
     id: "emotion_15",
-    title: "Alquimista Emocional",
-    description: "Registrou 15 ou mais sentimentos no diário no total.",
+    title: "Antologia da Mente",
+    description: "Reescreveu ativamente significados internos e alcançou profunda percepção com mais de 15 registros poéticos.",
     icon: "Compass",
     category: "emotion",
-    criteria: "Registrar humor 15 vezes"
+    criteria: "Registrar 15 reflexões no Diário de Poesia Cognitiva"
   }
 ];
 

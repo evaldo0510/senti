@@ -18,9 +18,11 @@ import {
   Compass,
   ArrowLeft,
   CalendarDays,
-  Activity
+  Activity,
+  HelpCircle
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { Onboarding } from "../components/Onboarding";
 
 export default function AppDashboard() {
   const navigate = useNavigate();
@@ -167,6 +169,14 @@ export default function AppDashboard() {
         </div>
         <div className="flex items-center gap-3">
           <button 
+            onClick={() => window.dispatchEvent(new CustomEvent("start-onboarding-tour"))}
+            aria-label="Iniciar Tour de Boas-Vindas"
+            title="Tour de Boas-Vindas"
+            className="p-1.5 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer text-slate-600 dark:text-slate-400"
+          >
+            <HelpCircle className="w-4.5 h-4.5" />
+          </button>
+          <button 
             onClick={() => navigate("/perfil")}
             className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/30 flex items-center justify-center bg-emerald-500/10 text-emerald-500 cursor-pointer text-xs font-bold"
           >
@@ -200,8 +210,10 @@ export default function AppDashboard() {
         <div className="grid grid-cols-2 gap-3.5">
           {shortcuts.map((sc) => {
             const Icon = sc.icon;
+            const elementId = sc.id === "ia" ? "quick-action-chat" : sc.id === "evolucao" ? "quick-action-diario" : undefined;
             return (
               <button
+                id={elementId}
                 key={sc.id}
                 onClick={() => navigate(sc.path)}
                 className={cn(
@@ -304,6 +316,8 @@ export default function AppDashboard() {
         </div>
 
       </main>
+
+      <Onboarding />
 
     </div>
   );

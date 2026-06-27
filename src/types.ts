@@ -74,7 +74,7 @@ export interface DirectMessage {
 
 export type AppRoute = 'home' | 'chat' | 'terapeutas' | 'diario' | 'perfil' | 'guided-flow' | 'sensorial' | 'login' | 'dashboard' | 'terapeuta-panel' | 'empresa-panel' | 'prefeitura-panel';
 
-export type UserType = 'usuario' | 'terapeuta' | 'empresa' | 'prefeitura' | 'clinica' | 'hospital' | 'admin';
+export type UserType = 'usuario' | 'terapeuta' | 'empresa' | 'prefeitura' | 'clinica' | 'hospital' | 'admin' | 'super_admin' | 'admin_institucional' | 'moderador';
 
 export interface Availability {
   day: string; // 'segunda', 'terça', etc.
@@ -145,6 +145,16 @@ export interface UserProfile {
   onboardingCompleted?: boolean;
   preferredService?: string;
   lastAccess?: string;
+  // Subscription properties
+  subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled';
+  subscriptionPlan?: 'trial' | 'premium' | 'professional' | 'enterprise';
+  iaraChatCount?: number;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  paymentProvider?: 'stripe' | 'mercadopago';
+  subscriptionId?: string;
+  lastPayment?: string;
+  nextBilling?: string;
 }
 
 export interface NewsCardProps {

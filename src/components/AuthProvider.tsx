@@ -12,6 +12,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   isAuthReady: boolean;
+  hasPremiumAccess: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   isAuthReady: false,
+  hasPremiumAccess: () => false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -96,12 +98,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  const hasPremiumAccess = (): boolean => {
+    if (!profile) return false;
+    if (
+      profile.tipo === 'admin' || 
+      profile.tipo === 'super_admin' || 
+      profile.tipo === 'terapeuta' || 
+      profile.tipo === 'clinica' || 
+      profile.tipo === 'empresa' || 
+      profile.tipo === 'prefeitura' || 
+      profile.tipo === 'moderador'
+    ) {
+      return true;
+    }
+    if (profile.subscriptionStatus === 'active') return true;
+    if (profile.subscriptionStatus === 'trial') {
+      if (!profile.trialEndDate) return true;
+      const end = new Date(profile.trialEndDate);
+      return new Date() <= end;
+    }
+    return false;
+  };
+
   if (loading) {
     return <LoadingScreen message="Autenticando sua sessão..." />;
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, isAuthReady }}>
+    <AuthContext.Provider value={{ user, profile, loading, isAuthReady, hasPremiumAccess }}>
       {children}
     </AuthContext.Provider>
   );
@@ -116,6 +140,24 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+export const PremiumProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading, hasPremiumAccess } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen message="Verificando assinatura..." />;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!hasPremiumAccess()) {
+    return <Navigate to="/assinatura" replace />;
   }
 
   return <>{children}</>;

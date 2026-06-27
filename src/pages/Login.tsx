@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { HeartPulse, ArrowLeft, User, Briefcase } from "lucide-react";
+import { HeartPulse, ArrowLeft, User, Briefcase, ShieldAlert, Building, Building2, PlusCircle, ShieldCheck, Compass } from "lucide-react";
 import { loginWithGoogle } from "../services/firebase";
 import { userService } from "../services/userService";
 import { useAuth } from "../components/AuthProvider";
 import { useSecurityAudit } from "../hooks/useSecurityAudit";
+import { UserType } from "../types";
 
 export default function Login() {
   const navigate = useNavigate();
   const { user, profile, isAuthReady } = useAuth();
   const [error, setError] = useState("");
-  const [tipoSelecionado, setTipoSelecionado] = useState<"usuario" | "terapeuta" | "empresa" | "prefeitura">("usuario");
+  const [tipoSelecionado, setTipoSelecionado] = useState<UserType>("usuario");
   const { logSecurityEvent } = useSecurityAudit();
 
   // Quick Login States
@@ -120,11 +121,17 @@ export default function Login() {
   const handleDemoLogin = () => {
     setError("");
     
-    const displayNameMap = {
+    const displayNameMap: { [key in UserType]?: string } = {
       usuario: "Paciente de Demonstração",
       terapeuta: "Dr. Gabriel Alencar (Demonstração)",
       empresa: "MenteFeliz Empresas (Demonstração)",
-      prefeitura: "Prefeitura de São Paulo (Demonstração)"
+      prefeitura: "Prefeitura de São Paulo (Demonstração)",
+      clinica: "Clínica Premium (Demonstração)",
+      hospital: "Hospital Geral (Demonstração)",
+      moderador: "Moderador Geral (Demonstração)",
+      admin_institucional: "Gestor Institucional (Demonstração)",
+      super_admin: "Super Admin Global (Demonstração)",
+      admin: "Administrador Geral (Demonstração)"
     };
     const displayName = displayNameMap[tipoSelecionado] || "Usuário de Demonstração";
 
@@ -252,31 +259,70 @@ export default function Login() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button
-            type="button"
-            onClick={() => setTipoSelecionado("usuario")}
-            className={`p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
-              tipoSelecionado === "usuario" 
-                ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-600/20" 
-                : "bg-[#f5f5f0] border-black/5 text-[#6a6a6a] hover:bg-black/5"
-            }`}
-          >
-            <User className="w-5 h-5" />
-            <span className="text-xs font-bold uppercase tracking-widest">Paciente</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTipoSelecionado("terapeuta")}
-            className={`p-4 rounded-2xl border flex flex-col items-center gap-2 transition-all ${
-              tipoSelecionado === "terapeuta" 
-                ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-600/20" 
-                : "bg-[#f5f5f0] border-black/5 text-[#6a6a6a] hover:bg-black/5"
-            }`}
-          >
-            <Briefcase className="w-5 h-5" />
-            <span className="text-xs font-bold uppercase tracking-widest">Terapeuta</span>
-          </button>
+        <div className="space-y-2 mb-6">
+          <label className="text-xs font-bold uppercase tracking-wider text-[#6a6a6a] block">
+            Escolha sua Função / Perfil
+          </label>
+          <div className="relative">
+            <select
+              value={tipoSelecionado}
+              onChange={(e) => setTipoSelecionado(e.target.value as UserType)}
+              className="w-full px-4 py-4 rounded-2xl bg-[#f5f5f0] border border-black/5 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-[#1a1a1a] font-medium appearance-none cursor-pointer"
+            >
+              <option value="usuario">Paciente</option>
+              <option value="terapeuta">Terapeuta</option>
+              <option value="clinica">Clínica</option>
+              <option value="empresa">Empresa</option>
+              <option value="prefeitura">Prefeitura</option>
+              <option value="moderador">Moderador</option>
+              <option value="admin_institucional">Administrador Institucional</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#4a4a4a]">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+              </svg>
+            </div>
+          </div>
+          
+          {/* Visual Role Card Badge */}
+          <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-start gap-3 mt-2">
+            <div className="p-2 bg-emerald-600 text-white rounded-xl mt-0.5">
+              {tipoSelecionado === "usuario" && <User className="w-5 h-5" />}
+              {tipoSelecionado === "terapeuta" && <Briefcase className="w-5 h-5" />}
+              {tipoSelecionado === "clinica" && <PlusCircle className="w-5 h-5" />}
+              {tipoSelecionado === "empresa" && <Building className="w-5 h-5" />}
+              {tipoSelecionado === "prefeitura" && <Building2 className="w-5 h-5" />}
+              {tipoSelecionado === "moderador" && <ShieldCheck className="w-5 h-5" />}
+              {tipoSelecionado === "admin_institucional" && <Compass className="w-5 h-5" />}
+              {tipoSelecionado === "super_admin" && <ShieldAlert className="w-5 h-5" />}
+              {tipoSelecionado === "admin" && <ShieldAlert className="w-5 h-5" />}
+            </div>
+            <div className="text-left">
+              <h4 className="text-sm font-serif font-bold text-[#1a1a1a]">
+                {tipoSelecionado === "usuario" && "Paciente"}
+                {tipoSelecionado === "terapeuta" && "Terapeuta"}
+                {tipoSelecionado === "clinica" && "Clínica"}
+                {tipoSelecionado === "empresa" && "Empresa"}
+                {tipoSelecionado === "prefeitura" && "Prefeitura"}
+                {tipoSelecionado === "moderador" && "Moderador"}
+                {tipoSelecionado === "admin_institucional" && "Administrador Institucional"}
+                {tipoSelecionado === "super_admin" && "Super Admin"}
+                {tipoSelecionado === "admin" && "Super Admin"}
+              </h4>
+              <p className="text-[#6a6a6a] text-xs leading-relaxed mt-0.5">
+                {tipoSelecionado === "usuario" && "Acesse seu diário emocional, converse com a IARA e agende consultas."}
+                {tipoSelecionado === "terapeuta" && "Gerencie sessões com pacientes, acesse prontuários e decole na carreira."}
+                {tipoSelecionado === "clinica" && "Gestão centralizada do corpo clínico, atendimentos e faturamento."}
+                {tipoSelecionado === "empresa" && "Monitore métricas corporativas de estresse e bem-estar organizacional."}
+                {tipoSelecionado === "prefeitura" && "Acompanhe a telemetria analítica de crises e pílulas de conhecimento."}
+                {tipoSelecionado === "moderador" && "Filtre posts denunciados na comunidade, mensagens e triagens de risco."}
+                {tipoSelecionado === "admin_institucional" && "Gerencie permissões institucionais e configurações gerais."}
+                {tipoSelecionado === "super_admin" && "Controle auditoria de logs criptografados e snapshots do servidor."}
+                {tipoSelecionado === "admin" && "Controle auditoria de logs criptografados e snapshots do servidor."}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* TABS DE ENTRADA */}

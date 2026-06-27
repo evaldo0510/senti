@@ -69,6 +69,26 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [isAuthReady]);
 
+  useEffect(() => {
+    if (!isAuthReady) return;
+    const userType = profile?.tipo || localStorage.getItem("tipo") || "usuario";
+    if (userType === "terapeuta") {
+      navigate("/terapeuta");
+    } else if (userType === "empresa") {
+      navigate("/empresa");
+    } else if (userType === "prefeitura") {
+      navigate("/prefeitura");
+    } else if (userType === "clinica") {
+      navigate("/clinica");
+    } else if (userType === "hospital") {
+      navigate("/hospital");
+    } else if (userType === "admin" || userType === "super_admin") {
+      navigate("/admin-dashboard");
+    } else if (userType === "moderador") {
+      navigate("/moderador");
+    }
+  }, [isAuthReady, profile, navigate]);
+
   // Handle active user role check
   const userType = profile?.tipo || localStorage.getItem("tipo") || "usuario";
 

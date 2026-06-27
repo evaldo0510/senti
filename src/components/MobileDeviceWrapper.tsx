@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { usePWA } from "../contexts/PWAContext";
+import { useAuth } from "./AuthProvider";
 
 interface MobileDeviceWrapperProps {
   children?: React.ReactNode;
@@ -37,6 +38,13 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
   const navigate = useNavigate();
   const location = useLocation();
   const { isInstallable, handleInstall } = usePWA();
+  const { hasPremiumAccess, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !hasPremiumAccess() && location.pathname !== "/assinatura" && location.pathname !== "/onboarding") {
+      navigate("/assinatura", { replace: true });
+    }
+  }, [hasPremiumAccess, authLoading, location.pathname, navigate]);
 
   const [time, setTime] = useState("");
   const [showTools, setShowTools] = useState(false);

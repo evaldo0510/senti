@@ -19,9 +19,12 @@ import { falarTexto } from "../services/voiceService";
 import { ouvirUsuario } from "../services/audioInput";
 import { playPCM, stopAllAudio } from "../services/audioPlayer";
 import { generateImage } from "../services/geminiService";
-import { auth } from "../services/firebase";
+import { auth, db } from "../services/firebase";
 import { salvarDadosAnalytics } from "../services/analyticsService";
 import { cn } from "../lib/utils";
+import { useAuth } from "./AuthProvider";
+import { useNavigate } from "react-router-dom";
+import { doc, updateDoc, increment } from "firebase/firestore";
 
 interface Message {
   tipo: "user" | "iara";
@@ -44,6 +47,13 @@ export default function IARAChat({
   onDirecionar,
   className 
 }: IARAChatProps) {
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+
+  const isTrialUser = !profile || profile.subscriptionPlan === "trial" || profile.subscriptionPlan === undefined;
+  const currentChatCount = profile?.iaraChatCount || 0;
+  const isLimitReached = isTrialUser && currentChatCount >= 20;
+
   const [mensagem, setMensagem] = useState("");
   const [chat, setChat] = useState<Message[]>([
     { 
@@ -89,6 +99,7 @@ export default function IARAChat({
   };
 
   const enviarMensagem = async (textoOverride?: string) => {
+    if (isLimitReached) return;
     const msgAtual = textoOverride || mensagem;
     if (!msgAtual.trim() || isLoading) return;
 
@@ -112,6 +123,18 @@ export default function IARAChat({
       if (!isMuted) {
         const base64Audio = await falarTexto(result.resposta);
         if (base64Audio) playAudio(base64Audio);
+      }
+
+      // Increment chat count in Firestore for trial users
+      if (auth.currentUser?.uid) {
+        try {
+          const userRef = doc(db, "users", auth.currentUser.uid);
+          await updateDoc(userRef, {
+            iaraChatCount: increment(1)
+          });
+        } catch (dbErr) {
+          console.warn("Could not increment chat count:", dbErr);
+        }
       }
 
       // Analytics
@@ -242,40 +265,62 @@ export default function IARAChat({
 
       {/* Input Area */}
       <div className="p-4 bg-white/5 border-t border-white/5">
-        <div className="flex items-end gap-2">
-          <button
-            onClick={handleMicClick}
-            disabled={isLoading || isListening}
-            className={cn(
-              "p-3 rounded-xl transition-all flex-shrink-0",
-              isListening 
-                ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse" 
-                : "bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10"
-            )}
-          >
-            <Mic className="w-4 h-4" />
-          </button>
-          <textarea
-            value={mensagem}
-            onChange={(e) => setMensagem(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                enviarMensagem();
-              }
-            }}
-            placeholder="Fale com a IARA..."
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 transition-colors resize-none min-h-[48px] max-h-32"
-            rows={1}
-          />
-          <button
-            onClick={() => enviarMensagem()}
-            disabled={!mensagem.trim() || isLoading}
-            className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all disabled:opacity-50 flex-shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </div>
+        {isLimitReached ? (
+          <div className="py-4 px-2 text-center space-y-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10 p-4">
+            <div className="flex justify-center">
+              <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-full">
+                <Zap className="w-5 h-5 animate-pulse" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-slate-100">Limite Gratuito do Chat Almejado!</h4>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+                Você atingiu o limite de 20 conversas gratuitas do período de teste de 7 dias. Faça o upgrade agora para ter conversas 100% ilimitadas com a IARA.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/assinatura")}
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/20 inline-flex items-center gap-1.5"
+            >
+              Assinar Plano Premium <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2">
+            <button
+              onClick={handleMicClick}
+              disabled={isLoading || isListening}
+              className={cn(
+                "p-3 rounded-xl transition-all flex-shrink-0",
+                isListening 
+                  ? "bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse" 
+                  : "bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10"
+              )}
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+            <textarea
+              value={mensagem}
+              onChange={(e) => setMensagem(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  enviarMensagem();
+                }
+              }}
+              placeholder="Fale com a IARA..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 transition-colors resize-none min-h-[48px] max-h-32"
+              rows={1}
+            />
+            <button
+              onClick={() => enviarMensagem()}
+              disabled={!mensagem.trim() || isLoading}
+              className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all disabled:opacity-50 flex-shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

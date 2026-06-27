@@ -758,21 +758,51 @@ export const userService = {
     const path = `users/${user.uid}`;
     try {
       const docSnap = await getDoc(doc(db, 'users', user.uid));
+      const now = new Date();
       if (!docSnap.exists()) {
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7);
+
         const profile: UserProfile = {
           uid: user.uid,
           nome: user.displayName || user.email?.split('@')[0] || 'Usuário',
           email: user.email || '',
           tipo: user.email === 'mentefelizterapias@gmail.com' ? 'admin' : type,
-          createdAt: new Date().toISOString(),
-          favoritos: []
+          createdAt: now.toISOString(),
+          favoritos: [],
+          subscriptionStatus: 'trial',
+          subscriptionPlan: 'trial',
+          iaraChatCount: 0,
+          trialStartDate: now.toISOString(),
+          trialEndDate: trialEnd.toISOString()
         };
         await setDoc(doc(db, 'users', user.uid), profile);
         return profile;
       } else {
         const stored = docSnap.data() as UserProfile;
+        let needsUpdate = false;
+        const updatedFields: Partial<UserProfile> = {};
+
         if (user.email === 'mentefelizterapias@gmail.com' && stored.tipo !== 'admin') {
-          const updated = { ...stored, tipo: 'admin' as UserType };
+          updatedFields.tipo = 'admin';
+          needsUpdate = true;
+        }
+
+        if (!stored.subscriptionStatus) {
+          const createdAtDate = stored.createdAt ? new Date(stored.createdAt) : now;
+          const trialEnd = new Date(createdAtDate.getTime());
+          trialEnd.setDate(trialEnd.getDate() + 7);
+
+          updatedFields.subscriptionStatus = 'trial';
+          updatedFields.subscriptionPlan = 'trial';
+          updatedFields.iaraChatCount = stored.iaraChatCount !== undefined ? stored.iaraChatCount : 0;
+          updatedFields.trialStartDate = createdAtDate.toISOString();
+          updatedFields.trialEndDate = trialEnd.toISOString();
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          const updated = { ...stored, ...updatedFields };
           await setDoc(doc(db, 'users', user.uid), updated);
           return updated;
         }

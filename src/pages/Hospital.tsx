@@ -11,7 +11,7 @@ export default function Hospital() {
 
   React.useEffect(() => {
     if (isAuthReady && !loading) {
-      if (!profile || (profile.tipo !== 'hospital' && profile.tipo !== 'admin')) {
+      if (!profile || (profile.tipo !== 'hospital' && profile.tipo !== 'admin' && profile.tipo !== 'super_admin')) {
         navigate("/login");
       }
     }

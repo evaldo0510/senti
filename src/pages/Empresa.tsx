@@ -11,7 +11,7 @@ export default function Empresa() {
 
   React.useEffect(() => {
     if (isAuthReady && !loading) {
-      if (!profile || (profile.tipo !== 'empresa' && profile.tipo !== 'admin')) {
+      if (!profile || (profile.tipo !== 'empresa' && profile.tipo !== 'admin' && profile.tipo !== 'super_admin')) {
         navigate("/login");
       }
     }

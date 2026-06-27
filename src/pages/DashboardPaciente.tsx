@@ -38,7 +38,8 @@ import {
   Meh,
   Frown,
   TrendingUp,
-  Eye
+  Eye,
+  HelpCircle
 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, Legend } from "recharts";
 import { userService } from "../services/userService";
@@ -100,6 +101,7 @@ export default function DashboardPaciente() {
   const [selectedDiaryEntryForAI, setSelectedDiaryEntryForAI] = useState<any | null>(null);
   const [aiSentimentReport, setAiSentimentReport] = useState<any | null>(null);
   const [loadingAISentiment, setLoadingAISentiment] = useState<boolean>(false);
+  const [exportingType, setExportingType] = useState<'pdf' | 'json' | null>(null);
 
   // Health sync states
   const [isGoogleFitLinked, setIsGoogleFitLinked] = useState<boolean>(
@@ -500,6 +502,182 @@ export default function DashboardPaciente() {
       console.error(e);
     } finally {
       setSavingNotification(false);
+    }
+  };
+
+  const handleExportCompleteDiary = async (format: 'pdf' | 'json') => {
+    setExportingType(format);
+    try {
+      const now = new Date();
+      const patientName = userProfile?.nome || "Paciente de Demonstração";
+
+      if (format === 'json') {
+        // Export entire diary history structured as JSON
+        const dataStr = JSON.stringify({
+          paciente: patientName,
+          email: userProfile?.email || "N/A",
+          totalRegistros: diaryEntries.length,
+          dataExportacao: now.toISOString(),
+          registros: diaryEntries.map(entry => {
+            const sentiment = sentimentService.analyzeDiarySentiment(entry.content, entry.moodValue);
+            return {
+              id: entry.id,
+              titulo: entry.title || "Sem título",
+              conteudo: entry.content,
+              data: entry.timestamp,
+              valorHumor: entry.moodValue,
+              gatilhos: entry.triggers || [],
+              analiseClinica: {
+                sentimentoPredominante: sentiment.dominantEmotion,
+                tonalidade: sentiment.label,
+                emoji: sentiment.emoji
+              }
+            };
+          })
+        }, null, 2);
+
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `senti_diario_completo_${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        // Export entire diary history as beautiful PDF
+        const { jsPDF } = await import("jspdf");
+        const doc = new jsPDF();
+
+        // Color definitions compatible with Senti Theme (emerald & indigo)
+        const emeraldColor = [16, 185, 129];
+        const slateColor = [30, 41, 59];
+        const grayColor = [100, 116, 139];
+        const indigoColor = [99, 102, 241];
+
+        // Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(24);
+        doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+        doc.text("Sentí", 20, 20);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+        doc.text("Histórico Completo do Diário Terapêutico (PCH)", 20, 26);
+        doc.text(`Exportado em: ${now.toLocaleDateString('pt-BR')} às ${now.toLocaleTimeString('pt-BR')}`, 130, 20);
+
+        // Divider line
+        doc.setDrawColor(226, 232, 240);
+        doc.line(20, 32, 190, 32);
+
+        // Metadata block
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+        doc.text(`Paciente: ${patientName}`, 20, 42);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Total de registros no diário: ${diaryEntries.length} escritos`, 20, 48);
+
+        // Box/Card for therapists
+        doc.setFillColor(243, 244, 246);
+        doc.rect(20, 54, 170, 24, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+        doc.text("NOTA PARA O TERAPEUTA / ESPECIALISTA EXTERNO", 24, 60);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+        doc.text("Este documento contém as reflexões poéticas subjetivas e o automonitoramento de humor", 24, 65);
+        doc.text("do paciente estruturado sob o método de regulação PCH (Poesia Cognitiva Hipnótica).", 24, 69);
+        doc.text("Os tons e emoções são inferidos clinicamente com base em análise semântica computacional.", 24, 73);
+
+        let y = 88;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+        doc.text("Histórico de Reflexões Textuais", 20, y);
+        y += 8;
+
+        if (diaryEntries.length === 0) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(10);
+          doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+          doc.text("Nenhuma reflexão salva no diário de bordo até o momento.", 20, y);
+        } else {
+          diaryEntries.forEach((entry, idx) => {
+            const entryDate = entry.timestamp 
+              ? new Date(entry.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+              : "Data indisponível";
+            const sentiment = sentimentService.analyzeDiarySentiment(entry.content, entry.moodValue);
+            const title = entry.title || `Registro #${diaryEntries.length - idx}`;
+            
+            // Text wraps
+            const wrappedContent = doc.splitTextToSize(`"${entry.content}"`, 170);
+            
+            // Calculate height required for this block to prevent awkward breaks
+            const requiredHeight = 25 + (wrappedContent.length * 5);
+            if (y + requiredHeight > 275) {
+              doc.addPage();
+              y = 20;
+            }
+
+            // Entry Header
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+            doc.text(`${entryDate} - ${title}`, 20, y);
+
+            // Sentiment info
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(9);
+            doc.setTextColor(emeraldColor[0], emeraldColor[1], emeraldColor[2]);
+            doc.text(`Humor: ${entry.moodValue}/10 | Tom: ${sentiment.emoji} ${sentiment.label}`, 125, y);
+
+            y += 5;
+
+            // Optional triggers
+            if (entry.triggers && entry.triggers.length > 0) {
+              doc.setFont("helvetica", "italic");
+              doc.setFontSize(8);
+              doc.setTextColor(indigoColor[0], indigoColor[1], indigoColor[2]);
+              doc.text(`Fatores relacionados: ${entry.triggers.join(', ')}`, 20, y);
+              y += 4.5;
+            }
+
+            // Reflection content text
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9.5);
+            doc.setTextColor(slateColor[0], slateColor[1], slateColor[2]);
+            doc.text(wrappedContent, 20, y);
+            y += wrappedContent.length * 5 + 6;
+
+            // Subtle divider line
+            doc.setDrawColor(241, 245, 249);
+            doc.line(20, y - 3, 190, y - 3);
+            y += 4;
+          });
+        }
+
+        // Footer disclaimer on the last page
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
+        doc.text("Este documento destina-se exclusivamente para fins de acompanhamento terapêutico e regulação emocional.", 20, 280);
+        doc.text("Sentí - Pronto Socorro Emocional, Desenvolvido com Metodologia Poesia Cognitiva Hipnótica.", 20, 284);
+
+        doc.save(`Senti_Historico_Diario_${patientName.replace(/\s+/g, '_')}.pdf`);
+      }
+    } catch (err) {
+      console.error("Erro ao exportar diário:", err);
+    } finally {
+      setExportingType(null);
     }
   };
 
@@ -1000,6 +1178,14 @@ export default function DashboardPaciente() {
             className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <MessageSquarePlus className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+          </button>
+          <button 
+            onClick={() => window.dispatchEvent(new CustomEvent("start-onboarding-tour"))}
+            aria-label="Iniciar Tour Virtual"
+            title="Tour de Boas-Vindas"
+            className="p-2.5 bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-white/5 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer text-slate-600 dark:text-slate-400"
+          >
+            <HelpCircle className="w-4 h-4" />
           </button>
           <button 
             onClick={() => navigate("/perfil")}
@@ -1654,7 +1840,144 @@ export default function DashboardPaciente() {
                       )}
                     </div>
 
-                    {/* 3. Card de Correlação Emocional/Física */}
+                    {/* 3. Frequência de Emoções (Última Semana) - Gráfico de Rosca */}
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 space-y-4 shadow-xl shadow-slate-200/40 dark:shadow-none">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <HeartPulse className="w-5 h-5 text-indigo-500 shrink-0" />
+                            <span>Frequência das Emoções (Última Semana)</span>
+                          </h4>
+                          <p className="text-xs text-slate-500 leading-relaxed">
+                            Proporção de emoções dominantes detectadas em seus registros do diário nos últimos 7 dias.
+                          </p>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const now = new Date();
+                        const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                        const recentEntries = diaryEntries.filter(entry => {
+                          if (!entry.timestamp) return false;
+                          const entryDate = new Date(entry.timestamp);
+                          return entryDate >= sevenDaysAgo;
+                        });
+
+                        const emotionCounts: { [key: string]: number } = {};
+                        recentEntries.forEach(entry => {
+                          const sentiment = sentimentService.analyzeDiarySentiment(entry.content, entry.moodValue);
+                          const emotion = sentiment.dominantEmotion || "Neutro";
+                          emotionCounts[emotion] = (emotionCounts[emotion] || 0) + 1;
+                        });
+
+                        const EMOTION_COLORS: { [key: string]: string } = {
+                          "Ansiedade": "#6366f1", // Indigo
+                          "Tristeza": "#8b5cf6", // Violet
+                          "Irritação/Raiva": "#f43f5e", // Rose
+                          "Calma/Paz": "#10b981", // Emerald
+                          "Calma/Alegria": "#14b8a6", // Teal
+                          "Desconforto": "#f59e0b", // Amber
+                          "Neutro": "#64748b" // Slate
+                        };
+
+                        const pieData = Object.keys(emotionCounts).map(emotion => ({
+                          name: emotion,
+                          value: emotionCounts[emotion],
+                          color: EMOTION_COLORS[emotion] || "#64748b"
+                        }));
+
+                        const totalEntries = recentEntries.length;
+
+                        if (totalEntries === 0) {
+                          return (
+                            <div className="p-8 text-center space-y-3 bg-slate-50 dark:bg-slate-950/40 rounded-3xl border border-dashed border-slate-200 dark:border-white/5">
+                              <Smile className="w-10 h-10 text-slate-400 mx-auto animate-pulse" />
+                              <div className="space-y-1">
+                                <p className="text-xs font-bold text-slate-600 dark:text-slate-400">Sem dados emocionais suficientes</p>
+                                <p className="text-[11px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+                                  Nenhuma emoção foi registrada no seu diário nos últimos 7 dias. Comece a registrar seus sentimentos para visualizar sua distribuição emocional!
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                            {/* Graphic Container (left on desktop) */}
+                            <div className="col-span-1 md:col-span-6 h-56 relative flex items-center justify-center">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie
+                                    data={pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={3}
+                                    dataKey="value"
+                                  >
+                                    {pieData.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip
+                                    content={({ active, payload }) => {
+                                      if (active && payload && payload.length) {
+                                        const data = payload[0].payload;
+                                        const percentage = ((data.value / totalEntries) * 100).toFixed(0);
+                                        return (
+                                          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-2.5 rounded-xl shadow-xl font-sans text-xs">
+                                            <p className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color }} />
+                                              {data.name}
+                                            </p>
+                                            <p className="text-slate-500 mt-0.5">
+                                              {data.value} {data.value === 1 ? 'registro' : 'registros'} ({percentage}%)
+                                            </p>
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }}
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none">
+                                <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{totalEntries}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total</span>
+                              </div>
+                            </div>
+
+                            {/* Legend & Breakdown list (right on desktop) */}
+                            <div className="col-span-1 md:col-span-6 space-y-2 font-mono">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 dark:border-white/5 pb-2">
+                                Distribuição de Sentimentos
+                              </p>
+                              <div className="space-y-2">
+                                {pieData.map((item, index) => {
+                                  const percentage = ((item.value / totalEntries) * 100).toFixed(0);
+                                  return (
+                                    <div key={index} className="flex items-center justify-between text-xs py-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                                        <span className="font-bold text-slate-700 dark:text-slate-300">{item.name}</span>
+                                      </div>
+                                      <div className="flex items-center gap-3 text-slate-500">
+                                        <span>{item.value} {item.value === 1 ? 'dia' : 'dias'}</span>
+                                        <span className="font-black text-slate-800 dark:text-slate-100 min-w-[32px] text-right">{percentage}%</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* 4. Card de Correlação Emocional/Física */}
                     <div className="bg-gradient-to-br from-indigo-55/10 via-emerald-55/5 to-transparent border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-6 space-y-3 shadow-md">
                       <div className="flex items-center gap-2">
                         <Brain className="w-5 h-5 text-indigo-500 shrink-0" />
@@ -1738,27 +2061,58 @@ export default function DashboardPaciente() {
                       <div className="flex items-center gap-2">
                         <FileText className="w-5 h-5 text-indigo-500 shrink-0" />
                         <div>
-                          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Exportar Progresso para Especialistas</h3>
-                          <p className="text-[11px] text-slate-500">Gere um documento PDF completo e seguro com todo o seu histórico emocional</p>
+                          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Exportar Diário & Progresso</h3>
+                          <p className="text-[11px] text-slate-500">Gere relatórios ou o histórico completo para acompanhamento terapêutico externo</p>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 pt-2">
-                        <button
-                          onClick={() => handleExportSentimentPDF('weekly')}
-                          className="py-3 bg-slate-50 dark:bg-slate-950 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
-                        >
-                          <Download className="w-4 h-4 shrink-0" />
-                          Baixar Semanal
-                        </button>
-                        
-                        <button
-                          onClick={() => handleExportSentimentPDF('monthly')}
-                          className="py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] shadow-md shadow-indigo-500/10"
-                        >
-                          <Download className="w-4 h-4 shrink-0" />
-                          Baixar Mensal
-                        </button>
+                      <div className="space-y-3 pt-2">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Relatórios de Indicadores</span>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              onClick={() => handleExportSentimentPDF('weekly')}
+                              className="py-3 bg-slate-50 dark:bg-slate-950 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 dark:border-white/5 text-slate-700 dark:text-slate-300 rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
+                            >
+                              <Download className="w-4 h-4 shrink-0" />
+                              Semanal (PDF)
+                            </button>
+                            
+                            <button
+                              onClick={() => handleExportSentimentPDF('monthly')}
+                              className="py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] shadow-md shadow-indigo-500/10"
+                            >
+                              <Download className="w-4 h-4 shrink-0" />
+                              Mensal (PDF)
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-100 dark:border-white/5 pt-3 space-y-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block">Histórico Completo do Diário (Reflexões)</span>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              onClick={() => handleExportCompleteDiary('pdf')}
+                              disabled={exportingType !== null || diaryEntries.length === 0}
+                              className="py-3 bg-emerald-50 dark:bg-emerald-950/20 hover:bg-emerald-100 dark:hover:bg-emerald-950/45 text-emerald-600 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-500/10 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] disabled:opacity-50"
+                            >
+                              <Download className="w-4 h-4 shrink-0" />
+                              {exportingType === 'pdf' ? "Gerando PDF..." : "Exportar PDF"}
+                            </button>
+
+                            <button
+                              onClick={() => handleExportCompleteDiary('json')}
+                              disabled={exportingType !== null || diaryEntries.length === 0}
+                              className="py-3 bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] disabled:opacity-50"
+                            >
+                              <FileText className="w-4 h-4 shrink-0" />
+                              {exportingType === 'json' ? "Gerando JSON..." : "Exportar JSON"}
+                            </button>
+                          </div>
+                          {diaryEntries.length === 0 && (
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 italic text-center">Escreva seu primeiro diário para liberar as opções de exportação.</p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1812,8 +2166,8 @@ export default function DashboardPaciente() {
                                 <div className="flex justify-between items-center pt-2 border-t border-slate-200/40 dark:border-white/5">
                                   {entry.triggers && entry.triggers.length > 0 ? (
                                     <div className="flex flex-wrap gap-1">
-                                      {entry.triggers.map((t: string) => (
-                                        <span key={t} className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-medium">
+                                      {entry.triggers.map((t: string, idx: number) => (
+                                        <span key={`${t}-${idx}`} className="text-[9px] px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-500 font-medium">
                                           {t}
                                         </span>
                                       ))}
@@ -1868,8 +2222,8 @@ export default function DashboardPaciente() {
                                         </div>
                                         {aiSentimentReport.keywords && aiSentimentReport.keywords.length > 0 && (
                                           <div className="flex flex-wrap gap-1 pt-1">
-                                            {aiSentimentReport.keywords.map((kw: string) => (
-                                              <span key={kw} className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-150 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                            {aiSentimentReport.keywords.map((kw: string, idx: number) => (
+                                              <span key={`${kw}-${idx}`} className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-150 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                                                 #{kw}
                                               </span>
                                             ))}
@@ -2089,6 +2443,7 @@ export default function DashboardPaciente() {
           <div className="flex overflow-x-auto gap-3 pb-4 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
             {quickActions.map((action, idx) => (
               <motion.button
+                id={`quick-action-${action.id}`}
                 key={action.id}
                 whileHover={{ y: -4, scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}

@@ -30,11 +30,14 @@ import Perfil from "./pages/Perfil";
 import GerenciamentoDados from "./pages/GerenciamentoDados";
 import Clinica from "./pages/Clinica";
 import Hospital from "./pages/Hospital";
+import Moderador from "./pages/Moderador";
 import Reset from "./pages/Reset";
 import Reset21 from "./pages/Reset21";
 import Reset21Day from "./pages/Reset21Day";
 import Reset21Sales from "./pages/Reset21Sales";
 import Subscription from "./pages/Subscription";
+import SimulatedCheckout from "./pages/SimulatedCheckout";
+import AdminDashboard from "./pages/AdminDashboard";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Security from "./pages/Security";
@@ -46,7 +49,7 @@ import IARAChatBubble from "./components/IARAChatBubble";
 import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
 import NetworkStatusIndicator from "./components/NetworkStatusIndicator";
-import { ProtectedRoute } from "./components/AuthProvider";
+import { ProtectedRoute, PremiumProtectedRoute } from "./components/AuthProvider";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -59,6 +62,8 @@ function App() {
             <Routes>
             <Route path="/" element={<LandingPro />} />
             <Route path="/assinatura" element={<Subscription />} />
+            <Route path="/checkout/simulated" element={<ProtectedRoute><SimulatedCheckout /></ProtectedRoute>} />
+            <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
             <Route path="/reset21" element={<Reset21 />} />
             <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />
             <Route path="/reset-21/sales" element={<Reset21Sales />} />
@@ -81,22 +86,23 @@ function App() {
             <Route path="/terapeuta-setup" element={<ProtectedRoute><TerapeutaSetup /></ProtectedRoute>} />
             <Route path="/clinica" element={<ProtectedRoute><Clinica /></ProtectedRoute>} />
             <Route path="/hospital" element={<ProtectedRoute><Hospital /></ProtectedRoute>} />
+            <Route path="/moderador" element={<ProtectedRoute><Moderador /></ProtectedRoute>} />
             <Route path="/atendimento/:appointmentId" element={<ProtectedRoute><Atendimento /></ProtectedRoute>} />
             <Route path="/registro/:appointmentId" element={<ProtectedRoute><Registro /></ProtectedRoute>} />
             <Route path="/terapeuta/paciente/:id" element={<ProtectedRoute><ProntuarioPaciente /></ProtectedRoute>} />
 
             {/* Layout Route with Persistent Mobile Shell for Beautiful Page Transitions */}
             <Route element={<ProtectedRoute><MobileDeviceWrapper /></ProtectedRoute>}>
-              <Route path="/home" element={<DashboardPaciente />} />
+              <Route path="/home" element={<PremiumProtectedRoute><DashboardPaciente /></PremiumProtectedRoute>} />
               <Route path="/reset" element={<Reset />} />
               <Route path="/sobre" element={<Sobre />} />
               <Route path="/triagem" element={<Triagem />} />
-              <Route path="/respiracao" element={<Respiracao />} />
-              <Route path="/chat" element={<ChatIARA />} />
+              <Route path="/respiracao" element={<PremiumProtectedRoute><Respiracao /></PremiumProtectedRoute>} />
+              <Route path="/chat" element={<PremiumProtectedRoute><ChatIARA /></PremiumProtectedRoute>} />
               <Route path="/onboarding" element={<Onboarding />} />
               <Route path="/app" element={<AppDashboard />} />
-              <Route path="/profissionais" element={<Profissionais />} />
-              <Route path="/diario" element={<Diario />} />
+              <Route path="/profissionais" element={<PremiumProtectedRoute><Profissionais /></PremiumProtectedRoute>} />
+              <Route path="/diario" element={<PremiumProtectedRoute><Diario /></PremiumProtectedRoute>} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/emergencia" element={<Emergencia />} />
               <Route path="/pronto-atendimento" element={<ProntoAtendimento />} />

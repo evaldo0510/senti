@@ -122,6 +122,12 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         console.log('PWA: Sincronização offline concluída com sucesso!');
       }
+      
+      // Salva o último horário de sincronização no localStorage do usuário
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        localStorage.setItem(`last_firestore_sync_${currentUser.uid}`, new Date().toISOString());
+      }
     } catch (err) {
       console.warn('Erro ao sincronizar dados offline:', err);
     }

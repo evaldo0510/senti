@@ -83,7 +83,7 @@ export default function Prefeitura() {
 
   useEffect(() => {
     if (isAuthReady && !loading) {
-      if (!profile || (profile.tipo !== 'prefeitura' && profile.tipo !== 'admin')) {
+      if (!profile || (profile.tipo !== 'prefeitura' && profile.tipo !== 'admin' && profile.tipo !== 'super_admin')) {
         navigate("/login");
       }
     }

@@ -55,11 +55,11 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
         <div className="space-y-1">
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-amber-500 fill-amber-500/20" />
-            Suas Conquistas e Emblemas
+            <Trophy className="w-5 h-5 text-emerald-500 fill-emerald-500/20" />
+            Insígnias e Evolução PCH
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Complete diários e técnicas de respiração para ganhar XP e desbloquear insígnias.
+            Explore a auto-observação com a <b>Poesia Cognitiva</b> e a regulação com a <b>Ancoragem Hipnótica</b> para evoluir no seu processo.
           </p>
         </div>
         
@@ -81,7 +81,7 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
                 cx="20"
                 cy="20"
                 r="16"
-                className="text-amber-500 transition-all duration-1000"
+                className="text-emerald-500 transition-all duration-1000"
                 strokeWidth="3.5"
                 strokeDasharray={100}
                 strokeDashoffset={100 - progressPercent}
@@ -98,7 +98,7 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
             <p className="text-xs font-black text-slate-800 dark:text-slate-200">
               {unlockedCount} de {totalCount} Conquistas
             </p>
-            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+            <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
               +{unlockedCount * 50} XP Ganhos
             </p>
           </div>
@@ -116,7 +116,7 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
               : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
           )}
         >
-          Todas ({totalCount})
+          Tudo ({totalCount})
         </button>
         <button
           onClick={() => setActiveTab("emotion")}
@@ -127,7 +127,7 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
               : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
           )}
         >
-          Diário Emocional
+          Poesia Cognitiva (Diário)
         </button>
         <button
           onClick={() => setActiveTab("breathing")}
@@ -138,7 +138,7 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
               : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
           )}
         >
-          Respiração
+          Ancoragem Hipnótica
         </button>
       </div>
 
@@ -296,7 +296,7 @@ export function AchievementsWidget({ userAchievements = [], xp = 0, streak = 0 }
                               ? "bg-rose-50 dark:bg-rose-950/20 text-rose-500 border-rose-100 dark:border-rose-950/30" 
                               : "bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 border-emerald-100 dark:border-emerald-950/30"
                           )}>
-                            {isEmotion ? "Diário Emocional" : "Respiração"}
+                            {isEmotion ? "Poesia Cognitiva" : "Ancoragem Hipnótica"}
                           </span>
                           <span className={cn(
                             "px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",

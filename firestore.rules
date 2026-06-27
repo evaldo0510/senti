@@ -1,15 +1,156 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Global Safety Net - deny all by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
 
-    // Helper function
+    // Reusable, hardened global helpers
     function isSignedIn() {
       return request.auth != null;
     }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
 
-    // Global read/write for signed-in users in dev/preview
-    match /{document=**} {
-      allow read, write: if isSignedIn();
+    function isSystemAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin');
+    }
+
+    // --- Users Collection Rules ---
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      
+      allow get: if isSignedIn() && (
+        (resource != null && (resource.data.tipo == 'terapeuta' || resource.data.tipo == 'admin' || resource.data.tipo == 'super_admin')) ||
+        (request.auth.uid != userId && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin' || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'))
+      );
+
+      allow list: if isSignedIn() && (
+        (resource != null && (resource.data.tipo == 'terapeuta' || resource.data.tipo == 'admin' || resource.data.tipo == 'super_admin')) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin' || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'))
+      );
+      
+      allow update: if isSignedIn() && (
+        request.auth.uid == userId ||
+        (request.auth.uid != userId && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'))
+      );
+
+      allow delete: if isSignedIn() && request.auth.uid != userId && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+      );
+    }
+
+    // --- Appointments Collection Rules ---
+    match /appointments/{appointmentId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && resource != null && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.therapistId == request.auth.uid
+      );
+      allow create: if isSignedIn() && (
+        incoming().patientId == request.auth.uid ||
+        incoming().therapistId == request.auth.uid
+      );
+      allow update: if isSignedIn() && resource != null && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.therapistId == request.auth.uid
+      );
+    }
+
+    // --- Messages Collection Rules ---
+    match /messages/{messageId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && resource != null && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid
+      );
+      allow create: if isSignedIn() && (
+        incoming().senderId == request.auth.uid
+      );
+    }
+
+    // --- Emotion Logs Collection Rules ---
+    match /emotion_logs/{logId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Breathing Logs Collection Rules ---
+    match /breathing_logs/{logId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- IARA AI Memory Collection Rules ---
+    match /memoria_iara/{userId} {
+      allow read, write: if isSystemAdmin();
+      allow read, write: if isOwner(userId);
+    }
+
+    // --- Diary Entries Collection Rules ---
+    match /diary_entries/{entryId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Feedbacks Collection Rules ---
+    match /feedbacks/{feedbackId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    }
+
+    // --- Private Clinical Notes Collection Rules ---
+    match /private_notes/{noteId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && resource != null && (
+        resource.data.patientId == request.auth.uid ||
+        resource.data.therapistId == request.auth.uid
+      );
+      allow create: if isSignedIn() && (
+        incoming().therapistId == request.auth.uid
+      );
+      allow update, delete: if isSignedIn() && resource != null && (
+        resource.data.therapistId == request.auth.uid
+      );
+    }
+
+    // --- Security Audit Logs Collection Rules ---
+    match /audit_logs/{logId} {
+      allow read, write: if isSystemAdmin();
+      // Audits must always be appendable to prevent race conditions during auth transitions
+      allow create: if true;
+      allow get, list: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
     }
   }
 }
