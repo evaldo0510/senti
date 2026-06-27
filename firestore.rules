@@ -31,36 +31,70 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin');
     }
 
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getTenantId(data) {
+      return ('tenantId' in data) ? data.tenantId : null;
+    }
+
+    function isSameTenant(data) {
+      return !hasUserDoc() || getTenantId(data) == getTenantId(getUserData());
+    }
+
     // --- Users Collection Rules ---
     match /users/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
       
       allow get: if isSignedIn() && (
-        (resource != null && (resource.data.tipo == 'terapeuta' || resource.data.tipo == 'admin' || resource.data.tipo == 'super_admin')) ||
-        (request.auth.uid != userId && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin' || 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'))
+        isSystemAdmin() ||
+        (
+          (resource != null && (resource.data.tipo == 'terapeuta' || resource.data.tipo == 'admin' || resource.data.tipo == 'super_admin')) &&
+          isSameTenant(resource.data)
+        ) ||
+        (
+          request.auth.uid != userId && hasUserDoc() && 
+          (getUserData().tipo == 'admin' || 
+           getUserData().tipo == 'super_admin' || 
+           getUserData().tipo == 'admin_institucional' || 
+           getUserData().tipo == 'terapeuta') &&
+          isSameTenant(resource.data)
+        )
       );
 
       allow list: if isSignedIn() && (
-        (resource != null && (resource.data.tipo == 'terapeuta' || resource.data.tipo == 'admin' || resource.data.tipo == 'super_admin')) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin' || 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta'))
+        isSystemAdmin() ||
+        (
+          (resource != null && (resource.data.tipo == 'terapeuta' || resource.data.tipo == 'admin' || resource.data.tipo == 'super_admin')) &&
+          isSameTenant(resource.data)
+        ) ||
+        (
+          hasUserDoc() && 
+          (getUserData().tipo == 'admin' || 
+           getUserData().tipo == 'super_admin' || 
+           getUserData().tipo == 'admin_institucional' || 
+           getUserData().tipo == 'terapeuta') &&
+          isSameTenant(resource.data)
+        )
       );
       
       allow update: if isSignedIn() && (
         request.auth.uid == userId ||
-        (request.auth.uid != userId && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'))
+        (
+          request.auth.uid != userId && hasUserDoc() && 
+          (getUserData().tipo == 'admin' || getUserData().tipo == 'super_admin' || getUserData().tipo == 'admin_institucional') &&
+          isSameTenant(resource.data)
+        )
       );
 
-      allow delete: if isSignedIn() && request.auth.uid != userId && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+      allow delete: if isSignedIn() && request.auth.uid != userId && hasUserDoc() && (
+        (getUserData().tipo == 'admin' || getUserData().tipo == 'super_admin') ||
+        (getUserData().tipo == 'admin_institucional' && isSameTenant(resource.data))
       );
     }
 
@@ -151,6 +185,27 @@ service cloud.firestore {
       // Audits must always be appendable to prevent race conditions during auth transitions
       allow create: if true;
       allow get, list: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Organizations Collection Rules ---
+    match /organizations/{orgId} {
+      allow read: if isSignedIn() && (
+        isSystemAdmin() ||
+        (hasUserDoc() && getUserData().tenantId == orgId)
+      );
+      allow create, delete: if isSystemAdmin();
+      allow update: if isSignedIn() && (
+        isSystemAdmin() ||
+        (
+          hasUserDoc() && 
+          getUserData().tenantId == orgId && 
+          (getUserData().tipo == 'admin_institucional' || 
+           getUserData().tipo == 'empresa' || 
+           getUserData().tipo == 'prefeitura' || 
+           getUserData().tipo == 'clinica' || 
+           getUserData().tipo == 'hospital')
+        )
+      );
     }
   }
 }

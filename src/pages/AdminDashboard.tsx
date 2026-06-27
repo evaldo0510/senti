@@ -3,7 +3,8 @@ import { useAuth } from "../components/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { db } from "../services/firebase";
 import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit } from "firebase/firestore";
-import { UserProfile, UserType } from "../types";
+import { UserProfile, UserType, Organization } from "../types";
+import { organizationService } from "../services/organizationService";
 import { PLANS } from "../services/paymentService";
 import { 
   Users, 
@@ -30,9 +31,10 @@ export default function AdminDashboard() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<"geral" | "usuarios" | "assinaturas" | "terapeutas" | "agendamentos" | "config">("geral");
+  const [activeTab, setActiveTab] = useState<"geral" | "usuarios" | "organizations" | "assinaturas" | "terapeutas" | "agendamentos" | "config">("geral");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
+  const [organizationsList, setOrganizationsList] = useState<Organization[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
@@ -43,7 +45,17 @@ export default function AdminDashboard() {
   const [editRole, setEditRole] = useState<UserType>("usuario");
   const [editPlan, setEditPlan] = useState<"trial" | "premium" | "professional" | "enterprise">("trial");
   const [editStatus, setEditStatus] = useState<"trial" | "active" | "expired" | "cancelled">("trial");
+  const [editTenantId, setEditTenantId] = useState<string>("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Estados para nova organização
+  const [newOrgId, setNewOrgId] = useState("");
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgTipo, setNewOrgTipo] = useState<'prefeitura' | 'clinica' | 'empresa' | 'hospital' | 'outra'>("empresa");
+  const [newOrgMaxUsers, setNewOrgMaxUsers] = useState<number>(500);
+  const [newOrgEmail, setNewOrgEmail] = useState("");
+  const [newOrgPhone, setNewOrgPhone] = useState("");
+  const [newOrgDomain, setNewOrgDomain] = useState("");
 
   // Redireciona usuários não autorizados
   useEffect(() => {
@@ -72,6 +84,10 @@ export default function AdminDashboard() {
         ...docSnap.data()
       }));
       setAppointmentsList(appData);
+
+      // Carrega Organizações (Tenants)
+      const orgs = await organizationService.listOrganizations();
+      setOrganizationsList(orgs);
 
     } catch (error) {
       console.error("Erro ao carregar dados administrativos:", error);
@@ -129,6 +145,7 @@ export default function AdminDashboard() {
     setEditRole(user.tipo);
     setEditPlan(user.subscriptionPlan || "trial");
     setEditStatus(user.subscriptionStatus || "trial");
+    setEditTenantId(user.tenantId || "");
   };
 
   const handleSaveUserChanges = async () => {
@@ -140,7 +157,8 @@ export default function AdminDashboard() {
       const updatePayload: Partial<UserProfile> = {
         tipo: editRole,
         subscriptionPlan: editPlan,
-        subscriptionStatus: editStatus
+        subscriptionStatus: editStatus,
+        tenantId: editTenantId || null
       };
 
       // Se ativou plano manualmente, preenche campos extras se vazios
@@ -172,6 +190,63 @@ export default function AdminDashboard() {
     } catch (e) {
       console.error("Erro ao deletar usuário:", e);
       alert("Falha ao excluir usuário.");
+    }
+  };
+
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgId || !newOrgName) {
+      alert("Por favor, preencha o ID e o Nome da organização.");
+      return;
+    }
+    const sanitizedId = newOrgId.toLowerCase().trim().replace(/\s+/g, "-");
+    
+    setActionLoading(true);
+    try {
+      const created = await organizationService.createOrganization({
+        id: sanitizedId,
+        name: newOrgName,
+        tipo: newOrgTipo,
+        maxUsers: newOrgMaxUsers,
+        contatoEmail: newOrgEmail || undefined,
+        contatoTelefone: newOrgPhone || undefined,
+        domain: newOrgDomain || undefined
+      });
+      setOrganizationsList(prev => [created, ...prev]);
+      setNewOrgId("");
+      setNewOrgName("");
+      setNewOrgEmail("");
+      setNewOrgPhone("");
+      setNewOrgDomain("");
+      alert("Organização criada com sucesso!");
+    } catch (err) {
+      console.error("Erro ao criar organização:", err);
+      alert("Erro ao criar organização no Firestore.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleToggleOrgActive = async (orgId: string, currentActive: boolean) => {
+    try {
+      await organizationService.updateOrganization(orgId, { active: !currentActive });
+      setOrganizationsList(prev => prev.map(o => o.id === orgId ? { ...o, active: !currentActive } : o));
+    } catch (err) {
+      console.error("Erro ao alterar status da organização:", err);
+    }
+  };
+
+  const handleRecalculateIndicators = async (orgId: string) => {
+    setActionLoading(true);
+    try {
+      const updatedIndicadores = await organizationService.updateAggregatedIndicators(orgId);
+      setOrganizationsList(prev => prev.map(o => o.id === orgId ? { ...o, indicadores: updatedIndicadores } : o));
+      alert("Indicadores recalculados com sucesso para esta organização!");
+    } catch (err) {
+      console.error("Erro ao recalcular indicadores:", err);
+      alert("Erro ao recalcular indicadores no Firestore.");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -208,6 +283,15 @@ export default function AdminDashboard() {
               }`}
             >
               <Users className="w-4 h-4" /> Usuários Cadastrados
+            </button>
+
+            <button
+              onClick={() => setActiveTab("organizations")}
+              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "organizations" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Building className="w-4 h-4" /> Organizações B2B (Tenants)
             </button>
 
             <button
@@ -352,6 +436,202 @@ export default function AdminDashboard() {
                       <span>Integridade das regras de segurança carregadas</span>
                       <span className="text-[10px] text-slate-400 font-bold">Há 10 minutos</span>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: ORGANIZACOES B2B / TENANTS */}
+            {activeTab === "organizations" && (
+              <div className="space-y-6">
+                {/* Criar Nova Organização */}
+                <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-6">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900">Cadastrar Nova Organização (Tenant B2B)</h3>
+                    <p className="text-[10px] text-slate-400">Configure prefeituras, clínicas, hospitais ou empresas parceiras.</p>
+                  </div>
+
+                  <form onSubmit={handleCreateOrg} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">ID Único (Tenant ID)</label>
+                      <input
+                        type="text"
+                        placeholder="ex: prefeitura-santo-andre"
+                        value={newOrgId}
+                        onChange={(e) => setNewOrgId(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Nome da Organização</label>
+                      <input
+                        type="text"
+                        placeholder="ex: Prefeitura de Santo André"
+                        value={newOrgName}
+                        onChange={(e) => setNewOrgName(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Tipo</label>
+                      <select
+                        value={newOrgTipo}
+                        onChange={(e) => setNewOrgTipo(e.target.value as any)}
+                        className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none cursor-pointer text-slate-800"
+                      >
+                        <option value="prefeitura">Prefeitura / Município</option>
+                        <option value="empresa">Empresa (RH / Corporativo)</option>
+                        <option value="clinica">Clínica</option>
+                        <option value="hospital">Hospital / Pronto Atendimento</option>
+                        <option value="outra">Outra Entidade</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Limite de Colaboradores</label>
+                      <input
+                        type="number"
+                        placeholder="500"
+                        value={newOrgMaxUsers}
+                        onChange={(e) => setNewOrgMaxUsers(parseInt(e.target.value) || 0)}
+                        required
+                        className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">E-mail de Contato</label>
+                      <input
+                        type="email"
+                        placeholder="contato@organizacao.com"
+                        value={newOrgEmail}
+                        onChange={(e) => setNewOrgEmail(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Domínio de E-mail (ex: @santoandre.gov)</label>
+                      <input
+                        type="text"
+                        placeholder="@santoandre.sp.gov.br"
+                        value={newOrgDomain}
+                        onChange={(e) => setNewOrgDomain(e.target.value)}
+                        className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 text-slate-800"
+                      />
+                    </div>
+
+                    <div className="md:col-span-3 pt-2">
+                      <button
+                        type="submit"
+                        disabled={actionLoading}
+                        className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition disabled:opacity-50"
+                      >
+                        {actionLoading ? "Processando..." : "Criar Organização"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Lista de Organizações */}
+                <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-black/5">
+                    <h3 className="text-sm font-extrabold text-slate-900">Organizações Cadastradas</h3>
+                    <p className="text-[10px] text-slate-400">Total de {organizationsList.length} tenants gerenciados no sistema.</p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-black/5 text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
+                          <th className="px-6 py-3">Organização / ID</th>
+                          <th className="px-6 py-3">Tipo</th>
+                          <th className="px-6 py-3">Domínio / Email</th>
+                          <th className="px-6 py-3">Usuários Ativos / Limite</th>
+                          <th className="px-6 py-3">Métricas Consolidadas (Anônimas)</th>
+                          <th className="px-6 py-3">Status</th>
+                          <th className="px-6 py-3 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-black/5 text-xs text-slate-700">
+                        {organizationsList.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-6 py-10 text-center text-slate-400">
+                              Nenhuma organização cadastrada.
+                            </td>
+                          </tr>
+                        ) : (
+                          organizationsList.map(org => {
+                            const linkedUsersCount = usersList.filter(u => u.tenantId === org.id).length;
+                            return (
+                              <tr key={org.id} className="hover:bg-slate-50/50 transition">
+                                <td className="px-6 py-4">
+                                  <div className="font-extrabold text-slate-900">{org.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">{org.id}</div>
+                                </td>
+                                <td className="px-6 py-4 uppercase text-[10px] font-bold">
+                                  <span className={`px-2 py-0.5 rounded-full ${
+                                    org.tipo === 'prefeitura' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                                    org.tipo === 'empresa' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                    org.tipo === 'clinica' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
+                                    org.tipo === 'hospital' ? 'bg-red-50 text-red-600 border border-red-100' :
+                                    'bg-slate-50 text-slate-600'
+                                  }`}>
+                                    {org.tipo}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div>{org.contatoEmail || "Sem email"}</div>
+                                  <div className="text-[10px] text-slate-400 font-mono">{org.domain || "Sem domínio de auto-reg"}</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="font-bold">{linkedUsersCount} / {org.maxUsers}</div>
+                                  <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1">
+                                    <div 
+                                      className="h-full bg-emerald-500 rounded-full" 
+                                      style={{ width: `${Math.min(100, (linkedUsersCount / org.maxUsers) * 100)}%` }}
+                                    ></div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                                    <div><span className="text-slate-400">Consultas:</span> <span className="font-bold text-slate-800">{org.indicadores?.totalConsultas || 0}</span></div>
+                                    <div><span className="text-slate-400">Humor Médio:</span> <span className="font-bold text-slate-800">{org.indicadores?.humorMedio || 7.0}/10</span></div>
+                                    <div><span className="text-slate-400">Estresse:</span> <span className="font-bold text-slate-800">{org.indicadores?.nivelEstresse || 3.0}/10</span></div>
+                                    <div><span className="text-slate-400">IARA:</span> <span className="font-bold text-slate-800">{org.indicadores?.totalMensagensIara || 0} msgs</span></div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <button
+                                    onClick={() => handleToggleOrgActive(org.id, org.active)}
+                                    className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border transition ${
+                                      org.active 
+                                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' 
+                                        : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100'
+                                    }`}
+                                  >
+                                    {org.active ? "ATIVO" : "INATIVO"}
+                                  </button>
+                                </td>
+                                <td className="px-6 py-4 text-right space-x-1">
+                                  <button
+                                    onClick={() => handleRecalculateIndicators(org.id)}
+                                    title="Recalcular Indicadores Consolidados"
+                                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[10px] font-bold transition"
+                                  >
+                                    Recalcular
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
@@ -741,6 +1021,20 @@ export default function AdminDashboard() {
                   <option value="active">Ativo (Acesso Liberado)</option>
                   <option value="expired">Expirado (Bloqueado)</option>
                   <option value="cancelled">Cancelado (Bloqueado)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Organização Vinculada (Tenant ID)</label>
+                <select
+                  value={editTenantId}
+                  onChange={(e) => setEditTenantId(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#f5f5f0] rounded-xl text-xs font-bold focus:outline-none cursor-pointer text-slate-800"
+                >
+                  <option value="">Nenhuma (Público B2C / Independente)</option>
+                  {organizationsList.map(org => (
+                    <option key={org.id} value={org.id}>{org.name} ({org.tipo})</option>
+                  ))}
                 </select>
               </div>
             </div>

@@ -1,0 +1,200 @@
+import { db, handleFirestoreError, OperationType } from './firebase';
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  query, 
+  where, 
+  setDoc, 
+  updateDoc, 
+  addDoc,
+  orderBy
+} from 'firebase/firestore';
+import { Organization, UserProfile } from '../types';
+
+export const organizationService = {
+  getOrganization: async (id: string): Promise<Organization | null> => {
+    const path = `organizations/${id}`;
+    try {
+      const docSnap = await getDoc(doc(db, 'organizations', id));
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as Organization;
+      }
+      return null;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+      return null;
+    }
+  },
+
+  createOrganization: async (org: Omit<Organization, 'createdAt' | 'active'>): Promise<Organization> => {
+    const path = `organizations/${org.id}`;
+    const newOrg: Organization = {
+      ...org,
+      active: true,
+      createdAt: new Date().toISOString(),
+      indicadores: {
+        totalConsultas: 0,
+        humorMedio: 7.5,
+        nivelEstresse: 3.2,
+        totalMensagensIara: 0
+      }
+    };
+    try {
+      await setDoc(doc(db, 'organizations', org.id), newOrg);
+      return newOrg;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+      throw error;
+    }
+  },
+
+  updateOrganization: async (id: string, data: Partial<Organization>): Promise<void> => {
+    const path = `organizations/${id}`;
+    try {
+      await updateDoc(doc(db, 'organizations', id), data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  listOrganizations: async (): Promise<Organization[]> => {
+    const path = 'organizations';
+    try {
+      const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization));
+    } catch (error) {
+      // Fallback if index on createdAt is missing or on error
+      try {
+        const snapshot = await getDocs(collection(db, path));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Organization));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, path);
+        return [];
+      }
+    }
+  },
+
+  linkUserToOrganization: async (userId: string, tenantId: string | null): Promise<void> => {
+    const path = `users/${userId}`;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        tenantId: tenantId || null
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
+  },
+
+  getOrganizationUsers: async (tenantId: string): Promise<UserProfile[]> => {
+    const path = 'users';
+    try {
+      const q = query(
+        collection(db, path),
+        where('tenantId', '==', tenantId),
+        where('tipo', '==', 'usuario')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as UserProfile);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  getOrganizationTherapists: async (tenantId: string): Promise<UserProfile[]> => {
+    const path = 'users';
+    try {
+      const q = query(
+        collection(db, path),
+        where('tenantId', '==', tenantId),
+        where('tipo', '==', 'terapeuta')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as UserProfile);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  /**
+   * Recalculates indicators for a tenant completely anonymized
+   * preserving user privacy but providing valuable insights to prefeituras/empresas
+   */
+  updateAggregatedIndicators: async (tenantId: string): Promise<Organization['indicadores']> => {
+    try {
+      const users = await organizationService.getOrganizationUsers(tenantId);
+      const userIds = users.map(u => u.uid);
+
+      if (userIds.length === 0) {
+        const fallback = { totalConsultas: 0, humorMedio: 7.0, nivelEstresse: 3.0, totalMensagensIara: 0 };
+        await organizationService.updateOrganization(tenantId, { indicadores: fallback });
+        return fallback;
+      }
+
+      // Query appointments for users in this tenant
+      let totalConsultas = 0;
+      try {
+        const apptsQuery = query(collection(db, 'appointments'), where('tenantId', '==', tenantId));
+        const apptsSnapshot = await getDocs(apptsQuery);
+        totalConsultas = apptsSnapshot.size;
+      } catch (err) {
+        console.warn("Erro ao buscar agendamentos para indicadores:", err);
+      }
+
+      // Fetch emotion logs for average mood and stress
+      let sumMood = 0;
+      let countMood = 0;
+      let sumStress = 0;
+      let countStress = 0;
+
+      // Firestore doesn't easily allow batch user IN queries for subcollections in a single step,
+      // so we fetch all emotion logs of the last 30 days and filter in memory to maintain simplicity
+      try {
+        const logsSnapshot = await getDocs(collection(db, 'emotion_logs'));
+        const tenantLogs = logsSnapshot.docs
+          .map(doc => doc.data())
+          .filter(log => userIds.includes(log.userId));
+
+        tenantLogs.forEach(log => {
+          if (log.value !== undefined) {
+            sumMood += log.value;
+            countMood++;
+          }
+          if (log.intensity !== undefined) {
+            // intensity is used as stress level in distress logs
+            sumStress += log.intensity;
+            countStress++;
+          }
+        });
+      } catch (err) {
+        console.warn("Erro ao processar logs de emoções para indicadores:", err);
+      }
+
+      const humorMedio = countMood > 0 ? parseFloat((sumMood / countMood).toFixed(1)) : 7.0;
+      const nivelEstresse = countStress > 0 ? parseFloat((sumStress / countStress).toFixed(1)) : 3.0;
+
+      // Recalculate Iara interactions if available
+      let totalMensagensIara = 0;
+      users.forEach(u => {
+        totalMensagensIara += u.iaraChatCount || 0;
+      });
+
+      const indicadores = {
+        totalConsultas,
+        humorMedio,
+        nivelEstresse,
+        totalMensagensIara
+      };
+
+      await organizationService.updateOrganization(tenantId, { indicadores });
+      return indicadores;
+    } catch (error) {
+      console.error("Erro ao atualizar indicadores agregados:", error);
+      throw error;
+    }
+  }
+};

@@ -27,7 +27,8 @@
         "paymentProvider": { "type": "string", "enum": ["stripe", "mercadopago"], "description": "Selected payment gateway" },
         "subscriptionId": { "type": "string", "description": "Gateway subscription ID" },
         "lastPayment": { "type": "string", "format": "date-time", "description": "Last payment timestamp" },
-        "nextBilling": { "type": "string", "format": "date-time", "description": "Next billing/payment date" }
+        "nextBilling": { "type": "string", "format": "date-time", "description": "Next billing/payment date" },
+        "tenantId": { "type": "string", "description": "ID of the linked organization (multitenant)" }
       },
       "required": ["uid", "email", "tipo"]
     },
@@ -139,6 +140,33 @@
         "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
       },
       "required": ["therapistId", "patientId", "encryptedContent", "createdAt", "updatedAt"]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Company, municipality or clinic (multitenant tenant)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier / tenant ID" },
+        "name": { "type": "string", "description": "Organization's display name" },
+        "tipo": { "type": "string", "enum": ["prefeitura", "clinica", "empresa", "hospital", "outra"], "description": "Organization category" },
+        "active": { "type": "boolean", "description": "If organization is active" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "domain": { "type": "string", "description": "Optional email domain for auto-onboarding" },
+        "maxUsers": { "type": "number", "description": "Maximum allowed linked users" },
+        "logoUrl": { "type": "string", "description": "URL of organization's logo" },
+        "contatoEmail": { "type": "string", "format": "email", "description": "Primary contact email" },
+        "contatoTelefone": { "type": "string", "description": "Primary contact phone" },
+        "indicadores": {
+          "type": "object",
+          "properties": {
+            "totalConsultas": { "type": "number" },
+            "humorMedio": { "type": "number" },
+            "nivelEstresse": { "type": "number" },
+            "totalMensagensIara": { "type": "number" }
+          }
+        }
+      },
+      "required": ["id", "name", "tipo", "active", "createdAt"]
     }
   },
   "firestore": {
@@ -173,6 +201,10 @@
     "private_notes": {
       "schema": "PrivateNote",
       "description": "Collection of encrypted private therapist notes on patients"
+    },
+    "organizations": {
+      "schema": "Organization",
+      "description": "Collection of multitenant tenants"
     }
   }
 }

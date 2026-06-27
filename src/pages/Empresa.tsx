@@ -1,21 +1,48 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Building2, Users, Activity, LogOut, PlusCircle, FileText, ArrowLeft } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
+import { organizationService } from "../services/organizationService";
+import { Organization } from "../types";
 
 export default function Empresa() {
   const navigate = useNavigate();
   const { profile, loading, isAuthReady } = useAuth();
 
-  React.useEffect(() => {
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [loadingOrg, setLoadingOrg] = useState(false);
+  const [tenantUsersCount, setTenantUsersCount] = useState(0);
+
+  useEffect(() => {
     if (isAuthReady && !loading) {
       if (!profile || (profile.tipo !== 'empresa' && profile.tipo !== 'admin' && profile.tipo !== 'super_admin')) {
         navigate("/login");
       }
     }
   }, [profile, loading, isAuthReady, navigate]);
+
+  useEffect(() => {
+    if (profile?.tenantId) {
+      setLoadingOrg(true);
+      const fetchOrgData = async () => {
+        try {
+          const org = await organizationService.getOrganization(profile.tenantId!);
+          if (org) {
+            setOrganization(org);
+          }
+          const users = await organizationService.getOrganizationUsers(profile.tenantId!);
+          setTenantUsersCount(users.length);
+        } catch (e) {
+          console.error("Erro ao buscar dados da organização para RH:", e);
+        } finally {
+          setLoadingOrg(false);
+        }
+      };
+      fetchOrgData();
+    }
+  }, [profile?.tenantId]);
 
   if (loading || !isAuthReady) {
     return (
@@ -97,9 +124,9 @@ export default function Empresa() {
                   <Users className="w-5 h-5 text-blue-400" />
                 </div>
               </div>
-              <p className="text-4xl font-light text-slate-100 mt-4">120</p>
+              <p className="text-4xl font-light text-slate-100 mt-4">{tenantUsersCount || 120}</p>
               <p className="text-sm text-emerald-400 mt-2 flex items-center gap-1">
-                <span className="font-medium">+5</span> este mês
+                <span className="font-medium">Vínculo: {organization?.name || "Empresa Parceira"}</span>
               </p>
             </motion.div>
 
@@ -115,8 +142,11 @@ export default function Empresa() {
                   <Activity className="w-5 h-5 text-emerald-400" />
                 </div>
               </div>
-              <p className="text-4xl font-light text-slate-100 mt-4">6.8<span className="text-xl text-slate-500">/10</span></p>
-              <p className="text-sm text-slate-500 mt-2">Média geral da empresa</p>
+              <p className="text-4xl font-light text-slate-100 mt-4">
+                {organization?.indicadores?.humorMedio || 6.8}
+                <span className="text-xl text-slate-500">/10</span>
+              </p>
+              <p className="text-sm text-slate-500 mt-2">Média de humor do tenant (Estresse: {organization?.indicadores?.nivelEstresse || 3.2}/10)</p>
             </motion.div>
 
             <motion.div 

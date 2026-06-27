@@ -313,9 +313,47 @@ export const userService = {
     }
     const path = 'users';
     try {
-      const q = query(collection(db, path), where("tipo", "==", "terapeuta"));
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as UserProfile);
+      let currentTenantId: string | undefined = undefined;
+      if (user?.uid) {
+        const currentUserProfile = await userService.getUser(user.uid);
+        currentTenantId = currentUserProfile?.tenantId;
+      }
+
+      let therapists: UserProfile[] = [];
+      if (currentTenantId) {
+        const q = query(
+          collection(db, path), 
+          where("tipo", "==", "terapeuta"),
+          where("tenantId", "==", currentTenantId)
+        );
+        const snapshot = await getDocs(q);
+        therapists = snapshot.docs.map(doc => doc.data() as UserProfile);
+
+        // Also merge global/independent therapists (where tenantId is not present/empty)
+        const globalQ = query(
+          collection(db, path),
+          where("tipo", "==", "terapeuta")
+        );
+        const globalSnapshot = await getDocs(globalQ);
+        const globalTherapists = globalSnapshot.docs
+          .map(doc => doc.data() as UserProfile)
+          .filter(t => !t.tenantId);
+
+        const seenUids = new Set(therapists.map(t => t.uid));
+        globalTherapists.forEach(gt => {
+          if (!seenUids.has(gt.uid)) {
+            therapists.push(gt);
+          }
+        });
+      } else {
+        const q = query(collection(db, path), where("tipo", "==", "terapeuta"));
+        const snapshot = await getDocs(q);
+        therapists = snapshot.docs
+          .map(doc => doc.data() as UserProfile)
+          .filter(t => !t.tenantId); // Public B2C users only see independent therapists
+      }
+
+      return therapists;
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, path);
       return [];
@@ -323,36 +361,19 @@ export const userService = {
   },
 
   getFeaturedTherapists: async (limitCount: number = 3): Promise<UserProfile[]> => {
-    const simUserStr = localStorage.getItem("simulatedUser");
-    const simUser = simUserStr ? JSON.parse(simUserStr) : null;
-    const user = auth.currentUser || simUser;
-    if (!auth.currentUser || (user && user.uid === 'guest_demo_user')) {
-      const { MOCK_THERAPISTS } = await import('./mockData');
-      return MOCK_THERAPISTS.slice(0, limitCount);
-    }
-    const path = 'users';
     try {
-      const q = query(
-        collection(db, path), 
-        where("tipo", "==", "terapeuta"),
-        where("online", "==", true)
-      );
-      const snapshot = await getDocs(q);
-      const therapists = snapshot.docs.map(doc => doc.data() as UserProfile);
-      therapists.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      return therapists.slice(0, limitCount);
-    } catch (error) {
-      // Fallback if online/rating query fails due to missing index
-      try {
-        const qSimple = query(collection(db, path), where("tipo", "==", "terapeuta"));
-        const snapshot = await getDocs(qSimple);
-        const therapists = snapshot.docs.map(doc => doc.data() as UserProfile);
+      const therapists = await userService.getTherapists();
+      const featured = therapists.filter(t => t.online || (t.rating && t.rating >= 4.5));
+      featured.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      if (featured.length === 0) {
         therapists.sort((a, b) => (b.rating || 0) - (a.rating || 0));
         return therapists.slice(0, limitCount);
-      } catch (fallbackError) {
-        handleFirestoreError(fallbackError, OperationType.LIST, path);
-        return [];
       }
+      return featured.slice(0, limitCount);
+    } catch (error) {
+      const path = 'users';
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
     }
   },
 
@@ -370,11 +391,23 @@ export const userService = {
     const path = 'appointments';
     try {
       const sharedSecret = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      
+      let tenantId: string | undefined = undefined;
+      try {
+        const patientProfile = await userService.getUser(appointment.patientId);
+        if (patientProfile?.tenantId) {
+          tenantId = patientProfile.tenantId;
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar tenantId do paciente:", e);
+      }
+
       const newAppointment = {
         ...appointment,
         createdAt: new Date().toISOString(),
         status: 'pending' as const,
-        sharedSecret
+        sharedSecret,
+        ...(tenantId ? { tenantId } : {})
       };
       const docRef = await addDoc(collection(db, path), newAppointment);
       

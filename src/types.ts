@@ -97,6 +97,7 @@ export interface UserProfile {
   tipo: UserType;
   createdAt: string;
   // Campos para terapeutas
+  crp?: string;
   especialidades?: string[];
   preco?: number;
   disponibilidade?: Availability[];
@@ -155,6 +156,27 @@ export interface UserProfile {
   subscriptionId?: string;
   lastPayment?: string;
   nextBilling?: string;
+  // Multitenancy
+  tenantId?: string;
+}
+
+export interface Organization {
+  id: string; // Document ID (tenantId)
+  name: string; // Ex: Prefeitura de Santo André, Clínica Viver, Empresa XYZ
+  tipo: 'prefeitura' | 'clinica' | 'empresa' | 'hospital' | 'outra';
+  active: boolean;
+  createdAt: string; // ISO string
+  domain?: string; // Ex: @santoandre.sp.gov.br (para auto-onboarding opcional)
+  maxUsers?: number; // Limite de usuários vinculados
+  logoUrl?: string;
+  contatoEmail?: string;
+  contatoTelefone?: string;
+  indicadores?: {
+    totalConsultas: number;
+    humorMedio: number;
+    nivelEstresse: number;
+    totalMensagensIara: number;
+  };
 }
 
 export interface NewsCardProps {
