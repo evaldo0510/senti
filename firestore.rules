@@ -2,11 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Global Safety Net - deny all by default
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // Reusable, hardened global helpers
     function isSignedIn() {
       return request.auth != null;
@@ -27,8 +22,8 @@ service cloud.firestore {
     function isSystemAdmin() {
       return isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin');
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', null) == 'admin' || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', null) == 'super_admin');
     }
 
     function hasUserDoc() {
@@ -40,7 +35,7 @@ service cloud.firestore {
     }
 
     function getTenantId(data) {
-      return ('tenantId' in data) ? data.tenantId : null;
+      return data != null ? data.get('tenantId', null) : null;
     }
 
     function isSameTenant(data) {
@@ -49,44 +44,54 @@ service cloud.firestore {
 
     // --- Users Collection Rules ---
     match /users/{userId} {
-      // Allow user to read/write their own document, but ensure tenantId matching if they already have a profile
-      allow read: if isSignedIn() && (
-        request.auth.uid == userId ||
+      // 1. Owner profile read/write access is isolated and simple
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId && (
+        !incoming().keys().hasAny(['tipo']) || 
+        incoming().get('tipo', null) == existing().get('tipo', null)
+      );
+
+      // 2. Non-owner (Administrative / Tenant) access
+      allow read: if isSignedIn() && request.auth.uid != userId && (
         isSystemAdmin() ||
-        (hasUserDoc() && isSameTenant(resource.data))
+        (resource != null && hasUserDoc() && isSameTenant(resource.data))
       );
       
-      allow write: if isSignedIn() && (
-        (request.auth.uid == userId && isSameTenant(request.resource.data)) ||
+      allow create: if isSignedIn() && request.auth.uid != userId && isSystemAdmin();
+
+      allow update: if isSignedIn() && request.auth.uid != userId && (
         isSystemAdmin() ||
         (hasUserDoc() && 
-          (getUserData().tipo == 'admin' || 
-           getUserData().tipo == 'super_admin' || 
-           getUserData().tipo == 'admin_institucional' || 
-           getUserData().tipo == 'prefeitura' || 
-           getUserData().tipo == 'empresa') &&
-          isSameTenant(resource.data) && 
+          (getUserData().get('tipo', null) == 'admin' || 
+           getUserData().get('tipo', null) == 'super_admin' || 
+           getUserData().get('tipo', null) == 'admin_institucional' || 
+           getUserData().get('tipo', null) == 'prefeitura' || 
+           getUserData().get('tipo', null) == 'empresa') &&
+          (resource != null && isSameTenant(resource.data)) && 
           isSameTenant(request.resource.data)
         )
       );
+
+      allow delete: if isSignedIn() && request.auth.uid != userId && isSystemAdmin();
     }
 
     // --- Appointments Collection Rules ---
     match /appointments/{appointmentId} {
       allow read, write: if isSystemAdmin();
       allow get, list: if isSignedIn() && resource != null && (
-        (resource.data.patientId == request.auth.uid ||
-         resource.data.therapistId == request.auth.uid) &&
+        (resource.data.get('patientId', null) == request.auth.uid ||
+         resource.data.get('therapistId', null) == request.auth.uid) &&
         isSameTenant(resource.data)
       );
       allow create: if isSignedIn() && (
-        (incoming().patientId == request.auth.uid ||
-         incoming().therapistId == request.auth.uid) &&
+        (incoming().get('patientId', null) == request.auth.uid ||
+         incoming().get('therapistId', null) == request.auth.uid) &&
         isSameTenant(incoming())
       );
       allow update: if isSignedIn() && resource != null && (
-        (resource.data.patientId == request.auth.uid ||
-         resource.data.therapistId == request.auth.uid) &&
+        (resource.data.get('patientId', null) == request.auth.uid ||
+         resource.data.get('therapistId', null) == request.auth.uid) &&
         isSameTenant(resource.data) &&
         isSameTenant(incoming())
       );
@@ -96,28 +101,28 @@ service cloud.firestore {
     match /messages/{messageId} {
       allow read, write: if isSystemAdmin();
       allow get, list: if isSignedIn() && resource != null && (
-        resource.data.senderId == request.auth.uid ||
-        resource.data.receiverId == request.auth.uid
+        resource.data.get('senderId', null) == request.auth.uid ||
+        resource.data.get('receiverId', null) == request.auth.uid
       );
       allow create: if isSignedIn() && (
-        incoming().senderId == request.auth.uid
+        incoming().get('senderId', null) == request.auth.uid
       );
     }
 
     // --- Emotion Logs Collection Rules ---
     match /emotion_logs/{logId} {
       allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
+      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
     }
 
     // --- Breathing Logs Collection Rules ---
     match /breathing_logs/{logId} {
       allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
+      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
     }
 
     // --- IARA AI Memory Collection Rules ---
@@ -126,35 +131,43 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // --- IARA Conversations Collection Rules ---
+    match /iara_conversations/{conversationId} {
+      allow read, write: if isSystemAdmin();
+      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
+      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
+    }
+
     // --- Diary Entries Collection Rules ---
     match /diary_entries/{entryId} {
       allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
+      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
     }
 
     // --- Feedbacks Collection Rules ---
     match /feedbacks/{feedbackId} {
       allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
+      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
     }
 
     // --- Private Clinical Notes Collection Rules ---
     match /private_notes/{noteId} {
       allow read, write: if isSystemAdmin();
       allow get, list: if isSignedIn() && resource != null && (
-        (resource.data.patientId == request.auth.uid ||
-         resource.data.therapistId == request.auth.uid) &&
+        (resource.data.get('patientId', null) == request.auth.uid ||
+         resource.data.get('therapistId', null) == request.auth.uid) &&
         isSameTenant(resource.data)
       );
       allow create: if isSignedIn() && (
-        incoming().therapistId == request.auth.uid &&
+        incoming().get('therapistId', null) == request.auth.uid &&
         isSameTenant(incoming())
       );
       allow update, delete: if isSignedIn() && resource != null && (
-        resource.data.therapistId == request.auth.uid &&
+        resource.data.get('therapistId', null) == request.auth.uid &&
         isSameTenant(resource.data) &&
         isSameTenant(incoming())
       );
@@ -165,26 +178,26 @@ service cloud.firestore {
       allow read, write: if isSystemAdmin();
       // Audits must always be appendable to prevent race conditions during auth transitions
       allow create: if true;
-      allow get, list: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+      allow get, list: if isSignedIn() && resource != null && resource.data.get('userId', null) == request.auth.uid;
     }
 
     // --- Organizations Collection Rules ---
     match /organizations/{orgId} {
       allow read: if isSignedIn() && (
         isSystemAdmin() ||
-        (hasUserDoc() && getUserData().tenantId == orgId)
+        (hasUserDoc() && getUserData().get('tenantId', null) == orgId)
       );
       allow create, delete: if isSystemAdmin();
       allow update: if isSignedIn() && (
         isSystemAdmin() ||
         (
           hasUserDoc() && 
-          getUserData().tenantId == orgId && 
-          (getUserData().tipo == 'admin_institucional' || 
-           getUserData().tipo == 'empresa' || 
-           getUserData().tipo == 'prefeitura' || 
-           getUserData().tipo == 'clinica' || 
-           getUserData().tipo == 'hospital')
+          getUserData().get('tenantId', null) == orgId && 
+          (getUserData().get('tipo', null) == 'admin_institucional' || 
+           getUserData().get('tipo', null) == 'empresa' || 
+           getUserData().get('tipo', null) == 'prefeitura' || 
+           getUserData().get('tipo', null) == 'clinica' || 
+           getUserData().get('tipo', null) == 'hospital')
         )
       );
     }

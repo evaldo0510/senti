@@ -24,7 +24,8 @@ import {
   ShieldAlert,
   Heart,
   Users,
-  Calendar
+  Calendar,
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { usePWA } from "../contexts/PWAContext";
@@ -48,6 +49,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
 
   const [time, setTime] = useState("");
   const [showTools, setShowTools] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // Simulated native cold-start splash screen
   const [showSplash, setShowSplash] = useState(false);
@@ -242,44 +244,79 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
   return (
     <div className="min-h-screen w-full bg-slate-950 flex flex-col md:flex-row items-center justify-center p-0 md:p-6 overflow-x-hidden antialiased font-sans select-none" id="sentí-mobile-stage">
       
-      {/* Decorative desktop-only side presentation */}
-      <div className="hidden lg:flex flex-col max-w-sm mr-12 space-y-6 text-slate-400 p-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-emerald-500/15 border border-emerald-550/30 rounded-2xl flex items-center justify-center">
-            <Activity className="w-6 h-6 text-emerald-400" />
+      {/* Decorative desktop-only side presentation - Collapsible Sidebar */}
+      <div className={cn(
+        "hidden lg:flex flex-col h-[760px] text-slate-400 p-5 shrink-0 border border-slate-200/50 dark:border-white/5 bg-white dark:bg-slate-900/40 rounded-[2.5rem] transition-all duration-300 relative mr-8 select-none",
+        sidebarCollapsed ? "w-20" : "w-64"
+      )}>
+        {/* Toggle Button */}
+        <button 
+          onClick={() => {
+            triggerHaptic(10);
+            setSidebarCollapsed(!sidebarCollapsed);
+          }}
+          className="absolute -right-3 top-6 w-6 h-6 bg-emerald-500 hover:bg-emerald-600 text-slate-950 rounded-full flex items-center justify-center cursor-pointer shadow-lg z-10 font-bold"
+        >
+          {sidebarCollapsed ? "→" : "←"}
+        </button>
+
+        {/* Brand */}
+        <div className="flex items-center gap-3 mb-8">
+          <div className="w-10 h-10 bg-emerald-500/15 border border-emerald-550/30 rounded-xl flex items-center justify-center shrink-0">
+            <Heart className="w-5 h-5 text-emerald-500" />
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-100 font-serif italic tracking-tight">Sentí</h1>
-            <p className="text-xs uppercase tracking-widest font-bold text-emerald-400">Pronto Atendimento Emocional</p>
-          </div>
-        </div>
-        <p className="text-sm text-slate-400 leading-relaxed font-light">
-          Você está navegando no <strong className="text-slate-200">Sentí</strong> otimizado para celulares com tecnologia PWA nativa de alta fidelidade.
-        </p>
-        
-        <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-4 space-y-3">
-          <div className="flex gap-2 items-center text-xs font-bold text-emerald-400">
-            <Smartphone className="w-4 h-4" /> NAVEGAÇÃO APP NATIVO
-          </div>
-          <p className="text-xs text-slate-500 leading-normal">
-            Toques vibram sutilmente, as trocas de telas imitam transições físicas, e o app funciona totalmente off-grid.
-          </p>
+          {!sidebarCollapsed && (
+            <div className="overflow-hidden">
+              <h1 className="text-base font-black text-slate-800 dark:text-slate-100 font-serif italic tracking-tight leading-none">SentiPae</h1>
+              <p className="text-[8px] uppercase tracking-widest font-black text-emerald-600 dark:text-emerald-400 mt-1">Acolhimento</p>
+            </div>
+          )}
         </div>
 
-        {!isAppStandalone && (
-          <button 
-            onClick={handleTriggerInstall}
-            className="w-full py-3.5 bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/25 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"
-          >
-            <Download className="w-4 h-4" />
-            Instalar como App Nativo
-          </button>
+        {/* Links */}
+        <div className="flex-1 space-y-1.5 overflow-y-auto">
+          {[
+            { label: "Início", path: "/app", icon: Home },
+            { label: "IA SentiPae", path: "/chat", icon: MessageSquare },
+            { label: "Agenda", path: "/pronto-atendimento", icon: Calendar },
+            { label: "Marketplace", path: "/marketplace", icon: ShoppingBag },
+            { label: "Diário Emocional", path: "/diario", icon: BookOpen },
+            { label: "Meu Perfil", path: "/perfil", icon: User },
+            { label: "Respiração", path: "/respiracao", icon: Wind },
+            { label: "SOS Emergência", path: "/emergencia", icon: AlertOctagon, isSOS: true },
+          ].map((link, idx) => {
+            const Icon = link.icon;
+            const active = isActive(link.path);
+            return (
+              <button
+                key={idx}
+                onClick={() => handleNavClick(link.path)}
+                className={cn(
+                  "w-full flex items-center gap-3 p-3 rounded-2xl transition-all cursor-pointer active:scale-98 text-left",
+                  active 
+                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-bold" 
+                    : link.isSOS
+                      ? "text-rose-600 dark:text-rose-400 hover:bg-rose-500/5 hover:text-rose-500 border border-transparent"
+                      : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-slate-200 border border-transparent"
+                )}
+                title={link.label}
+              >
+                <Icon className={cn("w-5 h-5 shrink-0", active && "text-emerald-500 dark:text-emerald-400", link.isSOS && "text-rose-500")} />
+                {!sidebarCollapsed && (
+                  <span className="text-xs font-semibold truncate">{link.label}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Footer info */}
+        {!sidebarCollapsed && (
+          <div className="bg-slate-50 dark:bg-slate-950/30 border border-slate-150 dark:border-white/5 rounded-2xl p-3.5 space-y-1 mt-auto">
+            <p className="text-[9px] uppercase tracking-widest font-bold text-emerald-600 dark:text-emerald-400">Servidor Seguro</p>
+            <p className="text-[10px] text-slate-450 dark:text-slate-500 leading-normal font-light">Sua conexão com o SentiPae é criptografada.</p>
+          </div>
         )}
-
-        <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-2">
-          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-          Servidor seguro criptografado grau militar
-        </div>
       </div>
 
       {/* Main Interactive Device Mockup (Visible above md, full screen below md) */}
@@ -401,7 +438,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
           </motion.div>
         </div>
 
-        {/* 5-to-6 Icon Native Bottom Navigation Interface */}
+        {/* 5 Icon Native Bottom Navigation Interface */}
         <nav className="absolute bottom-0 inset-x-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl border-t border-slate-200 dark:border-white/5 px-2 pb-safe-bottom pt-2.5 flex justify-around items-center z-45 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.4)]">
           
           {/* Button 1: Início */}
@@ -422,7 +459,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             )}
           </button>
 
-          {/* Button 2: IARA AI Chat */}
+          {/* Button 2: IA */}
           <button 
             onClick={() => handleNavClick("/chat")}
             className={cn(
@@ -434,48 +471,44 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             id="tab-chat"
           >
             <MessageSquare className="w-4.5 h-4.5" />
-            <span className="text-[9px] uppercase tracking-widest font-black">Chat</span>
+            <span className="text-[9px] uppercase tracking-widest font-black">IA</span>
             {isActive("/chat") && (
               <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
             )}
           </button>
 
-          {/* Button 3: CENTRAL HIGH-ENGAGEMENT MICRO TOOL MENU DOCK (Barra de ferramentas) */}
-          <div className="relative -mt-6">
-            <motion.button 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={handleOpenTools}
-              aria-label="Abrir caixa de ferramentas mentais"
-              id="tab-main-tools"
-              className={cn(
-                "w-13 h-13 rounded-full flex items-center justify-center shadow-lg border-4 transition-all cursor-pointer",
-                showTools 
-                  ? "bg-emerald-500 text-slate-950 border-white dark:border-slate-950 scale-110 shadow-emerald-500/30" 
-                  : "bg-emerald-600 dark:bg-emerald-500 text-white border-white dark:border-slate-950 shadow-emerald-600/30 dark:shadow-emerald-950/40"
-              )}
-            >
-              <Grid className={cn("w-5.5 h-5.5", showTools && "rotate-45 transition-transform duration-200")} />
-            </motion.button>
-            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-450 text-center whitespace-nowrap">
-              Ferramentas
-            </span>
-          </div>
-
-          {/* Button 4: Diário Emocional */}
+          {/* Button 3: Agenda */}
           <button 
-            onClick={() => handleNavClick("/diario")}
+            onClick={() => handleNavClick("/pronto-atendimento")}
             className={cn(
               "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
-              isActive("/diario") 
+              isActive("/pronto-atendimento") 
                 ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
                 : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
             )}
-            id="tab-diario"
+            id="tab-agenda"
           >
-            <BookOpen className="w-4.5 h-4.5" />
-            <span className="text-[9px] uppercase tracking-widest font-black">Diário</span>
-            {isActive("/diario") && (
+            <Calendar className="w-4.5 h-4.5" />
+            <span className="text-[9px] uppercase tracking-widest font-black">Agenda</span>
+            {isActive("/pronto-atendimento") && (
+              <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
+            )}
+          </button>
+
+          {/* Button 4: Marketplace */}
+          <button 
+            onClick={() => handleNavClick("/marketplace")}
+            className={cn(
+              "relative flex flex-col items-center gap-1 py-1.5 px-3 min-w-[56px] transition-all cursor-pointer",
+              isActive("/marketplace") 
+                ? "text-emerald-600 dark:text-emerald-400 scale-105 font-black" 
+                : "text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+            )}
+            id="tab-marketplace"
+          >
+            <ShoppingBag className="w-4.5 h-4.5" />
+            <span className="text-[9px] uppercase tracking-widest font-black">Marketplace</span>
+            {isActive("/marketplace") && (
               <motion.div layoutId="active-tab-dot" className="absolute bottom-0.5 w-1 h-1 bg-emerald-500 rounded-full" />
             )}
           </button>

@@ -19,7 +19,8 @@ export interface IaraResponse {
 export async function falarComIARA(
   mensagemUsuario: string,
   historico: ChatMessage[] = [],
-  contexto?: { emocao: string; intensidade: number }
+  contexto?: { emocao: string; intensidade: number },
+  specialization?: string
 ): Promise<IaraResponse> {
   try {
     const userId = auth.currentUser?.uid;
@@ -33,7 +34,13 @@ export async function falarComIARA(
     const memoriaLocal = localStorage.getItem("ultimaMensagem") || "Nenhuma conversa anterior.";
     localStorage.setItem("ultimaMensagem", mensagemUsuario);
 
-    const result = await getIARAResponse(mensagemUsuario, historico, contexto, memoriaIara ? JSON.stringify(memoriaIara.perfil) : memoriaLocal);
+    const result = await getIARAResponse(
+      mensagemUsuario, 
+      historico, 
+      contexto, 
+      memoriaIara ? JSON.stringify(memoriaIara.perfil) : memoriaLocal,
+      specialization
+    );
     
     // Update memory if logged in
     if (userId) {

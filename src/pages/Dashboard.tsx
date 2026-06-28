@@ -86,6 +86,8 @@ export default function Dashboard() {
       navigate("/admin-dashboard");
     } else if (userType === "moderador") {
       navigate("/moderador");
+    } else if (userType === "usuario" || userType === "paciente") {
+      navigate("/app");
     }
   }, [isAuthReady, profile, navigate]);
 

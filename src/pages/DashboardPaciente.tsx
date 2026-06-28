@@ -62,6 +62,9 @@ import CrisisResources from "../components/CrisisResources";
 import { sentimentService } from "../services/sentimentService";
 import { healthService } from "../services/healthService";
 import { AchievementsWidget } from "../components/AchievementsWidget";
+import MoodTrend7Days from "../components/MoodTrend7Days";
+import JornadaGuiada from "../components/JornadaGuiada";
+import MeuJardim from "../components/MeuJardim";
 import { Dumbbell, Download, ToggleLeft, ToggleRight, FileText, Flame, Award, Compass, Lock, Unlock, Medal } from "lucide-react";
 
 export default function DashboardPaciente() {
@@ -3058,6 +3061,20 @@ export default function DashboardPaciente() {
             </div>
           </div>
         </motion.section>
+
+        {/* Guided Journey Suggested Step */}
+        <JornadaGuiada diaryEntries={diaryEntries} />
+
+        {/* Meu Jardim - Metáfora Visual de Crescimento Humano */}
+        <MeuJardim 
+          streakDays={userProfile?.streak || 0}
+          diaryEntriesCount={diaryEntries?.length || 0}
+          averageMood={diaryEntries?.length ? (diaryEntries.reduce((sum, e) => sum + (e.moodValue || e.value || 7.0), 0) / diaryEntries.length) : 7.0}
+          totalXP={userProfile?.xp || 0}
+        />
+
+        {/* Mood Trend Analytics Chart (Last 7 days) */}
+        <MoodTrend7Days diaryEntries={diaryEntries} />
 
         {/* Download App CTA */}
         <motion.section

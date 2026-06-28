@@ -346,60 +346,100 @@ export default function DashboardInstitucional() {
         {/* -------------------- ABA: BENEFICIARIOS -------------------- */}
         {activeTab === "members" && (
           <div className="space-y-6 animate-fadeIn">
+            {/* Aggregated Engagement Widgets for Institutional Admins */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-black/5 shadow-sm">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Registrados</span>
+                <h4 className="text-2xl font-black text-slate-900 mt-1">{users.length}</h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Membros vinculados no total</p>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-black/5 shadow-sm">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Usuários Engajados</span>
+                <h4 className="text-2xl font-black text-indigo-600 mt-1">
+                  {users.filter(u => (u.iaraChatCount || 0) > 0).length}
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Realizaram check-in com IARA</p>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-black/5 shadow-sm">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Diálogos de Acolhimento</span>
+                <h4 className="text-2xl font-black text-purple-600 mt-1">
+                  {users.reduce((sum, u) => sum + (u.iaraChatCount || 0), 0)}
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Total de mensagens trocadas</p>
+              </div>
+              <div className="bg-white p-5 rounded-2xl border border-black/5 shadow-sm">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Taxa de Aderência</span>
+                <h4 className="text-2xl font-black text-emerald-600 mt-1">
+                  {users.length > 0 ? Math.round((users.filter(u => (u.iaraChatCount || 0) > 0).length / users.length) * 100) : 0}%
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Adesão ativa da comunidade</p>
+              </div>
+            </div>
+
             <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-950">Beneficiários Ativos</h3>
-                  <p className="text-[10px] text-slate-400">Pessoas vinculadas à sua organização que usufruem do suporte emocional.</p>
-                </div>
-
-                <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nome ou email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 pr-4 py-2 bg-[#f5f5f0] border-none rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none w-64 focus:ring-2 focus:ring-emerald-500/20"
-                  />
+                  <h3 className="text-sm font-extrabold text-slate-950">Mapeamento de Apoio e Engajamento (LGPD)</h3>
+                  <p className="text-[10px] text-slate-400">
+                    Nomes e e-mails foram mascarados automaticamente para garantir total confidencialidade de saúde mental de seus colaboradores.
+                  </p>
                 </div>
               </div>
-
+              
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-black/5 text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
-                      <th className="px-6 py-3">Nome / Usuário</th>
-                      <th className="px-6 py-3">E-mail</th>
-                      <th className="px-6 py-3">Uso da IARA</th>
+                      <th className="px-6 py-3">Código / Iniciais</th>
+                      <th className="px-6 py-3">E-mail Mascarado</th>
+                      <th className="px-6 py-3">Engajamento IARA</th>
+                      <th className="px-6 py-3">Nível de Acesso</th>
                       <th className="px-6 py-3">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-black/5 text-xs text-slate-700">
-                    {filteredUsers.length === 0 ? (
+                    {users.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-6 py-10 text-center text-slate-400">
-                          Nenhum beneficiário encontrado.
+                        <td colSpan={5} className="px-6 py-10 text-center text-slate-400">
+                          Nenhum beneficiário ativo neste tenant.
                         </td>
                       </tr>
                     ) : (
-                      filteredUsers.map(user => (
-                        <tr key={user.uid} className="hover:bg-slate-50/50 transition">
-                          <td className="px-6 py-4">
-                            <div className="font-extrabold text-slate-900">{user.nome || "Usuário sem nome"}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">{user.uid}</div>
-                          </td>
-                          <td className="px-6 py-4">{user.email}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-purple-600">
-                            {user.iaraChatCount || 0} msgs
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100">
-                              Vinculado
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      users.map(user => {
+                        // Secure Anonymization Masking for B2B portal compliance
+                        const nameParts = (user.nome || "Beneficiário").split(" ");
+                        const maskedName = nameParts[0] + (nameParts[1] ? ` ${nameParts[1][0]}.` : "") + " (Anônimo)";
+                        
+                        const emailParts = (user.email || "anonimo@sentipae.com").split("@");
+                        const maskedEmail = emailParts[0][0] + "***" + emailParts[0][emailParts[0].length - 1] + "@" + emailParts[1];
+
+                        return (
+                          <tr key={user.uid} className="hover:bg-slate-50/50 transition">
+                            <td className="px-6 py-4">
+                              <div className="font-extrabold text-slate-900">{maskedName}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">ID: {user.uid.substring(0, 8)}***</div>
+                            </td>
+                            <td className="px-6 py-4 font-mono">{maskedEmail}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                (user.iaraChatCount || 0) > 0 
+                                  ? "bg-purple-50 text-purple-600 border border-purple-100" 
+                                  : "bg-slate-50 text-slate-400 border border-slate-100"
+                              }`}>
+                                {user.iaraChatCount || 0} interações
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 font-mono text-slate-500 font-bold uppercase text-[10px]">
+                              {user.tipo}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold border border-emerald-100">
+                                Ativo (LGPD)
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

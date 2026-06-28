@@ -1305,7 +1305,14 @@ async function sendMorningBreathingTip(): Promise<number> {
     lastMorningTipSentDate = todayStr;
     console.log(`Morning tip sent successfully to ${sentCount} users.`);
     return sentCount;
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message?.includes('PERMISSION_DENIED') || err?.code === 7) {
+      console.warn("Firestore PERMISSION_DENIED: Server does not have administrative permissions to fetch all users. This is normal in preview environments without a service account. Disabling scheduled morning tips.");
+      if (morningTipInterval) {
+        clearInterval(morningTipInterval);
+      }
+      return 0;
+    }
     console.error("Error sending morning breathing tip:", err);
     throw err;
   }

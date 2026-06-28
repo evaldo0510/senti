@@ -8,9 +8,9 @@
 
   --color-brand-dark: var(--brand-dark);
   --color-brand-slate: var(--brand-slate);
-  --color-brand-green: #22C55E;
-  --color-brand-indigo: #6366F1;
-  --color-brand-red: #EF4444;
+  --color-brand-green: var(--brand-green);
+  --color-brand-indigo: var(--brand-indigo);
+  --color-brand-red: var(--brand-red);
   --color-brand-text: var(--brand-text);
   --color-brand-bg: var(--brand-bg);
   --breakpoint-xs: 360px;
@@ -33,6 +33,9 @@
   --brand-dark: #F1F5F9;
   --brand-slate: #FFFFFF;
   --brand-text: #0F172A;
+  --brand-green: #22C55E;
+  --brand-indigo: #6366F1;
+  --brand-red: #EF4444;
 }
 
 .dark {
@@ -40,6 +43,9 @@
   --brand-dark: #09090B;
   --brand-slate: #18181B;
   --brand-text: #F4F4F5;
+  --brand-green: #10B981;
+  --brand-indigo: #4F46E5;
+  --brand-red: #F43F5E;
 }
 
 /* Restringir rolagem no body para evitar comportamento de rebote desajeitado */

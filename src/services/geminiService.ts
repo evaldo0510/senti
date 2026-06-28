@@ -71,12 +71,17 @@ export async function getIARAResponse(
   message: string, 
   history: { role: 'user' | 'model', parts: { text: string }[] }[] = [],
   contexto?: { emocao: string; intensidade: number },
-  memoria?: string
+  memoria?: string,
+  specialization?: string
 ) {
   const risk = detectRisk(message);
   
   try {
     let systemInstruction = IARA_SYSTEM_INSTRUCTION;
+    if (specialization && specialization !== "geral") {
+      systemInstruction += `\n\n[ESPECIALIZAÇÃO ATIVA: ${specialization.toUpperCase()}]
+Você agora está operando no modo especializado de ${specialization}. Ajuste sutilmente seu foco terapêutico, metáforas e conselhos específicos para esta área temática (${specialization}), mantendo sempre seu tom humano, calmo e acolhedor (PCH).`;
+    }
     if (contexto && contexto.emocao) {
       systemInstruction += `\n\nContexto anterior: Sentindo ${contexto.emocao} (${contexto.intensidade}/10).`;
     }

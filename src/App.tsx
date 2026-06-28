@@ -45,6 +45,7 @@ import Contact from "./pages/Contact";
 import Sobre from "./pages/Sobre";
 import Onboarding from "./pages/Onboarding";
 import AppDashboard from "./pages/AppDashboard";
+import Marketplace from "./pages/Marketplace";
 import DashboardInstitucional from "./pages/DashboardInstitucional";
 import { TenantRoute } from "./components/TenantRoute";
 import IARAChatBubble from "./components/IARAChatBubble";
@@ -109,6 +110,7 @@ function App() {
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/emergencia" element={<Emergencia />} />
               <Route path="/pronto-atendimento" element={<ProntoAtendimento />} />
+              <Route path="/marketplace" element={<Marketplace />} />
               <Route path="/live-iara" element={<LiveIARA />} />
             </Route>
           </Routes>

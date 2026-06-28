@@ -26,6 +26,9 @@ import { useAuth } from "./AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { doc, updateDoc, increment } from "firebase/firestore";
 
+import { iaraHistoryService } from "../services/iaraHistoryService";
+import { ArrowLeft } from "lucide-react";
+
 interface Message {
   tipo: "user" | "iara";
   texto: string;
@@ -35,6 +38,12 @@ interface Message {
 interface IARAChatProps {
   initialMessage?: string;
   context?: string;
+  conversationId?: string;
+  initialMessages?: Message[];
+  specialization?: string;
+  onNewConversationCreated?: (id: string) => void;
+  onBack?: () => void;
+  onIARARespond?: (result: any) => void;
   onRiscoAlto?: () => void;
   onDirecionar?: (especialidade: string) => void;
   className?: string;
@@ -43,7 +52,13 @@ interface IARAChatProps {
 export default function IARAChat({ 
   initialMessage, 
   context, 
-  onRiscoAlto, 
+  conversationId,
+  initialMessages,
+  specialization = "geral",
+  onNewConversationCreated,
+  onBack,
+  onIARARespond,
+  onRiscoAlto,
   onDirecionar,
   className 
 }: IARAChatProps) {
@@ -55,18 +70,33 @@ export default function IARAChat({
   const isLimitReached = isTrialUser && currentChatCount >= 20;
 
   const [mensagem, setMensagem] = useState("");
-  const [chat, setChat] = useState<Message[]>([
+  const [chat, setChat] = useState<Message[]>(initialMessages || [
     { 
       tipo: "iara", 
       texto: initialMessage || "Olá. Eu sou a IARA, sua inteligência de acolhimento emocional. Como você está se sentindo agora?" 
     }
   ]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(conversationId || null);
   const [isLoading, setIsLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [emocaoAtual, setEmocaoAtual] = useState({ emocao: "calma", intensidade: 5 });
+
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setChat(initialMessages);
+    } else {
+      setChat([
+        { 
+          tipo: "iara", 
+          texto: initialMessage || "Olá. Eu sou a IARA, sua inteligência de acolhimento emocional. Como você está se sentindo agora?" 
+        }
+      ]);
+    }
+    setActiveConvId(conversationId || null);
+  }, [conversationId, initialMessages, initialMessage]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
@@ -108,17 +138,58 @@ export default function IARAChat({
     if (!textoOverride) setMensagem("");
     setIsLoading(true);
 
+    // Dynamic conversation initiation on first user message
+    let currentConvId = activeConvId;
+    if (!currentConvId) {
+      try {
+        const titleSnippet = msgAtual.trim().slice(0, 30) + (msgAtual.trim().length > 30 ? "..." : "");
+        const specializationName = specialization === "geral" ? "Acolhimento" : `Foco: ${specialization.charAt(0).toUpperCase() + specialization.slice(1)}`;
+        const title = `${specializationName} (${titleSnippet})`;
+        
+        currentConvId = await iaraHistoryService.createConversation(
+          title,
+          specialization
+        );
+        setActiveConvId(currentConvId);
+        if (onNewConversationCreated) {
+          onNewConversationCreated(currentConvId);
+        }
+
+        // Save pre-existing assistant welcome text if any
+        if (chat.length > 0 && chat[0].tipo === "iara") {
+          await iaraHistoryService.saveMessage(currentConvId, "iara", chat[0].texto, chat[0].imagem);
+        }
+      } catch (err) {
+        console.error("Failed to auto-create conversation on first user text:", err);
+      }
+    }
+
+    // Persist user query to history
+    if (currentConvId) {
+      await iaraHistoryService.saveMessage(currentConvId, "user", msgAtual);
+    }
+
     const historico: ChatMessage[] = chat.map(msg => ({
       role: msg.tipo === "user" ? "user" : "model",
       parts: [{ text: msg.texto }]
     }));
 
     try {
-      const result = await falarComIARA(msgAtual, historico, emocaoAtual);
+      // Forward specialization state to the prompt builder
+      const result = await falarComIARA(msgAtual, historico, emocaoAtual, specialization);
       
       setEmocaoAtual({ emocao: result.emocao, intensidade: result.intensidade });
 
       setChat([...novaConversa, { tipo: "iara", texto: result.resposta }]);
+      
+      // Persist assistant reply to history
+      if (currentConvId) {
+        await iaraHistoryService.saveMessage(currentConvId, "iara", result.resposta);
+      }
+
+      if (onIARARespond) {
+        onIARARespond(result);
+      }
       
       if (!isMuted) {
         const base64Audio = await falarTexto(result.resposta);
@@ -193,11 +264,22 @@ export default function IARAChat({
       {/* Header */}
       <div className="p-4 border-b border-white/5 bg-white/5 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {onBack && (
+            <button 
+              onClick={onBack}
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-slate-400 hover:text-white mr-1 flex items-center justify-center"
+              title="Voltar para a central"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
           <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/30">
             <Zap className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <h3 className="text-sm font-black text-white tracking-tight">IARA Chat</h3>
+            <h3 className="text-sm font-black text-white tracking-tight">
+              {specialization === "geral" ? "IARA Chat" : `IARA – ${specialization.charAt(0).toUpperCase() + specialization.slice(1)}`}
+            </h3>
             <div className="flex items-center gap-2">
               <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", emocaoAtual.intensidade > 7 ? "bg-red-500" : "bg-emerald-500")} />
               <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
