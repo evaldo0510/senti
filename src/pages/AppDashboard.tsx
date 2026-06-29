@@ -31,10 +31,12 @@ import {
   Building2,
   Building,
   GraduationCap,
-  Sparkle
+  Sparkle,
+  Bell
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Onboarding } from "../components/Onboarding";
+import { useFeaturePreview } from "../context/FeaturePreviewContext";
 import { GAMIFICATION_BADGES, checkAndAwardBadges, Badge } from "../services/gamificationService";
 
 export default function AppDashboard() {
@@ -54,13 +56,7 @@ export default function AppDashboard() {
   const [loadingData, setLoadingData] = useState(true);
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   
-  // Modal State for Upcoming Features
-  const [upcomingFeatureModal, setUpcomingFeatureModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    description: string;
-    icon: any;
-  } | null>(null);
+  const { triggerPreview } = useFeaturePreview();
 
   // Digital clock & date setup
   useEffect(() => {
@@ -570,8 +566,8 @@ export default function AppDashboard() {
               return (
                 <button
                   key={feat.id}
-                  onClick={() => setUpcomingFeatureModal({
-                    isOpen: true,
+                  onClick={() => triggerPreview({
+                    id: feat.id,
                     title: feat.title,
                     description: feat.details,
                     icon: feat.icon
@@ -601,61 +597,6 @@ export default function AppDashboard() {
       </main>
 
       <Onboarding />
-
-      {/* Dynamic Feature Detail Modal */}
-      <AnimatePresence>
-        {upcomingFeatureModal && upcomingFeatureModal.isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setUpcomingFeatureModal(null)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 max-w-sm w-full space-y-5 shadow-2xl relative text-slate-800 dark:text-slate-100"
-            >
-              <button
-                onClick={() => setUpcomingFeatureModal(null)}
-                className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition cursor-pointer"
-              >
-                <X className="w-4.5 h-4.5" />
-              </button>
-
-              <div className="flex flex-col items-center text-center space-y-4 pt-2">
-                <div className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center bg-emerald-500/15 border border-emerald-500/20 text-emerald-500 shadow-lg shadow-emerald-500/10">
-                  {(() => {
-                    const ModalIcon = upcomingFeatureModal.icon;
-                    return <ModalIcon className="w-7 h-7" />;
-                  })()}
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[9px] font-black uppercase tracking-widest px-3 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 animate-pulse">
-                    Em Breve no Ecossistema
-                  </span>
-                  <h4 className="text-xl font-serif italic font-bold text-slate-850 dark:text-white pt-1">{upcomingFeatureModal.title}</h4>
-                </div>
-
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-light leading-relaxed">
-                  {upcomingFeatureModal.description}
-                </p>
-
-                <button
-                  onClick={() => setUpcomingFeatureModal(null)}
-                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl text-xs font-black transition-all shadow-lg shadow-emerald-500/25 mt-2 cursor-pointer uppercase tracking-widest active:scale-95"
-                >
-                  Entendido
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   );

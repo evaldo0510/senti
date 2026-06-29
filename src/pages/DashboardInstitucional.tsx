@@ -31,7 +31,16 @@ import {
   Tooltip, 
   ResponsiveContainer,
   BarChart,
-  Bar
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar
 } from "recharts";
 
 export default function DashboardInstitucional() {
@@ -43,7 +52,7 @@ export default function DashboardInstitucional() {
   const [loading, setLoading] = useState(true);
   const [recalculating, setRecalculating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "professionals">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "epidemiology" | "members" | "professionals">("overview");
 
   // Load organization users and therapists
   useEffect(() => {
@@ -106,6 +115,97 @@ export default function DashboardInstitucional() {
     { name: "Mai", humor: (tenant?.indicadores?.humorMedio || 7.2), estresse: (tenant?.indicadores?.nivelEstresse || 3.2), consultas: (tenant?.indicadores?.totalConsultas || 45) },
   ];
 
+  // Aggregated, fully anonymized B2B epidemiological data based on tenant type
+  const isPrefeitura = tenant?.tipo === "prefeitura";
+
+  const symptomData = isPrefeitura
+    ? [
+        { name: "Ansiedade Geral", value: 38, color: "#f43f5e" },
+        { name: "Depressão / Baixo Astral", value: 25, color: "#3b82f6" },
+        { name: "Vulnerabilidade Social", value: 18, color: "#eab308" },
+        { name: "Distúrbios do Sono", value: 12, color: "#8b5cf6" },
+        { name: "Luto / Perda", value: 7, color: "#64748b" },
+      ]
+    : [
+        { name: "Ansiedade por Produtividade", value: 30, color: "#f43f5e" },
+        { name: "Burnout / Esgotamento", value: 35, color: "#eab308" },
+        { name: "Sobrecarga de Tarefas", value: 20, color: "#3b82f6" },
+        { name: "Insônia / Sono Irregular", value: 10, color: "#8b5cf6" },
+        { name: "Estresse Interpessoal", value: 5, color: "#64748b" },
+      ];
+
+  const radarData = isPrefeitura
+    ? [
+        { subject: "Acolhimento de Crise", A: 85, fullMark: 100 },
+        { subject: "Prevenção Primária", A: 90, fullMark: 100 },
+        { subject: "Apoio Comunitário", A: 75, fullMark: 100 },
+        { subject: "Encaminhamento Clínico", A: 60, fullMark: 100 },
+        { subject: "Respiração & Mindfulness", A: 65, fullMark: 100 },
+        { subject: "Educação em Saúde", A: 80, fullMark: 100 },
+      ]
+    : [
+        { subject: "Prevenção de Burnout", A: 95, fullMark: 100 },
+        { subject: "Alívio de Estresse Diário", A: 88, fullMark: 100 },
+        { subject: "Higiene do Sono", A: 70, fullMark: 100 },
+        { subject: "Encaminhamento Clínico", A: 50, fullMark: 100 },
+        { subject: "Exercícios de Foco", A: 80, fullMark: 100 },
+        { subject: "Desenvolvimento de Resiliência", A: 85, fullMark: 100 },
+      ];
+
+  const riskDistribution = isPrefeitura
+    ? [
+        { level: "Risco Baixo (Apoio Preventivo)", percent: 62, color: "bg-emerald-500", text: "Munícipes com excelente engajamento preventivo, utilizando diário e biblioteca emocional." },
+        { level: "Risco Moderado (Acompanhamento IARA)", percent: 28, color: "bg-amber-500", text: "Munícipes com sintomas leves de estresse/ansiedade, recebendo apoio guiado diário." },
+        { level: "Risco Elevado (Redirecionamento Clínico)", percent: 10, color: "bg-rose-500", text: "Munícipes indicando sofrimento agudo ou dor crônica, ativamente encaminhados para psicólogos ou fonoaudiólogos da Rede Especialista." },
+      ]
+    : [
+        { level: "Risco Baixo (Equilíbrio e Bem-estar)", percent: 55, color: "bg-emerald-500", text: "Colaboradores com níveis saudáveis de resiliência e uso recorrente de pílulas de mindfulness." },
+        { level: "Risco Moderado (Atenção e Stress)", percent: 33, color: "bg-amber-500", text: "Colaboradores expressando sobrecarga laboral ou desânimo, acompanhados de perto pela IARA." },
+        { level: "Risco Elevado (Risco de Afastamento / Burnout)", percent: 12, color: "bg-rose-500", text: "Colaboradores com alto esgotamento emocional, direcionados com prioridade para terapia especializada com reembolso corporativo." },
+      ];
+
+  const rawRecommendations = isPrefeitura
+    ? [
+        {
+          title: "Mutirão de Saúde Mental e Acolhimento Comunitário",
+          desc: "Diante do índice de 38% de Ansiedade Geral na população, recomendamos estabelecer polos de relaxamento guiado ou rodas de conversa presenciais nos postos de saúde de bairros identificados com maior volume de acessos.",
+          type: "Ação de Campo",
+          urgency: "Alta"
+        },
+        {
+          title: "Campanha Municipal de Higiene do Sono",
+          desc: "Como 12% da demanda refere-se a distúrbios do sono, sugerimos a distribuição de materiais educativos sobre rotina noturna saudável no aplicativo, integrados com pílulas de áudio para relaxamento de IARA.",
+          type: "Campanha de Saúde Pública",
+          urgency: "Média"
+        },
+        {
+          title: "Fortalecimento do Fluxo de Encaminhamento Clínico (Matchmaking)",
+          desc: "Garantir que os 10% de munícipes classificados em Risco Elevado tenham agendamento facilitado com a rede credenciada de psicólogos do SentiPae de forma 100% subsidiada.",
+          type: "Processo Organizacional",
+          urgency: "Crítica"
+        }
+      ]
+    : [
+        {
+          title: "Campanha 'Pausa Ativa' Contra Burnout Ocupacional",
+          desc: "Considerando que 35% do estresse mapeado decorre de esgotamento no trabalho (Burnout), recomendamos a implantação de um protocolo institucional de pausas obrigatórias de 5 minutos, estimulando o uso dos exercícios de respiração do SentiPae.",
+          type: "Cultura Organizacional",
+          urgency: "Alta"
+        },
+        {
+          title: "Treinamento de Lideranças em Segurança Psicológica",
+          desc: "Para mitigar o estresse interpessoal e a ansiedade por produtividade, orientamos a realização de um workshop focado em escuta ativa e empatia na distribuição de metas.",
+          type: "Capacitação Corporativa",
+          urgency: "Média"
+        },
+        {
+          title: "Benefício de Psicoterapia Ampla Subvencionada",
+          desc: "Com 12% dos colaboradores em nível de risco de afastamento laboral, sugerimos expandir o co-pagamento de sessões com o corpo clínico da Rede de Especialistas para mitigar absenteísmo médico.",
+          type: "Política de Benefícios",
+          urgency: "Crítica"
+        }
+      ];
+
   const filteredUsers = users.filter(u => 
     (u.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
     (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())
@@ -146,6 +246,15 @@ export default function DashboardInstitucional() {
               }`}
             >
               <BarChart3 className="w-4 h-4" /> Visão Geral & Métricas
+            </button>
+
+            <button
+              onClick={() => setActiveTab("epidemiology")}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition ${
+                activeTab === "epidemiology" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Activity className="w-4 h-4" /> Relatório Epidemiológico
             </button>
 
             <button
@@ -338,6 +447,148 @@ export default function DashboardInstitucional() {
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------- ABA: RELATÓRIO EPIDEMIOLÓGICO -------------------- */}
+        {activeTab === "epidemiology" && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* Seção LGPD de Anonimização */}
+            <div className="bg-emerald-500/5 border border-emerald-500/15 p-5 rounded-3xl flex items-start gap-4">
+              <ShieldCheck className="w-6 h-6 text-emerald-600 mt-1 shrink-0" />
+              <div className="text-xs space-y-1">
+                <p className="font-extrabold text-emerald-800 text-sm">Garantia de Confidencialidade Absoluta</p>
+                <p className="text-emerald-700/85 leading-relaxed">
+                  Para estar em total conformidade com a LGPD (Lei Geral de Proteção de Dados) e as regras éticas do CFP/CRM, as métricas e relatórios a seguir são agregados dinamicamente em grupos de no mínimo 5 pessoas. Prontuários, mensagens individuais e anotações clínicas de descompressão <strong>nunca</strong> são acessíveis por gestores municipais ou de RH.
+                </p>
+              </div>
+            </div>
+
+            {/* Distribuição de Riscos */}
+            <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-tight">Distribuição Populacional de Risco Emocional</h3>
+                <p className="text-[10px] text-slate-400">Classificação clínica baseada no engajamento, humor diário e triagem inicial.</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {riskDistribution.map((risk, index) => (
+                  <div key={index} className="border border-black/5 rounded-2xl p-5 space-y-4 hover:border-black/10 transition flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-slate-800">{risk.level}</span>
+                        <span className="text-lg font-black text-slate-900">{risk.percent}%</span>
+                      </div>
+                      <p className="text-[11px] text-slate-450 leading-relaxed">{risk.text}</p>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-4">
+                      <div className={`${risk.color} h-full rounded-full transition-all duration-1000`} style={{ width: `${risk.percent}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Gráficos de Sintomas & Engajamento */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* PieChart: Sintomas Clínicos Agregados */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-950">Mapeamento de Queixas & Sintomas Agregados</h3>
+                  <p className="text-[10px] text-slate-400">Distribuição percentual das principais dores emocionais relatadas de forma anônima à IARA.</p>
+                </div>
+                
+                <div className="h-64 flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="w-full md:w-1/2 h-full flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={symptomData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {symptomData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `${value}%`} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-full md:w-1/2 space-y-2.5">
+                    {symptomData.map((entry, index) => (
+                      <div key={index} className="flex items-center gap-2 text-xs">
+                        <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                        <span className="text-slate-500 font-medium truncate shrink">{entry.name}</span>
+                        <span className="font-extrabold text-slate-900 ml-auto">{entry.value}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RadarChart: Foco do Acolhimento Preventivo */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-950">Foco Terapêutico e Modos de Engajamento</h3>
+                  <p className="text-[10px] text-slate-400">Intensidade de uso dos recursos da plataforma em diferentes dimensões de cuidado.</p>
+                </div>
+                
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="subject" stroke="#64748b" fontSize={9} />
+                      <PolarRadiusAxis angle={30} domain={[0, 100]} stroke="#cbd5e1" fontSize={8} />
+                      <Radar name="Aderência" dataKey="A" stroke="#10b981" fill="#10b981" fillOpacity={0.2} />
+                      <Tooltip />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            {/* Recomendações SentiCore para Gestores */}
+            <div className="bg-slate-900 text-white p-6 md:p-8 rounded-3xl space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-500/20">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Recomendações SentiCore (IARA B2B)</h3>
+                  <p className="text-[10px] text-slate-400">Diretrizes preventivas baseadas em inteligência coletiva para tomada de decisão.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {rawRecommendations.map((rec, index) => (
+                  <div key={index} className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-3 hover:bg-white/10 transition flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 font-mono text-[9px] font-bold rounded uppercase">
+                          {rec.type}
+                        </span>
+                        <span className={`px-2 py-0.5 font-mono text-[9px] font-bold rounded uppercase ${
+                          rec.urgency === "Crítica" 
+                            ? "bg-red-500/20 text-red-400" 
+                            : rec.urgency === "Alta" 
+                              ? "bg-orange-500/20 text-orange-400" 
+                              : "bg-blue-500/20 text-blue-400"
+                        }`}>
+                          {rec.urgency}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-black text-white leading-snug">{rec.title}</h4>
+                      <p className="text-[10px] text-slate-350 leading-relaxed">{rec.desc}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

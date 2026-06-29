@@ -33,6 +33,8 @@ import {
 import { logout } from "../services/firebase";
 import { useAuth } from "../components/AuthProvider";
 import { userService } from "../services/userService";
+import { updateUserProfile } from "../services/authService";
+import { ShieldCheck, Sparkles, AlertCircle, Trash2, Plus } from "lucide-react";
 import { googleWorkspaceService } from "../services/googleWorkspaceService";
 import { Appointment } from "../types";
 import { cn } from "../lib/utils";
@@ -64,11 +66,58 @@ export default function Terapeuta() {
   const [syncStatus, setSyncStatus] = useState<Record<string, boolean>>({});
   const [selectedApptIdForAlert, setSelectedApptIdForAlert] = useState<string>("");
 
+  // --- Estados de Gestão de Agenda & Manual Agendamento ---
+  const [manualPatientName, setManualPatientName] = useState("");
+  const [manualDate, setManualDate] = useState("");
+  const [manualTime, setManualTime] = useState("");
+  const [manualType, setManualType] = useState<"video" | "chat" | "presencial">("video");
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [isCreatingManual, setIsCreatingManual] = useState(false);
+  const [availabilityDays, setAvailabilityDays] = useState<string[]>([]);
+  const [availabilityStart, setAvailabilityStart] = useState("08:00");
+  const [availabilityEnd, setAvailabilityEnd] = useState("18:00");
+  const [savingAvailability, setSavingAvailability] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // --- Estados de Faturamento & Bancários ---
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankName, setBankName] = useState("");
+  const [bankAgency, setBankAgency] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
+  const [pixKeyType, setPixKeyType] = useState("cpf");
+  const [pixKey, setPixKey] = useState("");
+  const [savingBank, setSavingBank] = useState(false);
+  const [savingBankSuccess, setSavingBankSuccess] = useState(false);
+
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [payoutLoading, setPayoutLoading] = useState(false);
+  const [payoutSuccess, setPayoutSuccess] = useState(false);
+  const [payoutError, setPayoutError] = useState("");
+
   useEffect(() => {
     if (profile) {
       setIsGoogleConnected(!!profile.googleCalendarConnected);
+      
+      // Load saved availability settings if available
+      if (profile.availability) {
+        setAvailabilityDays(profile.availability.days || ["Seg", "Ter", "Qua", "Qui", "Sex"]);
+        setAvailabilityStart(profile.availability.start || "08:00");
+        setAvailabilityEnd(profile.availability.end || "18:00");
+      } else {
+        setAvailabilityDays(["Seg", "Ter", "Qua", "Qui", "Sex"]);
+      }
+
+      // Load saved bank settings if available
+      if (profile.bankSettings) {
+        setBankName(profile.bankSettings.bankName || "");
+        setBankAgency(profile.bankSettings.bankAgency || "");
+        setBankAccount(profile.bankSettings.bankAccount || "");
+        setPixKeyType(profile.bankSettings.pixKeyType || "cpf");
+        setPixKey(profile.bankSettings.pixKey || "");
+      }
     }
-  }, [profile?.googleCalendarConnected]);
+  }, [profile]);
 
   const generateAlertMessage = (apptId: string) => {
     const appt = appointments.find(a => a.id === apptId);
@@ -269,6 +318,125 @@ export default function Terapeuta() {
   const handleConnectEarnings = async () => {
     if (profile) {
       await userService.connectEarnings(profile.uid);
+    }
+  };
+
+  const handleSaveAvailability = async () => {
+    if (!profile) return;
+    setSavingAvailability(true);
+    setSaveSuccess(false);
+    try {
+      await updateUserProfile(profile.uid, {
+        availability: {
+          days: availabilityDays,
+          start: availabilityStart,
+          end: availabilityEnd
+        }
+      });
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error("Erro ao salvar disponibilidade", err);
+      alert("Erro ao salvar disponibilidade");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
+  const handleSaveBankSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setSavingBank(true);
+    setSavingBankSuccess(false);
+    try {
+      await updateUserProfile(profile.uid, {
+        bankSettings: {
+          bankName,
+          bankAgency,
+          bankAccount,
+          pixKeyType,
+          pixKey
+        }
+      });
+      setSavingBankSuccess(true);
+      setTimeout(() => {
+        setSavingBankSuccess(false);
+        setShowBankModal(false);
+      }, 1500);
+    } catch (err) {
+      console.error("Erro ao salvar dados bancários", err);
+      alert("Erro ao salvar dados bancários");
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
+  const handleCreateManualAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    if (!manualPatientName || !manualDate || !manualTime) {
+      alert("Por favor, preencha todos os campos do agendamento.");
+      return;
+    }
+    setIsCreatingManual(true);
+    try {
+      await userService.createAppointment({
+        patientId: "manual-" + Date.now(),
+        patientNome: manualPatientName,
+        therapistId: profile.uid,
+        therapistNome: profile.nome,
+        date: new Date(`${manualDate}T${manualTime}`).toISOString(),
+        status: 'confirmed',
+        type: manualType,
+        price: typeof profile.preco === 'number' ? profile.preco : parseInt(profile.preco || "150")
+      });
+      setManualPatientName("");
+      setManualDate("");
+      setManualTime("");
+      setShowManualForm(false);
+      alert("Agendamento manual criado com sucesso!");
+    } catch (err: any) {
+      console.error("Erro ao criar consulta manual", err);
+      alert("Erro ao criar consulta manual: " + err.message);
+    } finally {
+      setIsCreatingManual(false);
+    }
+  };
+
+  const handleRequestPayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    const amount = parseFloat(payoutAmount);
+    const balance = profile.totalEarnings || 0;
+    
+    if (isNaN(amount) || amount <= 0) {
+      setPayoutError("Por favor, digite um valor válido para o saque.");
+      return;
+    }
+    if (amount > balance) {
+      setPayoutError(`Saldo insuficiente. Seu saldo disponível é R$ ${balance.toFixed(2)}.`);
+      return;
+    }
+
+    setPayoutLoading(true);
+    setPayoutError("");
+    setPayoutSuccess(false);
+    try {
+      const newBalance = balance - amount;
+      await updateUserProfile(profile.uid, {
+        totalEarnings: newBalance
+      });
+      setPayoutSuccess(true);
+      setPayoutAmount("");
+      setTimeout(() => {
+        setPayoutSuccess(false);
+        setShowPayoutModal(false);
+      }, 2000);
+    } catch (err: any) {
+      console.error("Erro ao solicitar saque", err);
+      setPayoutError("Erro ao processar a transferência: " + err.message);
+    } finally {
+      setPayoutLoading(false);
     }
   };
 
@@ -697,42 +865,347 @@ export default function Terapeuta() {
           )}
 
           {activeTab === 'agenda' && (
-            <div className="space-y-8">
-              <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-8 animate-fadeIn">
+              {/* Google Calendar Integration Status */}
+              <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
-                  <div className="p-4 bg-blue-500/10 rounded-2xl">
-                    <Calendar className="w-8 h-8 text-blue-400" />
+                  <div className="p-3 bg-blue-500/10 rounded-2xl">
+                    <Calendar className="w-6 h-6 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-200">Google Calendar</h3>
-                    <p className="text-slate-400 text-sm">Sincronize sua agenda profissional automaticamente.</p>
+                    <h3 className="text-base font-extrabold text-slate-200">Integração Google Calendar</h3>
+                    <p className="text-slate-400 text-xs">Sincronize sua agenda do SentiPae com seus compromissos pessoais automaticamente.</p>
                   </div>
                 </div>
                 <button 
                   onClick={handleConnectCalendar}
                   className={cn(
-                    "px-8 py-4 rounded-2xl font-bold transition-all flex items-center gap-2",
+                    "px-6 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
                     profile?.googleCalendarConnected 
-                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                      : "bg-white text-slate-900 hover:bg-slate-100"
+                      ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" 
+                      : "bg-white text-slate-950 hover:bg-slate-100"
                   )}
                 >
                   {profile?.googleCalendarConnected ? (
                     <>
-                      <CheckCircle2 className="w-5 h-5" />
-                      Conectado
+                      <CheckCircle2 className="w-4 h-4" />
+                      Calendário Ativo
                     </>
                   ) : (
-                    "Conectar Agenda"
+                    "Sincronizar Agenda"
                   )}
                 </button>
               </div>
 
-              <div className="bg-slate-900 border border-white/5 p-12 rounded-3xl text-center">
-                <Clock className="w-16 h-16 text-slate-700 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-slate-200 mb-2">Visualização da Agenda</h3>
-                <p className="text-slate-400">Sua agenda semanal aparecerá aqui após a conexão.</p>
+              {/* Grid: Disponibilidade e Novo Agendamento */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Painel de Disponibilidade Semanal */}
+                <div className="lg:col-span-2 bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-6">
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-5 h-5 text-emerald-400" />
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-200 uppercase tracking-wider">Horários de Trabalho & Disponibilidade</h4>
+                      <p className="text-[10px] text-slate-500">Configure os dias e faixas de horários onde você atende na Rede SentiPae.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Dias de Trabalho */}
+                    <div>
+                      <label className="text-xs text-slate-400 font-bold block mb-2">Dias Ativos</label>
+                      <div className="flex flex-wrap gap-2">
+                        {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((day) => {
+                          const isActive = availabilityDays.includes(day);
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => {
+                                if (isActive) {
+                                  setAvailabilityDays(availabilityDays.filter(d => d !== day));
+                                } else {
+                                  setAvailabilityDays([...availabilityDays, day]);
+                                }
+                              }}
+                              className={cn(
+                                "px-3.5 py-2 rounded-xl text-xs font-bold border transition-all",
+                                isActive
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                  : "bg-slate-950 text-slate-500 border-white/5 hover:border-white/10"
+                              )}
+                            >
+                              {day}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Janela Horária */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-slate-400 font-bold block mb-1">Início do Turno</label>
+                        <input
+                          type="time"
+                          value={availabilityStart}
+                          onChange={(e) => setAvailabilityStart(e.target.value)}
+                          className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 focus:border-emerald-500/50 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 font-bold block mb-1">Término do Turno</label>
+                        <input
+                          type="time"
+                          value={availabilityEnd}
+                          onChange={(e) => setAvailabilityEnd(e.target.value)}
+                          className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 focus:border-emerald-500/50 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleSaveAvailability}
+                      disabled={savingAvailability}
+                      className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-700 text-slate-950 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2"
+                    >
+                      {savingAvailability ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : saveSuccess ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          Configurações Salvas!
+                        </>
+                      ) : (
+                        "Salvar Disponibilidade de Agenda"
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Card de Ação Rápida: Novo Agendamento */}
+                <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 border border-indigo-500/20 p-6 rounded-3xl flex flex-col justify-between space-y-4">
+                  <div className="space-y-2">
+                    <div className="p-3 bg-white/10 rounded-2xl w-fit text-indigo-300">
+                      <Plus className="w-5 h-5" />
+                    </div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider">Agendamento Manual</h4>
+                    <p className="text-indigo-200/70 text-[11px] leading-relaxed">
+                      Adicione sessões diretamente na sua agenda para pacientes recorrentes ou consultas combinadas fora da plataforma de forma offline.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setShowManualForm(true)}
+                    className="w-full py-3.5 bg-white text-indigo-950 hover:bg-indigo-50 rounded-xl text-xs font-black transition-all"
+                  >
+                    Agendar Nova Sessão
+                  </button>
+                </div>
               </div>
+
+              {/* Lista Completa de Sessões na Agenda */}
+              <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-extrabold text-slate-200 uppercase tracking-wider">Minhas Consultas e Horários</h4>
+                    <p className="text-[10px] text-slate-500">Acompanhe e responda a todas as suas solicitações de atendimento.</p>
+                  </div>
+                </div>
+
+                {/* Filtro de Status das Consultas */}
+                <div className="space-y-4">
+                  {appointments.length === 0 ? (
+                    <div className="text-center py-12 bg-slate-950 rounded-2xl border border-white/5">
+                      <Calendar className="w-12 h-12 text-slate-700 mx-auto mb-3 animate-pulse" />
+                      <p className="text-xs text-slate-450">Nenhuma consulta agendada no momento.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {appointments.map((appt) => {
+                        const isManual = appt.patientId?.startsWith("manual-");
+                        return (
+                          <div 
+                            key={appt.id} 
+                            className={cn(
+                              "p-5 rounded-2xl border flex flex-col justify-between transition gap-4",
+                              appt.status === "pending" 
+                                ? "bg-amber-500/5 border-amber-500/10 hover:border-amber-500/25" 
+                                : appt.status === "confirmed" 
+                                  ? "bg-indigo-500/5 border-indigo-500/10 hover:border-indigo-500/25"
+                                  : "bg-slate-950 border-white/5"
+                            )}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-black text-slate-200">{appt.patientNome}</span>
+                                  {isManual && (
+                                    <span className="px-1.5 py-0.5 bg-indigo-500/20 text-indigo-400 text-[8px] font-mono rounded font-bold uppercase">
+                                      Manual
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-slate-400 text-[10px]">
+                                  <span>{new Date(appt.date).toLocaleDateString("pt-BR")}</span>
+                                  <span>•</span>
+                                  <span>{appt.time || new Date(appt.date).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                              </div>
+
+                              {/* Badges de Status */}
+                              <span className={cn(
+                                "px-2 py-0.5 text-[8px] font-mono font-bold rounded uppercase",
+                                appt.status === "confirmed" 
+                                  ? "bg-indigo-500/20 text-indigo-400" 
+                                  : appt.status === "pending" 
+                                    ? "bg-amber-500/20 text-amber-400 animate-pulse" 
+                                    : appt.status === "completed" 
+                                      ? "bg-emerald-500/20 text-emerald-400" 
+                                      : "bg-red-500/20 text-red-450"
+                              )}>
+                                {appt.status === "confirmed" ? "confirmada" : appt.status === "pending" ? "pendente" : appt.status === "completed" ? "concluída" : "cancelada"}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                              <span className="text-xs font-bold text-slate-400">
+                                R$ {appt.price?.toFixed(2) || "0.00"}
+                              </span>
+
+                              {/* Ações */}
+                              <div className="flex gap-2">
+                                {appt.status === "pending" && (
+                                  <>
+                                    <button
+                                      onClick={() => handleStatusUpdate(appt.id, "cancelled")}
+                                      className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg transition"
+                                    >
+                                      Recusar
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusUpdate(appt.id, "confirmed")}
+                                      className="px-3 py-1.5 bg-emerald-500 text-slate-950 hover:bg-emerald-450 text-[10px] font-extrabold rounded-lg transition"
+                                    >
+                                      Confirmar
+                                    </button>
+                                  </>
+                                )}
+                                {appt.status === "confirmed" && (
+                                  <>
+                                    <button
+                                      onClick={() => handleStatusUpdate(appt.id, "cancelled")}
+                                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 text-[10px] font-bold rounded-lg transition"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      onClick={() => handleStatusUpdate(appt.id, "completed")}
+                                      className="px-3 py-1.5 bg-emerald-500 text-slate-950 hover:bg-emerald-450 text-[10px] font-extrabold rounded-lg transition"
+                                    >
+                                      Concluir Sessão
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal de Agendamento Manual */}
+              {showManualForm && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                  <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md space-y-6">
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-200 uppercase tracking-wider">Agendar Consulta Manual</h3>
+                      <p className="text-[10px] text-slate-400">Insira as informações do paciente para registrar o agendamento.</p>
+                    </div>
+
+                    <form onSubmit={handleCreateManualAppointment} className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Nome do Paciente</label>
+                        <input
+                          type="text"
+                          required
+                          value={manualPatientName}
+                          onChange={(e) => setManualPatientName(e.target.value)}
+                          placeholder="Digite o nome completo"
+                          className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 focus:border-emerald-500 outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Data</label>
+                          <input
+                            type="date"
+                            required
+                            value={manualDate}
+                            onChange={(e) => setManualDate(e.target.value)}
+                            className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 focus:border-emerald-500 outline-none"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Horário</label>
+                          <input
+                            type="time"
+                            required
+                            value={manualTime}
+                            onChange={(e) => setManualTime(e.target.value)}
+                            className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 focus:border-emerald-500 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Tipo de Atendimento</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {["video", "chat", "presencial"].map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setManualType(type as any)}
+                              className={cn(
+                                "py-2.5 rounded-lg text-[10px] font-black uppercase border transition",
+                                manualType === type 
+                                  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
+                                  : "bg-slate-950 text-slate-500 border-white/5 hover:border-white/10"
+                              )}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-4 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setShowManualForm(false)}
+                          className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-400 transition"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isCreatingManual}
+                          className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-450 text-slate-950 rounded-xl text-xs font-black transition"
+                        >
+                          {isCreatingManual ? (
+                            <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
+                          ) : (
+                            "Agendar Sessão"
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -946,12 +1419,12 @@ export default function Terapeuta() {
           )}
 
           {activeTab === 'financeiro' && (
-            <div className="space-y-8">
+            <div className="space-y-8 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Saldo Disponível</p>
                   <p className="text-2xl font-bold text-emerald-400">R$ {profile?.totalEarnings?.toFixed(2) || "0.00"}</p>
-                  <p className="text-[10px] text-slate-500">Pronto para saque</p>
+                  <p className="text-[10px] text-slate-500">Pronto para transferência</p>
                 </div>
                 <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">A Receber</p>
@@ -961,32 +1434,66 @@ export default function Terapeuta() {
                 <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-2">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Seu Payout</p>
                   <p className="text-2xl font-bold text-emerald-400">R$ {((profile?.preco || 0) * (1 - (profile?.desconto || 0) / 100)).toFixed(2)}</p>
-                  <p className="text-[10px] text-slate-500">Por sessão realizada</p>
+                  <p className="text-[10px] text-slate-500">Líquido por sessão realizada</p>
                 </div>
-                <div className="bg-emerald-600 rounded-3xl p-6 flex flex-col justify-center items-center text-center shadow-lg shadow-emerald-900/20 cursor-pointer hover:bg-emerald-500 transition-all">
-                  <DollarSign className="w-6 h-6 text-white mb-1" />
-                  <p className="text-xs font-bold text-white uppercase tracking-widest">Solicitar Saque</p>
-                </div>
-              </div>
-
-              <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-4 bg-purple-500/10 rounded-2xl">
-                    <TrendingUp className="w-8 h-8 text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-200">Conexão Bancária</h3>
-                    <p className="text-slate-400 text-sm">Receba seus ganhos diretamente em sua conta via PIX ou TED.</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={handleConnectEarnings}
-                  className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-bold hover:bg-slate-100 transition-all"
+                <button
+                  onClick={() => {
+                    setPayoutError("");
+                    setPayoutSuccess(false);
+                    setShowPayoutModal(true);
+                  }}
+                  className="bg-emerald-600 rounded-3xl p-6 flex flex-col justify-center items-center text-center shadow-lg shadow-emerald-900/20 cursor-pointer hover:bg-emerald-500 transition-all border-none outline-none text-slate-950"
                 >
-                  Configurar Recebimento
+                  <DollarSign className="w-6 h-6 text-slate-950 mb-1" />
+                  <p className="text-xs font-black uppercase tracking-widest">Solicitar Saque</p>
                 </button>
               </div>
 
+              {/* Conexão Bancária */}
+              {profile?.bankSettings?.bankName ? (
+                <div className="bg-slate-900 border border-white/5 p-6 md:p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-400 shrink-0">
+                      <ShieldCheck className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1 text-left">
+                      <h3 className="text-sm font-extrabold text-slate-200 uppercase tracking-wider">Conta de Recebimento Ativa</h3>
+                      <p className="text-xs text-slate-300">
+                        {profile.bankSettings.bankName} • Agência {profile.bankSettings.bankAgency} • Conta {profile.bankSettings.bankAccount}
+                      </p>
+                      <p className="text-[10px] text-slate-450">
+                        Chave PIX cadastrada ({profile.bankSettings.pixKeyType?.toUpperCase()}): <span className="font-mono text-slate-300">{profile.bankSettings.pixKey}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBankModal(true)}
+                    className="px-6 py-3.5 bg-white/5 hover:bg-white/10 text-slate-300 rounded-2xl text-xs font-bold border border-white/5 transition-all w-full md:w-auto"
+                  >
+                    Alterar Dados Bancários
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-4 bg-purple-500/10 rounded-2xl">
+                      <TrendingUp className="w-8 h-8 text-purple-400" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="text-xl font-bold text-slate-200">Conexão Bancária</h3>
+                      <p className="text-slate-400 text-sm">Receba seus ganhos diretamente em sua conta via PIX ou TED.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBankModal(true)}
+                    className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-bold hover:bg-slate-100 transition-all"
+                  >
+                    Configurar Recebimento
+                  </button>
+                </div>
+              )}
+
+              {/* Histórico de Ganhos */}
               <div className="bg-slate-900 border border-white/5 p-8 rounded-3xl">
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="text-xl font-bold text-slate-200">Histórico de Ganhos</h3>
@@ -1002,7 +1509,7 @@ export default function Terapeuta() {
                       const payout = app.price * (1 - (profile?.desconto || 0) / 100);
                       const fee = payout * 0.10;
                       return (
-                        <div key={app.id} className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5">
+                        <div key={app.id} className="flex items-center justify-between p-4 bg-slate-950 rounded-2xl border border-white/5 text-left">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 bg-emerald-900/20 rounded-full flex items-center justify-center">
                               <DollarSign className="w-5 h-5 text-emerald-400" />
@@ -1014,31 +1521,214 @@ export default function Terapeuta() {
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-emerald-400">+ R$ {payout.toFixed(2)}</p>
-                            <p className="text-[10px] text-slate-500">Taxa Plataforma: R$ {fee.toFixed(2)}</p>
+                            <p className="text-[10px] text-slate-500">Taxa SentiPae (10%): R$ {fee.toFixed(2)}</p>
                           </div>
                         </div>
                       );
                     })
                   ) : (
                     <div className="py-12 text-center text-slate-500">
-                      Nenhum ganho registrado ainda.
+                      Nenhum ganho registrado ainda. Realize consultas na plataforma para gerar receita.
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="bg-blue-900/10 border border-blue-500/20 p-6 rounded-3xl flex items-start gap-4">
+              <div className="bg-blue-900/10 border border-blue-500/20 p-6 rounded-3xl flex items-start gap-4 text-left">
                 <div className="p-3 bg-blue-500/20 rounded-2xl">
                   <TrendingUp className="w-6 h-6 text-blue-400" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-blue-200">Descontos para Empresas</h4>
+                  <h4 className="font-bold text-blue-200">Descontos para Empresas & Prefeituras</h4>
                   <p className="text-sm text-blue-400/80 mt-1 leading-relaxed">
-                    Sua conta está habilitada para o programa SENTI Business. Empresas parceiras podem oferecer subsídios aos colaboradores, 
-                    garantindo que você receba seu valor integral enquanto o custo para o colaborador é reduzido.
+                    Sua conta está devidamente habilitada para os programas SENTI Corporativo e SentiPae Saúde Pública. 
+                    Terapeutas parceiros recebem subsídios de prefeituras ou corporações de forma integral, faturados no primeiro dia útil de cada mês útil.
                   </p>
                 </div>
               </div>
+
+              {/* Modal de Configuração de Conta Bancária */}
+              {showBankModal && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                  <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md space-y-6 text-left">
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-200 uppercase tracking-wider">Configurar Conta de Recebimento</h3>
+                      <p className="text-[10px] text-slate-400">Informe os seus dados bancários e chave PIX para saques automáticos.</p>
+                    </div>
+
+                    <form onSubmit={handleSaveBankSettings} className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Instituição Bancária</label>
+                        <select
+                          required
+                          value={bankName}
+                          onChange={(e) => setBankName(e.target.value)}
+                          className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-emerald-500"
+                        >
+                          <option value="">Selecione o banco</option>
+                          <option value="Banco do Brasil">Banco do Brasil</option>
+                          <option value="Itaú Unibanco">Itaú Unibanco</option>
+                          <option value="Bradesco">Bradesco</option>
+                          <option value="Santander">Santander</option>
+                          <option value="Nubank">Nubank</option>
+                          <option value="Inter">Banco Inter</option>
+                          <option value="C6 Bank">C6 Bank</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Agência</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: 0001"
+                            value={bankAgency}
+                            onChange={(e) => setBankAgency(e.target.value)}
+                            className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase">Conta Corrente</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Ex: 12345-6"
+                            value={bankAccount}
+                            onChange={(e) => setBankAccount(e.target.value)}
+                            className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Tipo de Chave PIX</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {["cpf", "email", "telefone"].map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => setPixKeyType(type)}
+                              className={cn(
+                                "py-2.5 rounded-lg text-[10px] font-black uppercase border transition",
+                                pixKeyType === type 
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                  : "bg-slate-950 text-slate-500 border-white/5 hover:border-white/10"
+                              )}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Chave PIX</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Digite sua chave PIX"
+                          value={pixKey}
+                          onChange={(e) => setPixKey(e.target.value)}
+                          className="w-full bg-slate-950 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-emerald-500"
+                        />
+                      </div>
+
+                      <div className="flex gap-3 pt-4 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setShowBankModal(false)}
+                          className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-400 transition"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingBank}
+                          className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-450 text-slate-950 rounded-xl text-xs font-black transition"
+                        >
+                          {savingBank ? (
+                            <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
+                          ) : savingBankSuccess ? (
+                            "Salvo!"
+                          ) : (
+                            "Salvar Dados"
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Modal de Solicitação de Saque (Payout) */}
+              {showPayoutModal && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                  <div className="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md space-y-6 text-left">
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-200 uppercase tracking-wider">Solicitar Saque (TED/PIX)</h3>
+                      <p className="text-[10px] text-slate-400">Insira o valor que deseja transferir para sua conta de recebimento ativa.</p>
+                    </div>
+
+                    <form onSubmit={handleRequestPayout} className="space-y-4">
+                      <div className="bg-slate-950 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+                        <span className="text-xs text-slate-400 font-bold uppercase">Saldo Disponível</span>
+                        <span className="text-base font-extrabold text-emerald-400">R$ {profile?.totalEarnings?.toFixed(2) || "0.00"}</span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">Valor de Transferência (R$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          placeholder="0,00"
+                          value={payoutAmount}
+                          onChange={(e) => setPayoutAmount(e.target.value)}
+                          className="w-full bg-slate-950 text-slate-200 text-sm px-4 py-3 rounded-xl border border-white/5 outline-none focus:border-emerald-500 font-bold"
+                        />
+                      </div>
+
+                      {payoutError && (
+                        <div className="p-3.5 bg-red-500/10 border border-red-500/15 rounded-xl flex items-center gap-2.5 text-[10px] text-red-400">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>{payoutError}</span>
+                        </div>
+                      )}
+
+                      {payoutSuccess && (
+                        <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/15 rounded-xl flex items-center gap-2.5 text-[10px] text-emerald-400">
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          <span>Sucesso! Saque aprovado e enviado para transferência via PIX.</span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-3 pt-4 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => setShowPayoutModal(false)}
+                          className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-slate-400 transition"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={payoutLoading || payoutSuccess}
+                          className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-450 text-slate-950 rounded-xl text-xs font-black transition"
+                        >
+                          {payoutLoading ? (
+                            <RefreshCw className="w-4 h-4 animate-spin mx-auto" />
+                          ) : payoutSuccess ? (
+                            "Sucesso!"
+                          ) : (
+                            "Confirmar Saque"
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -2,6 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Global Safety Net default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     // Reusable, hardened global helpers
     function isSignedIn() {
       return request.auth != null;
@@ -19,57 +24,81 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function getUserTenantId() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tenantId', null) : 
+        null;
+    }
+
+    function getUserType() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', null) : 
+        null;
+    }
+
     function isSystemAdmin() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', null) == 'admin' || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', null) == 'super_admin');
-    }
-
-    function hasUserDoc() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
-    }
-
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function getTenantId(data) {
-      return data != null ? data.get('tenantId', null) : null;
+      return isSignedIn() && (getUserType() == 'admin' || getUserType() == 'super_admin');
     }
 
     function isSameTenant(data) {
-      return !hasUserDoc() || getTenantId(data) == getTenantId(getUserData());
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || 
+             (data != null && data.get('tenantId', null) == getUserTenantId());
     }
 
     // --- Users Collection Rules ---
     match /users/{userId} {
-      // 1. Owner profile read/write access is isolated and simple
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      // If the logged-in user is the owner, allow get/create/update immediately.
+      // This breaks any circular helper function dependency for standard self-access.
+      allow get, create: if isSignedIn() && request.auth.uid == userId;
       allow update: if isSignedIn() && request.auth.uid == userId && (
         !incoming().keys().hasAny(['tipo']) || 
         incoming().get('tipo', null) == existing().get('tipo', null)
       );
 
-      // 2. Non-owner (Administrative / Tenant) access
-      allow read: if isSignedIn() && request.auth.uid != userId && (
-        isSystemAdmin() ||
-        (resource != null && hasUserDoc() && isSameTenant(resource.data))
+      // If the logged-in user is NOT the owner, evaluate admin and relationship-based access.
+      allow get: if isSignedIn() && request.auth.uid != userId && (
+        isSystemAdmin() || (
+          resource != null && (
+            resource.data.get('tipo', null) == 'terapeuta' || (
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+              getUserTenantId() == resource.data.get('tenantId', null)
+            )
+          )
+        )
       );
-      
+
+      allow list: if isSignedIn() && (
+        isSystemAdmin() || (
+          resource != null && (
+            resource.data.get('tipo', null) == 'terapeuta' || (
+              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+              getUserTenantId() == resource.data.get('tenantId', null) && 
+              (getUserType() == 'admin' || 
+               getUserType() == 'super_admin' || 
+               getUserType() == 'admin_institucional' || 
+               getUserType() == 'prefeitura' || 
+               getUserType() == 'empresa' || 
+               getUserType() == 'clinica' || 
+               getUserType() == 'hospital')
+            )
+          )
+        )
+      );
+
       allow create: if isSignedIn() && request.auth.uid != userId && isSystemAdmin();
 
       allow update: if isSignedIn() && request.auth.uid != userId && (
-        isSystemAdmin() ||
-        (hasUserDoc() && 
-          (getUserData().get('tipo', null) == 'admin' || 
-           getUserData().get('tipo', null) == 'super_admin' || 
-           getUserData().get('tipo', null) == 'admin_institucional' || 
-           getUserData().get('tipo', null) == 'prefeitura' || 
-           getUserData().get('tipo', null) == 'empresa') &&
+        isSystemAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          (getUserType() == 'admin' || 
+               getUserType() == 'super_admin' || 
+               getUserType() == 'admin_institucional' || 
+               getUserType() == 'prefeitura' || 
+               getUserType() == 'empresa' || 
+               getUserType() == 'clinica' || 
+               getUserType() == 'hospital') &&
           (resource != null && isSameTenant(resource.data)) && 
-          isSameTenant(request.resource.data)
+          isSameTenant(incoming())
         )
       );
 
@@ -176,7 +205,6 @@ service cloud.firestore {
     // --- Security Audit Logs Collection Rules ---
     match /audit_logs/{logId} {
       allow read, write: if isSystemAdmin();
-      // Audits must always be appendable to prevent race conditions during auth transitions
       allow create: if true;
       allow get, list: if isSignedIn() && resource != null && resource.data.get('userId', null) == request.auth.uid;
     }
@@ -185,19 +213,19 @@ service cloud.firestore {
     match /organizations/{orgId} {
       allow read: if isSignedIn() && (
         isSystemAdmin() ||
-        (hasUserDoc() && getUserData().get('tenantId', null) == orgId)
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        getUserTenantId() == orgId
       );
       allow create, delete: if isSystemAdmin();
       allow update: if isSignedIn() && (
-        isSystemAdmin() ||
-        (
-          hasUserDoc() && 
-          getUserData().get('tenantId', null) == orgId && 
-          (getUserData().get('tipo', null) == 'admin_institucional' || 
-           getUserData().get('tipo', null) == 'empresa' || 
-           getUserData().get('tipo', null) == 'prefeitura' || 
-           getUserData().get('tipo', null) == 'clinica' || 
-           getUserData().get('tipo', null) == 'hospital')
+        isSystemAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          getUserTenantId() == orgId && 
+          (getUserType() == 'admin_institucional' || 
+           getUserType() == 'empresa' || 
+           getUserType() == 'prefeitura' || 
+           getUserType() == 'clinica' || 
+           getUserType() == 'hospital')
         )
       );
     }

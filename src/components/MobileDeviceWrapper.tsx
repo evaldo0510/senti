@@ -219,6 +219,13 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
       path: "/diario"
     },
     {
+      title: "Espaço Inspirar",
+      description: "Poesias Cognitivas, escrita guiada e o Master Plan 2035.",
+      icon: Sparkles,
+      color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+      path: "/inspirar"
+    },
+    {
       title: "Conteúdos",
       description: "Práticas recomendadas, artigos clínicos e feeds.",
       icon: Sparkles,
@@ -281,6 +288,7 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             { label: "Agenda", path: "/pronto-atendimento", icon: Calendar },
             { label: "Marketplace", path: "/marketplace", icon: ShoppingBag },
             { label: "Diário Emocional", path: "/diario", icon: BookOpen },
+            { label: "Espaço Inspirar", path: "/inspirar", icon: Sparkles },
             { label: "Meu Perfil", path: "/perfil", icon: User },
             { label: "Respiração", path: "/respiracao", icon: Wind },
             { label: "SOS Emergência", path: "/emergencia", icon: AlertOctagon, isSOS: true },
@@ -418,6 +426,14 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
             >
               <Wind className="w-3.5 h-3.5" />
               Respiração
+            </button>
+            <div className="w-px h-3 bg-slate-200 dark:bg-white/10" />
+            <button 
+              onClick={() => handleNavClick("/inspirar")}
+              className="px-3 py-1.5 text-[10px] font-bold text-slate-650 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Inspirar
             </button>
             <div className="w-px h-3 bg-slate-200 dark:bg-white/10" />
             <button 

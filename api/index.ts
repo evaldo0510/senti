@@ -10,7 +10,9 @@ import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 import webpush from "web-push";
 import rateLimit from "express-rate-limit";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
+import { WebSocketServer, WebSocket } from "ws";
+import url from "url";
 
 const __filename = typeof import.meta !== "undefined" && import.meta.url ? fileURLToPath(import.meta.url) : "";
 const __dirname = __filename ? path.dirname(__filename) : process.cwd();
@@ -1353,6 +1355,145 @@ async function startServer() {
       cors: {
         origin: "*",
         methods: ["GET", "POST"]
+      }
+    });
+
+    // Attach WebSocket Server for Gemini Live Voice API
+    const wss = new WebSocketServer({ noServer: true });
+
+    wss.on("connection", async (clientWs: WebSocket, request) => {
+      console.log("[GEMINI LIVE] Client connected via WebSocket");
+      
+      const parsedUrl = url.parse(request.url || "", true);
+      const voiceName = (parsedUrl.query.voice as string) || "Zephyr";
+      
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.error("[GEMINI LIVE] GEMINI_API_KEY is not configured.");
+        clientWs.send(JSON.stringify({ error: "Chave API do Gemini não configurada no servidor." }));
+        clientWs.close();
+        return;
+      }
+      
+      try {
+        const ai = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            }
+          }
+        });
+        
+        console.log(`[GEMINI LIVE] Connecting to Gemini Live API with voice ${voiceName}...`);
+        
+        const session = await ai.live.connect({
+          model: "gemini-3.1-flash-live-preview",
+          config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              voiceConfig: { prebuiltVoiceConfig: { voiceName } }
+            },
+            systemInstruction: "Você é a IARA, uma assistente de acolhimento emocional e de cuidados de descompressão do SentiPae, atuando com a doçura, respeito e dedicação de uma enfermeira ou cuidadora extremamente humana. Você ajuda no alívio de dor, sofrimento, estresse e apoia com descompressão emocional contínua. Fale sempre de forma calorosa, carinhosa, calma e acolhedora, como se estivesse fisicamente ao lado do paciente oferecendo um acolhimento profundo. Use pausas naturais, entonação humana e empatia sincera. Quando o paciente relatar dor física ou emocional, ofereça acolhimento profundo, palavras curtas de conforto, técnicas de respiração consciente suave ou convide-o a relaxar os ombros.",
+            inputAudioTranscription: {},
+            outputAudioTranscription: {}
+          },
+          callbacks: {
+            onopen: () => {
+              console.log("[GEMINI LIVE] Connected to Gemini Live API");
+              clientWs.send(JSON.stringify({ connected: true }));
+            },
+            onmessage: (message: any) => {
+              // Capture raw audio chunk
+              const audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+              if (audio) {
+                clientWs.send(JSON.stringify({ audio }));
+              }
+              
+              // Handle interruption
+              if (message.serverContent?.interrupted) {
+                clientWs.send(JSON.stringify({ interrupted: true }));
+              }
+              
+              // Handle user speech-to-text
+              if (message.serverContent?.inputAudioTranscription?.text) {
+                clientWs.send(JSON.stringify({ transcription: message.serverContent.inputAudioTranscription.text }));
+              }
+              
+              // Handle IARA's output live text transcription
+              if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
+                clientWs.send(JSON.stringify({ aiTranscription: message.serverContent.modelTurn.parts[0].text }));
+              }
+              
+              // Handle turn complete
+              if (message.serverContent?.turnComplete) {
+                clientWs.send(JSON.stringify({ turnComplete: true }));
+              }
+            },
+            onclose: () => {
+              console.log("[GEMINI LIVE] Gemini Live session closed");
+              clientWs.send(JSON.stringify({ closed: true }));
+              clientWs.close();
+            },
+            onerror: (err: any) => {
+              console.error("[GEMINI LIVE] Gemini Live session error:", err);
+              clientWs.send(JSON.stringify({ error: err.message || String(err) }));
+            }
+          }
+        });
+        
+        // Handle incoming client messages (audio chunks or text)
+        clientWs.on("message", (rawMessage) => {
+          try {
+            const data = JSON.parse(rawMessage.toString());
+            
+            // Audio input
+            if (data.audio) {
+              session.sendRealtimeInput({
+                audio: { data: data.audio, mimeType: "audio/pcm;rate=16000" }
+              });
+            }
+            
+            // Video input (image frames)
+            if (data.video) {
+              session.sendRealtimeInput({
+                video: { data: data.video, mimeType: "image/jpeg" }
+              });
+            }
+            
+            // Text input
+            if (data.text) {
+              session.sendRealtimeInput({
+                text: data.text
+              });
+            }
+          } catch (err) {
+            console.error("[GEMINI LIVE] Error parsing client message:", err);
+          }
+        });
+        
+        clientWs.on("close", () => {
+          console.log("[GEMINI LIVE] Client disconnected, closing Gemini session");
+          try {
+            session.close();
+          } catch (e) {
+            // Ignore if already closed
+          }
+        });
+        
+      } catch (error: any) {
+        console.error("[GEMINI LIVE] Failed to initiate Gemini Live API session:", error);
+        clientWs.send(JSON.stringify({ error: "Falha ao conectar com o servidor Gemini." }));
+        clientWs.close();
+      }
+    });
+
+    httpServer.on("upgrade", (request, socket, head) => {
+      const pathname = url.parse(request.url || "").pathname;
+      if (pathname === "/api/live") {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit("connection", ws, request);
+        });
       }
     });
 

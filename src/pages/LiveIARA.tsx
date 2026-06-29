@@ -23,7 +23,6 @@ import {
   ChevronRight,
   ChevronLeft
 } from "lucide-react";
-import { GoogleGenAI, Modality } from "@google/genai";
 import { auth } from "../services/firebase";
 import { salvarDadosAnalytics } from "../services/analyticsService";
 
@@ -145,89 +144,98 @@ export default function LiveIARA() {
         videoRef.current.srcObject = stream;
       }
 
-      const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) {
-        alert("A chave da API do Gemini (GEMINI_API_KEY) não está configurada. Por favor, adicione-a nas variáveis de ambiente.");
-        setIsConnecting(false);
-        setStatusText("Pronta para apoiar");
-        return;
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-      const session = await ai.live.connect({
-        model: "gemini-3.1-flash-live-preview", // Modern high-fidelity conversational model
-        config: {
-          responseModalities: [Modality.AUDIO],
-          systemInstruction: "Você é a IARA, uma assistente de acolhimento emocional e de cuidados paliativos, atuando com a doçura, respeito e dedicação de uma enfermeira ou cuidadora extremamente humana. Você ajuda no alívio de dor, sofrimento, estresse e apoia com descompressão emocional contínua. Fale sempre de forma calorosa, carinhosa, calma e acolhedora, como se estivesse fisicamente ao lado do paciente oferecendo um abraço quente ou um chá reconfortante. Use pausas naturais, entonação humana e empatia sincera. Quando o paciente relatar dor física ou emocional, ofereça acolhimento profundo, palavras curtas de conforto, técnicas de respiração consciente suave ou convide-o a relaxar os ombros.",
-          speechConfig: {
-            voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } }
-          },
-          inputAudioTranscription: {},
-          outputAudioTranscription: {}
-        },
-        callbacks: {
-          onopen: () => {
+      // Establish a secure, server-side proxied Gemini Live WebSocket connection
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/api/live?voice=${selectedVoice}`;
+      console.log(`[CLIENT LIVE] Connecting to ${wsUrl}...`);
+      
+      const ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        console.log("[CLIENT LIVE] WebSocket connected, waiting for server-to-Gemini connection...");
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message.connected) {
+            console.log("[CLIENT LIVE] Server confirmed connection to Gemini Live!");
             setIsConnected(true);
             setIsConnecting(false);
             setStatusText("Ouvindo com atenção...");
             startAudioStreaming();
             startVideoStreaming();
-          },
-          onmessage: async (message: any) => {
-            // 1. Play real-time audio chunk
-            if (message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data) {
-              playAudioChunk(message.serverContent.modelTurn.parts[0].inlineData.data);
-              setStatusText("IARA está falando...");
-            }
-            
-            // 2. Interrupted immediately if user talks over IARA
-            if (message.serverContent?.interrupted) {
-              stopAudioPlayback();
-              isIaraTurnActiveRef.current = false;
-              setStatusText("Ouvindo com atenção...");
-            }
-            
-            // 3. User Speech-to-text live transcription
-            if (message.serverContent?.inputAudioTranscription?.text) {
-              const text = message.serverContent.inputAudioTranscription.text;
-              setTranscription(text);
-              appendOrUpdateUserMessage(text);
-              setStatusText("IARA está pensando...");
-            }
-            
-            // 4. IARA response live text transcription
-            if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
-              const textChunk = message.serverContent.modelTurn.parts[0].text;
-              setAiTranscription(prev => prev + textChunk);
-              appendOrUpdateIaraMessage(textChunk);
-            }
-
-            // 5. Detect turn completed
-            if (message.serverContent?.turnComplete) {
-              isIaraTurnActiveRef.current = false;
-              setAiTranscription("");
-              setStatusText("Ouvindo com atenção...");
-            }
-          },
-          onclose: () => {
-            setIsConnected(false);
-            salvarDadosAnalytics({
-              usuario: auth.currentUser?.displayName || "Anônimo",
-              humor: 5,
-              risco: "moderado",
-              atendimento: "sim",
-              tipo: "IARA Live"
-            });
-            navigate("/home");
-          },
-          onerror: (error: any) => {
-            console.error("Gemini Live Error:", error);
-            setIsConnecting(false);
-            setStatusText("Erro na conexão");
           }
+          
+          // 1. Play real-time audio chunk
+          if (message.audio) {
+            playAudioChunk(message.audio);
+            setStatusText("IARA está falando...");
+          }
+          
+          // 2. Interrupted immediately if user talks over IARA
+          if (message.interrupted) {
+            stopAudioPlayback();
+            isIaraTurnActiveRef.current = false;
+            setStatusText("Ouvindo com atenção...");
+          }
+          
+          // 3. User Speech-to-text live transcription
+          if (message.transcription) {
+            const text = message.transcription;
+            setTranscription(text);
+            appendOrUpdateUserMessage(text);
+            setStatusText("IARA está pensando...");
+          }
+          
+          // 4. IARA response live text transcription
+          if (message.aiTranscription) {
+            const textChunk = message.aiTranscription;
+            setAiTranscription(prev => prev + textChunk);
+            appendOrUpdateIaraMessage(textChunk);
+          }
+
+          // 5. Detect turn completed
+          if (message.turnComplete) {
+            isIaraTurnActiveRef.current = false;
+            setAiTranscription("");
+            setStatusText("Ouvindo com atenção...");
+          }
+
+          if (message.error) {
+            console.error("[CLIENT LIVE] Server-side Gemini Live Error:", message.error);
+            setStatusText(`Erro: ${message.error}`);
+          }
+          
+          if (message.closed) {
+            ws.close();
+          }
+        } catch (err) {
+          console.error("[CLIENT LIVE] Error parsing WebSocket message:", err);
         }
-      });
-      sessionRef.current = session;
+      };
+
+      ws.onclose = () => {
+        console.log("[CLIENT LIVE] WebSocket closed");
+        setIsConnected(false);
+        salvarDadosAnalytics({
+          usuario: auth.currentUser?.displayName || "Anônimo",
+          humor: 5,
+          risco: "moderado",
+          atendimento: "sim",
+          tipo: "IARA Live"
+        });
+        navigate("/home");
+      };
+
+      ws.onerror = (error: any) => {
+        console.error("[CLIENT LIVE] WebSocket error:", error);
+        setIsConnecting(false);
+        setStatusText("Erro na conexão");
+      };
+
+      sessionRef.current = ws;
 
     } catch (error) {
       console.error("Error starting live session:", error);
@@ -269,7 +277,7 @@ export default function LiveIARA() {
     processorRef.current = processor;
 
     processor.onaudioprocess = (e) => {
-      if (!isMicOnRef.current || !sessionRef.current) return;
+      if (!isMicOnRef.current || !sessionRef.current || sessionRef.current.readyState !== WebSocket.OPEN) return;
 
       const inputData = e.inputBuffer.getChannelData(0);
       
@@ -288,9 +296,9 @@ export default function LiveIARA() {
       }
 
       const base64Data = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)));
-      sessionRef.current.sendRealtimeInput({
-        audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" }
-      });
+      sessionRef.current.send(JSON.stringify({
+        audio: base64Data
+      }));
     };
 
     source.connect(processor);
@@ -299,8 +307,10 @@ export default function LiveIARA() {
 
   const startVideoStreaming = () => {
     const sendFrame = () => {
-      if (!isCameraOnRef.current || !sessionRef.current || !videoRef.current || !canvasRef.current) {
-        requestAnimationFrame(sendFrame);
+      if (!isCameraOnRef.current || !sessionRef.current || sessionRef.current.readyState !== WebSocket.OPEN || !videoRef.current || !canvasRef.current) {
+        if (sessionRef.current && sessionRef.current.readyState === WebSocket.OPEN) {
+          requestAnimationFrame(sendFrame);
+        }
         return;
       }
 
@@ -309,9 +319,9 @@ export default function LiveIARA() {
       if (context) {
         context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
         const base64Data = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
-        sessionRef.current.sendRealtimeInput({
-          video: { data: base64Data, mimeType: "image/jpeg" }
-        });
+        sessionRef.current.send(JSON.stringify({
+          video: base64Data
+        }));
       }
       setTimeout(sendFrame, 1000); // Send 1 video frame per second to conserve resource
     };
@@ -417,11 +427,11 @@ export default function LiveIARA() {
     setAiTranscription("");
     setStatusText("IARA está pensando...");
 
-    if (sessionRef.current) {
+    if (sessionRef.current && sessionRef.current.readyState === WebSocket.OPEN) {
       // Send text input over the live multimodal API connection
-      sessionRef.current.sendRealtimeInput({
+      sessionRef.current.send(JSON.stringify({
         text: text
-      });
+      }));
     } else {
       // If offline/not connected, suggest starting a call
       setTimeout(() => {

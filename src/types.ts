@@ -122,6 +122,18 @@ export interface UserProfile {
   googleAuthenticatorEnabled?: boolean;
   totalEarnings?: number;
   pendingEarnings?: number;
+  availability?: {
+    days: string[];
+    start: string;
+    end: string;
+  };
+  bankSettings?: {
+    bankName: string;
+    bankAgency: string;
+    bankAccount: string;
+    pixKeyType: string;
+    pixKey: string;
+  };
   // Campos para pacientes
   favoritos?: string[]; // Array of therapist UIDs
   // Gamification

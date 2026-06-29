@@ -14,9 +14,11 @@ import {
   FileText,
   Mail,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Award
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import ConselhoCientifico from "../components/ConselhoCientifico";
 
 interface AccordionItemProps {
   title: string;
@@ -213,6 +215,16 @@ export default function Sobre() {
                 </div>
               </div>
             </div>
+          </AccordionItem>
+
+          {/* Section 5: Conselho Científico e Ética */}
+          <AccordionItem
+            title="Conselho Científico & Diretrizes Éticas"
+            isOpen={openSection === "conselho"}
+            onToggle={() => toggleSection("conselho")}
+            icon={Award}
+          >
+            <ConselhoCientifico />
           </AccordionItem>
 
         </div>
