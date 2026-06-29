@@ -52,6 +52,7 @@ export default function ChatIARA() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [activeMessages, setActiveMessages] = useState<any[]>([]);
   const [specialization, setSpecialization] = useState<string>("geral");
+  const [autoStartVoice, setAutoStartVoice] = useState(false);
 
   // Overlays & Progress
   const [alerta, setAlerta] = useState(false);
@@ -135,6 +136,26 @@ export default function ChatIARA() {
       setActiveView("chat");
     } catch (e) {
       console.error("Error creating mood-based conversation:", e);
+    }
+  };
+
+  const handleStartVoiceCall = async () => {
+    try {
+      const title = "Chamada por Voz: Acolhimento";
+      const id = await iaraHistoryService.createConversation(title, "geral");
+      
+      const welcomeText = "Olá, eu sou a IARA. Estou ouvindo você por voz em tempo real. Como posso acolher seu coração hoje?";
+      await iaraHistoryService.saveMessage(id, "iara", welcomeText);
+
+      setSelectedConversationId(id);
+      setSpecialization("geral");
+      setAutoStartVoice(true);
+      setActiveMessages([
+        { tipo: "iara", texto: welcomeText }
+      ]);
+      setActiveView("chat");
+    } catch (e) {
+      console.error("Error creating voice conversation:", e);
     }
   };
 
@@ -412,6 +433,46 @@ export default function ChatIARA() {
               </p>
             </div>
 
+            {/* 1.5. Chamada de Voz em Tempo Real Hero Card */}
+            <motion.div 
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -2 }}
+              onClick={handleStartVoiceCall}
+              className="bg-gradient-to-r from-emerald-950/40 via-[#1a0f0a]/40 to-emerald-950/40 border border-emerald-500/20 rounded-[32px] p-6 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer shadow-xl relative overflow-hidden group"
+            >
+              {/* Subtle background glow */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-colors pointer-events-none" />
+              
+              <div className="flex items-center gap-5 text-center md:text-left flex-col md:flex-row">
+                <div className="w-16 h-16 bg-emerald-500/10 rounded-[24px] flex items-center justify-center border border-emerald-500/30 group-hover:scale-105 transition-transform">
+                  <Volume2 className="w-8 h-8 text-emerald-400 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center md:justify-start gap-2">
+                    <span className="text-[9px] bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
+                      Exclusivo SentiPae
+                    </span>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                      Hands-free
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-black text-white tracking-tight">
+                    Fale com a IARA por Chamada de Voz
+                  </h2>
+                  <p className="text-xs text-slate-400 max-w-md leading-relaxed">
+                    Experimente uma conversa bidirecional fluida e acolhedora em tempo real, combinando inteligência de fala com o aconchego imediato da SENTI.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-900/30 flex items-center gap-2 w-full md:w-auto justify-center"
+              >
+                Iniciar Chamada <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+
             {/* 2. Check-in Emocional Rápido */}
             <div className="space-y-3">
               <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-400/80">Como você está se sentindo hoje?</h3>
@@ -586,7 +647,9 @@ export default function ChatIARA() {
                   setActiveView("central");
                   setSelectedConversationId(null);
                   setActiveMessages([]);
+                  setAutoStartVoice(false);
                 }}
+                autoStartVoiceMode={autoStartVoice}
                 className="h-full"
               />
             </div>

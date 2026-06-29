@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
-import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight, Zap, TrendingUp, WifiOff } from "lucide-react";
+import { ArrowLeft, Check, Calendar, Activity, BookOpen, Smile, Frown, Meh, Heart, ChevronLeft, ChevronRight, Zap, TrendingUp, WifiOff, Eye } from "lucide-react";
 import { userService } from "../services/userService";
 import { MoodEntry } from "../types";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { trackEvent } from "../services/analyticsService";
 import { usePWA } from "../contexts/PWAContext";
 import { auth } from "../services/firebase";
@@ -12,7 +12,7 @@ import { offlineStorage } from "../services/offlineStorage";
 
 export default function Diario() {
   const navigate = useNavigate();
-  const { isOffline } = usePWA();
+  const { isOffline, syncOfflineData } = usePWA();
   const [humor, setHumor] = useState<number>(5);
   const [intensidade, setIntensidade] = useState<number>(5);
   const [nota, setNota] = useState("");
@@ -21,6 +21,10 @@ export default function Diario() {
   const [salvo, setSalvo] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
+  const [unsyncedCount, setUnsyncedCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [chartTab, setChartTab] = useState<"recent" | "weekly" | "monthly" | "quarterly">("weekly");
+  const [highContrast, setHighContrast] = useState(false);
 
   useEffect(() => {
     const unsubscribe = userService.getMoodHistory((hist) => {
@@ -28,6 +32,40 @@ export default function Diario() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Check unsynced count
+  useEffect(() => {
+    const checkUnsynced = async () => {
+      try {
+        const unsynced = await offlineStorage.getUnsyncedMoods();
+        setUnsyncedCount(unsynced ? unsynced.length : 0);
+      } catch (e) {
+        console.warn("Error checking unsynced moods:", e);
+      }
+    };
+    checkUnsynced();
+  }, [historico, offlineMoods]);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncOfflineData();
+      // Reload history and local offline entries
+      const unsubscribe = userService.getMoodHistory((hist) => {
+        setHistorico(hist);
+      });
+      const userId = auth.currentUser?.uid || "guest";
+      const localMoods = await offlineStorage.getMoodsOffline(userId);
+      setOfflineMoods(localMoods);
+      
+      const unsynced = await offlineStorage.getUnsyncedMoods();
+      setUnsyncedCount(unsynced ? unsynced.length : 0);
+    } catch (e) {
+      console.error("Manual sync failed:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Sync / Load offline local moods
   useEffect(() => {
@@ -75,6 +113,58 @@ export default function Diario() {
 
     return merged as MoodEntry[];
   }, [historico, offlineMoods]);
+
+  // Compute a specific dataset for calendar days (Trend) based on selected range
+  const trendData = React.useMemo(() => {
+    let days = 7;
+    if (chartTab === "monthly") {
+      days = 30;
+    } else if (chartTab === "quarterly") {
+      days = 90;
+    } else if (chartTab === "recent") {
+      return []; // Not used for trendData
+    }
+
+    const result = [];
+    const today = new Date();
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dateString = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      // Get weekday name (e.g., "seg", "ter")
+      const weekdayStr = d.toLocaleDateString('pt-BR', { weekday: 'short' });
+      const dayName = (weekdayStr || "").replace('.', '').slice(0, 3).toUpperCase();
+      
+      // Filter entries on this calendar day
+      const dayEntries = combinedHistorico.filter(entry => {
+        const entryDate = new Date(entry.timestamp);
+        return entryDate.getDate() === d.getDate() &&
+               entryDate.getMonth() === d.getMonth() &&
+               entryDate.getFullYear() === d.getFullYear();
+      });
+      
+      let avgHumor: number | null = null;
+      let avgIntensity: number | null = null;
+      
+      if (dayEntries.length > 0) {
+        const sumHumor = dayEntries.reduce((sum, e) => sum + e.value, 0);
+        const sumIntensity = dayEntries.reduce((sum, e) => sum + (e.intensity || 0), 0);
+        avgHumor = parseFloat((sumHumor / dayEntries.length).toFixed(1));
+        avgIntensity = parseFloat((sumIntensity / dayEntries.length).toFixed(1));
+      }
+      
+      result.push({
+        dateStr: dateString,
+        dayName: days === 7 ? dayName : dateString,
+        humor: avgHumor, // can be null if no entry
+        intensity: avgIntensity,
+        hasData: dayEntries.length > 0,
+      });
+    }
+    
+    return result;
+  }, [combinedHistorico, chartTab]);
 
   const handleSalvar = async () => {
     const userId = auth.currentUser?.uid || "guest";
@@ -295,17 +385,74 @@ export default function Diario() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      <header className="p-4 border-b border-white/10 flex items-center bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-        <button onClick={() => navigate("/home")} className="p-2 hover:bg-white/10 rounded-full transition-colors mr-4">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h2 className="text-lg font-medium text-emerald-400">Diário Emocional</h2>
-          <p className="text-xs text-slate-400">Seu espaço seguro de reflexão</p>
+      <header className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
+        <div className="flex items-center">
+          <button onClick={() => navigate("/home")} className="p-2 hover:bg-white/10 rounded-full transition-colors mr-4" aria-label="Voltar para Home">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-lg font-medium text-emerald-400">Diário Emocional</h2>
+            <p className="text-xs text-slate-400">Seu espaço seguro de reflexão</p>
+          </div>
         </div>
+
+        {/* Alto Contraste Toggle */}
+        <button
+          onClick={() => setHighContrast(!highContrast)}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border transition-all text-xs font-bold cursor-pointer ${
+            highContrast
+              ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.4)] font-black"
+              : "bg-slate-900/80 text-slate-300 border-white/10 hover:bg-white/5 hover:text-white"
+          }`}
+          title="Ativar modo de alto contraste para o gráfico"
+          aria-pressed={highContrast}
+        >
+          <Eye className={`w-4 h-4 ${highContrast ? "text-black animate-pulse" : "text-emerald-400"}`} />
+          <span className="hidden sm:inline">Alto Contraste</span>
+          <span className="inline sm:hidden">Contraste</span>
+          <span className={`w-2 h-2 rounded-full ${highContrast ? "bg-black" : "bg-white/25"}`} />
+        </button>
       </header>
 
       <main className="flex-1 p-6 max-w-3xl mx-auto w-full space-y-8">
+        
+        {/* Offline & Unsynced Status Banners */}
+        {isOffline && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-3 text-amber-400 text-xs shadow-lg"
+          >
+            <WifiOff className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
+            <div className="space-y-0.5">
+              <span className="font-bold uppercase tracking-wider block text-[10px]">Você está offline</span>
+              <p className="text-slate-400 leading-relaxed font-light">Seus registros serão guardados localmente com total segurança via IndexedDB e sincronizados automaticamente assim que você estiver online novamente.</p>
+            </div>
+          </motion.div>
+        )}
+
+        {unsyncedCount > 0 && !isOffline && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-emerald-400 text-xs shadow-lg"
+          >
+            <div className="flex items-center gap-3">
+              <Zap className="w-5 h-5 text-emerald-400 shrink-0 animate-bounce" />
+              <div className="space-y-0.5">
+                <span className="font-bold uppercase tracking-wider block text-[10px]">Sincronização pendente</span>
+                <p className="text-slate-400 leading-relaxed font-light">Você tem {unsyncedCount} {unsyncedCount === 1 ? 'registro' : 'registros'} salvo(s) localmente no IndexedDB aguardando sincronização com o banco de dados.</p>
+              </div>
+            </div>
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold transition-all text-[11px] disabled:opacity-50 shrink-0 w-full sm:w-auto text-center"
+            >
+              {isSyncing ? "Sincronizando..." : "Sincronizar Agora"}
+            </button>
+          </motion.div>
+        )}
         
         {/* Check-in Section */}
         <motion.section 
@@ -432,90 +579,186 @@ export default function Diario() {
         </motion.section>
 
         {/* Mood Evolution Chart Card */}
-        {combinedHistorico.length >= 2 && (
+        {combinedHistorico.length >= 1 && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4"
+            className={`p-6 rounded-3xl space-y-4 transition-all duration-300 ${
+              highContrast 
+                ? "bg-black border-2 border-white shadow-[0_0_20px_rgba(255,255,255,0.15)] text-white" 
+                : "bg-slate-900 border border-white/5"
+            }`}
           >
-            <div className="flex justify-between items-center pb-2 border-b border-white/5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-white/5 gap-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20 animate-pulse">
-                  <TrendingUp className="w-5 h-5 text-emerald-400" />
+                <div className={`p-2 rounded-xl border transition-all ${
+                  highContrast 
+                    ? "bg-white border-white text-black" 
+                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400 animate-pulse"
+                }`}>
+                  <TrendingUp className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Evolução do seu Humor</h3>
-                  <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Desempenho ao longo de suas semanas</p>
+                  <h3 className={`text-base font-bold transition-all ${highContrast ? "text-white font-black text-lg" : "text-white"}`}>Evolução do seu Humor</h3>
+                  <p className={`text-[10px] font-medium uppercase tracking-widest transition-all ${highContrast ? "text-white font-bold" : "text-slate-500"}`}>Acompanhe suas oscilações emocionais</p>
                 </div>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 px-2.5 py-1 rounded-lg border border-emerald-500/10">
-                Gráfico Ativo
-              </span>
+              
+              {/* Premium segment control */}
+              <div className={`flex flex-wrap border p-1 rounded-xl text-[10px] font-black uppercase tracking-wider self-stretch sm:self-auto gap-1 transition-all ${
+                highContrast ? "bg-black border-white" : "bg-slate-950 border-white/10"
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setChartTab("weekly")}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    chartTab === "weekly"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/15"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Semanal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartTab("monthly")}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    chartTab === "monthly"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/15"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Mensal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartTab("quarterly")}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    chartTab === "quarterly"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/15"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Trimestral
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChartTab("recent")}
+                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg transition-all text-center cursor-pointer ${
+                    chartTab === "recent"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-500/15"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  Recentes
+                </button>
+              </div>
             </div>
 
             <div className="h-60 w-full pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
-                  data={[...combinedHistorico]
-                    .reverse()
-                    .slice(-10) // Display last 10 entries for optimal clarity
-                    .map(entry => {
-                      const d = new Date(entry.timestamp);
-                      return {
-                        data: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-                        dataCompleta: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
-                        humor: entry.value,
-                        intensidade: entry.intensity || 0
-                      };
-                    })}
+                  data={
+                    chartTab !== "recent"
+                      ? trendData.map(d => ({
+                          data: d.dayName,
+                          dataCompleta: `${d.dayName} (${d.dateStr})`,
+                          humor: d.humor,
+                          intensidade: d.intensity
+                        }))
+                      : [...combinedHistorico]
+                          .reverse()
+                          .slice(-10)
+                          .map(entry => {
+                            const d = new Date(entry.timestamp);
+                            return {
+                              data: d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                              dataCompleta: d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+                              humor: entry.value,
+                              intensidade: entry.intensity || 0
+                            };
+                          })
+                  }
                   margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
                 >
                   <defs>
                     <linearGradient id="colorHumor" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      <stop offset="5%" stopColor={highContrast ? "#00ffcc" : "#10b981"} stopOpacity={highContrast ? 0.45 : 0.3}/>
+                      <stop offset="95%" stopColor={highContrast ? "#00ffcc" : "#10b981"} stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorIntensidade" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      <stop offset="5%" stopColor={highContrast ? "#ffff00" : "#3b82f6"} stopOpacity={highContrast ? 0.3 : 0.15}/>
+                      <stop offset="95%" stopColor={highContrast ? "#ffff00" : "#3b82f6"} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
+                  <CartesianGrid 
+                    strokeDasharray={highContrast ? "3 3" : "4 4"} 
+                    stroke={highContrast ? "rgba(255, 255, 255, 0.4)" : "rgba(255, 255, 255, 0.05)"} 
+                  />
                   <XAxis 
                     dataKey="data" 
-                    stroke="#475569" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false}
+                    stroke={highContrast ? "#ffffff" : "#475569"} 
+                    fontSize={highContrast ? 11 : 10} 
+                    tickLine={highContrast} 
+                    axisLine={highContrast}
                     dy={5}
+                    style={{ fontWeight: highContrast ? "800" : "500" }}
+                    interval={
+                      chartTab === "weekly"
+                        ? 0
+                        : chartTab === "monthly"
+                        ? 4
+                        : chartTab === "quarterly"
+                        ? 12
+                        : "preserveEnd"
+                    }
                   />
                   <YAxis 
-                    stroke="#475569" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false}
+                    stroke={highContrast ? "#ffffff" : "#475569"} 
+                    fontSize={highContrast ? 11 : 10} 
+                    tickLine={highContrast} 
+                    axisLine={highContrast}
                     domain={[0, 10]}
                     tickCount={6}
                     dx={-5}
+                    style={{ fontWeight: highContrast ? "800" : "500" }}
                   />
                   <Tooltip
                     content={({ active, payload }: any) => {
                       if (active && payload && payload.length) {
+                        const hasValue = payload[0].value !== undefined && payload[0].value !== null;
                         return (
-                          <div className="bg-slate-950 border border-white/10 p-3.5 rounded-2xl shadow-2xl relative z-50">
-                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest leading-none mb-2">
+                          <div className={`p-3.5 rounded-2xl shadow-2xl relative z-50 border transition-all ${
+                            highContrast 
+                              ? "bg-black border-2 border-white text-white shadow-[0_0_15px_rgba(255,255,255,0.35)]" 
+                              : "bg-slate-950 border border-white/10"
+                          }`}>
+                            <p className={`text-[9px] font-black uppercase tracking-widest leading-none mb-2 ${
+                              highContrast ? "text-white" : "text-slate-500"
+                            }`}>
                               {payload[0].payload.dataCompleta}
                             </p>
                             <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                                <span className="text-white text-xs font-bold">Humor: <span className="font-extrabold text-white text-sm">{payload[0].value}</span>/10</span>
-                              </div>
-                              {payload[1] && (
-                                <div className="flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full bg-blue-400" />
-                                  <span className="text-slate-300 text-xs font-bold">Intensidade: {payload[1].value}/10</span>
-                                </div>
+                              {hasValue ? (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <span className={`w-2.5 h-2.5 rounded-full ${highContrast ? "bg-[#00ffcc]" : "bg-emerald-400"}`} />
+                                    <span className={`text-xs font-bold ${highContrast ? "text-white font-black" : "text-white"}`}>
+                                      Humor Médio: <span className={`text-sm ${highContrast ? "font-black text-[#00ffcc]" : "font-extrabold text-white"}`}>{payload[0].value}</span>/10
+                                    </span>
+                                  </div>
+                                  {payload[1] && payload[1].value !== undefined && payload[1].value !== null && (
+                                    <div className="flex items-center gap-2">
+                                      <span className={`w-2.5 h-2.5 rounded-full ${highContrast ? "bg-[#ffff00]" : "bg-blue-400"}`} />
+                                      <span className={`text-xs font-bold ${highContrast ? "text-white font-black" : "text-slate-300"}`}>
+                                        Intensidade Média: <span className={highContrast ? "text-[#ffff00] font-black" : ""}>{payload[1].value}</span>/10
+                                      </span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <p className={`text-xs italic ${highContrast ? "text-white/80" : "text-slate-500"}`}>Sem registros neste dia</p>
                               )}
                             </div>
                           </div>
@@ -527,19 +770,21 @@ export default function Diario() {
                   <Area 
                     type="monotone" 
                     dataKey="humor" 
-                    stroke="#10b981" 
-                    strokeWidth={3}
+                    stroke={highContrast ? "#00ffcc" : "#10b981"} 
+                    strokeWidth={highContrast ? 5 : 3}
                     fillOpacity={1} 
-                    fill="url(#colorHumor)" 
+                    fill="url(#colorHumor)"
+                    connectNulls={true}
                   />
                   <Area 
                     type="monotone" 
                     dataKey="intensidade" 
-                    stroke="#3b82f6" 
-                    strokeWidth={1.5}
-                    strokeDasharray="4 4"
+                    stroke={highContrast ? "#ffff00" : "#3b82f6"} 
+                    strokeWidth={highContrast ? 3.5 : 1.5}
+                    strokeDasharray={highContrast ? undefined : "4 4"}
                     fillOpacity={1} 
-                    fill="url(#colorIntensidade)" 
+                    fill="url(#colorIntensidade)"
+                    connectNulls={true}
                   />
                 </AreaChart>
               </ResponsiveContainer>

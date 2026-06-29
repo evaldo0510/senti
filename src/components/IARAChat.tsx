@@ -50,6 +50,7 @@ interface IARAChatProps {
   onRiscoAlto?: () => void;
   onDirecionar?: (especialidade: string) => void;
   className?: string;
+  autoStartVoiceMode?: boolean;
 }
 
 export default function IARAChat({ 
@@ -63,7 +64,8 @@ export default function IARAChat({
   onIARARespond,
   onRiscoAlto,
   onDirecionar,
-  className 
+  className,
+  autoStartVoiceMode = false
 }: IARAChatProps) {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -443,6 +445,15 @@ export default function IARAChat({
     }
     setActiveConvId(conversationId || null);
   }, [conversationId, initialMessages, initialMessage]);
+
+  useEffect(() => {
+    if (autoStartVoiceMode) {
+      const timer = setTimeout(() => {
+        startVoiceMode();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoStartVoiceMode]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentAudioSource = useRef<AudioBufferSourceNode | null>(null);
