@@ -69,17 +69,23 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let active = true;
 
     if (typeof window !== 'undefined') {
-      if ((window as any).__onesignal_initialized__) {
-        console.log("OneSignal: Já inicializado anteriormente (global flag).");
+      if ((window as any).__onesignal_initialized__ || (window as any).__onesignal_initializing__) {
+        console.log("OneSignal: Já inicializado ou em processo de inicialização (global flags).");
         import('react-onesignal').then(({ default: OneSignal }) => {
           if (!active) return;
           unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
-              OneSignal.login(user.uid).catch(e => 
-                console.warn("OneSignal: Erro ao registrar login:", e)
-              );
+              try {
+                OneSignal.login(user.uid).catch(e => 
+                  console.warn("OneSignal: Erro ao registrar login:", e)
+                );
+              } catch (err) {
+                console.warn("OneSignal: Erro ao invocar login:", err);
+              }
             }
           });
+        }).catch(e => {
+          console.warn("OneSignal: Erro ao importar após flags globais:", e);
         });
         return () => {
           active = false;
@@ -87,43 +93,72 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
       }
 
+      (window as any).__onesignal_initializing__ = true;
+
       import('react-onesignal').then(({ default: OneSignal }) => {
         if (!active) return;
-        if ((OneSignal as any).isInitialized && (OneSignal as any).isInitialized()) {
+        
+        let alreadyInit = false;
+        try {
+          alreadyInit = (OneSignal as any).isInitialized && (OneSignal as any).isInitialized();
+        } catch (e) {
+          console.warn("OneSignal: Erro ao checar isInitialized:", e);
+        }
+
+        if (alreadyInit) {
           (window as any).__onesignal_initialized__ = true;
+          (window as any).__onesignal_initializing__ = false;
           console.log("OneSignal: Já inicializado anteriormente (SDK check).");
           unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
-              OneSignal.login(user.uid).catch(e => 
-                console.warn("OneSignal: Erro ao registrar login:", e)
-              );
+              try {
+                OneSignal.login(user.uid).catch(e => 
+                  console.warn("OneSignal: Erro ao registrar login:", e)
+                );
+              } catch (err) {
+                console.warn("OneSignal: Erro ao invocar login:", err);
+              }
             }
           });
           return;
         }
 
-        (window as any).__onesignal_initialized__ = true;
-        OneSignal.init({
-          appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "3cd9c394-b258-40a2-afc4-e69acbe52ef0",
-          allowLocalhostAsSecureOrigin: true,
-          welcomeNotification: {
-            disable: false,
-            title: "SENTI Pronto-Socorro Emocional",
-            message: "Notificações push devidamente sincronizadas."
-          }
-        }).then(() => {
-          if (!active) return;
-          console.log("OneSignal: Inicializado com sucesso!");
-          unsubscribe = auth.onAuthStateChanged((user) => {
-            if (user) {
-              OneSignal.login(user.uid).catch(e => 
-                console.warn("OneSignal: Erro ao registrar login:", e)
-              );
+        try {
+          OneSignal.init({
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "3cd9c394-b258-40a2-afc4-e69acbe52ef0",
+            allowLocalhostAsSecureOrigin: true,
+            welcomeNotification: {
+              disable: false,
+              title: "SENTI Pronto-Socorro Emocional",
+              message: "Notificações push devidamente sincronizadas."
             }
+          }).then(() => {
+            if (!active) return;
+            (window as any).__onesignal_initialized__ = true;
+            (window as any).__onesignal_initializing__ = false;
+            console.log("OneSignal: Inicializado com sucesso!");
+            unsubscribe = auth.onAuthStateChanged((user) => {
+              if (user) {
+                try {
+                  OneSignal.login(user.uid).catch(e => 
+                    console.warn("OneSignal: Erro ao registrar login:", e)
+                  );
+                } catch (err) {
+                  console.warn("OneSignal: Erro ao invocar login:", err);
+                }
+              }
+            });
+          }).catch(err => {
+            (window as any).__onesignal_initializing__ = false;
+            console.warn("OneSignal: Falha ao inicializar SDK:", err);
           });
-        }).catch(err => {
-          console.warn("OneSignal: Falha ao inicializar SDK:", err);
-        });
+        } catch (err) {
+          (window as any).__onesignal_initializing__ = false;
+          console.warn("OneSignal: Exceção ao executar init:", err);
+        }
+      }).catch(err => {
+        (window as any).__onesignal_initializing__ = false;
+        console.warn("OneSignal: Erro ao importar dinamicamente:", err);
       });
     }
 

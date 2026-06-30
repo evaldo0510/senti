@@ -25,6 +25,18 @@ export const userService = {
     const userId = user?.uid || 'guest_user';
     const userName = user?.displayName || user?.email || 'Anônimo';
 
+    let tenantId: string | null = null;
+    if (userId !== 'guest_user' && userId !== 'guest_demo_user' && !userId.startsWith('simulated_')) {
+      try {
+        const userProfile = await userService.getUser(userId);
+        if (userProfile?.tenantId) {
+          tenantId = userProfile.tenantId;
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar tenantId do usuário para saveMood:", e);
+      }
+    }
+
     const path = 'emotion_logs';
     const newEntry = {
       userId,
@@ -32,7 +44,8 @@ export const userService = {
       value,
       intensity,
       timestamp: new Date().toISOString(),
-      triggers: triggers || []
+      triggers: triggers || [],
+      ...(tenantId ? { tenantId } : {})
     };
 
     try {
@@ -801,6 +814,7 @@ export const userService = {
           nome: user.displayName || user.email?.split('@')[0] || 'Usuário',
           email: user.email || '',
           tipo: user.email === 'mentefelizterapias@gmail.com' ? 'admin' : type,
+          onboardingCompleted: false,
           createdAt: now.toISOString(),
           favoritos: [],
           subscriptionStatus: 'trial',

@@ -391,6 +391,10 @@ export default function GerenciamentoDados() {
   const [searchUserQuery, setSearchUserQuery] = useState("");
 
   const fetchUsers = async () => {
+    if (!profile || (profile.tipo !== 'admin' && profile.tipo !== 'super_admin')) {
+      console.warn("User is not an admin, skipping user fetch to prevent permissions error.");
+      return;
+    }
     setLoadingUsers(true);
     try {
       const querySnapshot = await getDocs(collection(db, "users"));

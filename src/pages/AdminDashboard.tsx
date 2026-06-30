@@ -83,6 +83,10 @@ export default function AdminDashboard() {
 
   // Carrega dados reais do Firestore
   const loadAdminData = async () => {
+    if (!profile || (profile.tipo !== "admin" && profile.tipo !== "super_admin")) {
+      console.warn("User is not authorized as admin, skipping loadAdminData.");
+      return;
+    }
     setLoadingData(true);
     try {
       // Carrega usuários

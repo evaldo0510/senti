@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
@@ -26,6 +26,9 @@ const firestore = initializeFirestore(app, {
 
 export const db = firestore;
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error("Erro ao configurar persistência local para Firebase Auth:", err);
+});
 export const storage = getStorage(app);
 
 // Initialize Firebase Cloud Messaging conditionally (only in client context with SW support)
@@ -118,12 +121,13 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   try {
-    localStorage.removeItem("simulatedUser");
-    localStorage.removeItem("simulatedProfile");
+    localStorage.clear();
     await signOut(auth);
-    window.location.reload();
+    window.location.href = "/";
   } catch (error) {
     console.error("Error signing out", error);
+    localStorage.clear();
+    window.location.href = "/";
   }
 };
 

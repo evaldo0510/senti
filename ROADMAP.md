@@ -1,55 +1,72 @@
 # ROADMAP.md
-## Roadmap Estratégico de Evolução — SentiPae Platform (5 Anos)
+## Roadmap Estratégico de Evolução — SentiPae Platform
 
-Este documento acompanha as fases de consolidação, expansão e capilaridade do Ecossistema SentiPae. Ele serve de base de alinhamento para o conselho consultivo e para as priorizações semanais de engenharia.
-
----
-
-### 1. FASE ATUAL: SPRINT CORE CONSOLIDAÇÃO (Q2 2026)
-*   **Módulos e Sprints Concluídos**:
-    *   [x] **Sprint 11 (SentiCore OS v1)**: Centralizador de inteligência e auditoria de logs (SentiCore Hub) e registro de agentes.
-    *   [x] **Sprint 12 (O DNA do SentiPae)**: Definição estratégica da "Continuidade do Cuidado", "Mapa Vivo da Jornada" e "Linha de Cuidado Compartilhada".
-    *   [x] **Prontuário Inteligente Unificado (PIU)**: Camadas de acesso RBAC e visualização clínica de evoluções.
-    *   [x] **Índice de Continuidade do Cuidado (ICC)**: Calculador dinâmico de engajamento do paciente.
-    *   [x] **Linha do Tempo da Jornada Terapêutica**: Interface visual interativa para acompanhamento de fases no Senti App.
-    *   [x] **PCH Player (Sabedoria & Respiração)**: Integrado ao painel do paciente para alívio imediato e regulação emocional.
-
-*   **Foco Imediato (Próximas Sprints)**:
-    *   [ ] **Sprint 13 (O Banco de Dados Corporativo)**: Modelagem profunda de todas as coleções, relacionamentos, regras de segurança e índices do Firestore.
-    *   [ ] **Sprint 14 (Google Live e Conversação em Tempo Real)**: Integração definitiva dos inputs de áudio com a Google Live API no módulo de voz em tempo real da IARA.
-    *   [ ] Expansão do Marketplace de Especialistas com filtros de agendamento multi-agenda integrados às prefeituras.
+Este documento acompanha as fases de consolidação, expansão e capilaridade do Ecossistema SentiPae, dividindo as entregas em **Micro-Sprints** modulares, testáveis e independentes.
 
 ---
 
-### 2. VISÃO DE EVOLUÇÃO E ROADMAP TÁTICO
+### Status dos Sprints de Engenharia
 
-#### Ano 1: Consolidação da Plataforma e Integrações Corporativas
-*   Consolidação da arquitetura Multi-Tenant isolando ambientes corporativos e governamentais.
-*   Implantação de dashboards de bem-estar B2B (Senti Business) com indicadores agregados anônimos.
-*   Lançamento do aplicativo mobile oficial empacotado para Android/iOS via Capacitor/React Native.
-
-#### Ano 2: Saúde Pública e Assistência Social (Senti Public)
-*   Homologação da plataforma para suporte a Unidades Básicas de Saúde (UBS) e programas de saúde pública municipais.
-*   Matchmaking georreferenciado de assistentes sociais e psicólogos com base em territórios de vulnerabilidade.
-*   Implementação de regras de triagem integradas aos fluxos regulatórios do SUS.
-
-#### Ano 3: Expansão Científica e Ensino (Universidades e Hospitais)
-*   Integrações robustas com prontuários eletrônicos padrão (HL7 / FHIR) de grandes hospitais.
-*   Módulo acadêmico para residências em psicologia e psiquiatria, permitindo que professores supervisionem alunos através do Prontuário Inteligente Unificado (PIU).
-*   Constituição formal do Conselho Consultivo e Científico permanente para revisão de algoritmos PCH.
-
-#### Ano 4: Escala Global e Multilinguismo Inteligente
-*   Localização completa do tom de voz e metáforas de cura para os mercados de língua inglesa e espanhola.
-*   Adaptação de regras de conformidade internacionais (HIPAA nos EUA, GDPR na Europa).
-*   Motor de IA multimodal adaptando metáforas poéticas a partir de padrões faciais ou entonação vocal.
-
-#### Ano 5: Ecossistema Autônomo de Saúde Preventiva Integral
-*   Conexão profunda com sensores vestíveis (smartwatches) para prever surtos de pânico ou colapsos de sono de forma preventiva e sugerir técnicas ativas de respiração ou acionar socorro humano em tempo recorde.
-*   Abertura de APIs abertas para desenvolvimento de micro-aplicativos terapêuticos independentes dentro da App Store SentiPae.
+| Sprint | Escopo Funcional | Status | Metodologia / Foco |
+| :--- | :--- | :--- | :--- |
+| **Sprint 21** | Auditoria Técnica, Segurança LGPD, Consistência Firebase & OneSignal | **[Concluído]** | Estabilidade, Rastreabilidade e Permissões |
+| **Sprint 22.1**| Infraestrutura da IARA (`IaraService`, `ConversationManager`) | **[Planejado]**| Desacoplamento da Camada de Inteligência |
+| **Sprint 22.2**| Google Live API (Integração de Voz Multimodal e Microfone) | **[Planejado]**| Processamento de Sinais e Baixa Latência |
+| **Sprint 22.3**| Memória de Longo Prazo e Resumos com IA | **[Planejado]**| Persistência Semântica no Firestore |
+| **Sprint 22.4**| Motor SentiCore de Triagem e Encaminhamento Humano | **[Planejado]**| Matchmaking Multidisciplinar Seguro |
+| **Sprint 22.5**| Integração Final do Fluxo de Onboarding & Conversa por Voz | **[Planejado]**| Testes de Ponta a Ponta |
+| **Sprint 23** | Jornada Inteligente & Meu Jardim Emocional | **[Planejado]**| Gamificação Saudável e Hábitos |
+| **Sprint 24** | Rede de Especialistas e Prontuários Compartilhados | **[Planejado]**| Integração Médica de Cuidado Humano |
+| **Sprint 25** | Marketplace de Teleatendimento Funcional | **[Planejado]**| Agendamentos, Confirmação & Pagamentos |
+| **Sprint 26** | Painel Administrativo Geral (SaaS Control) | **[Planejado]**| Gerenciamento de Assinaturas & Telemetria |
+| **Sprint 27** | Portais Institucionais (Prefeituras, Clínicas e Empresas) | **[Planejado]**| Multi-Tenancy Isolado e Customizado |
+| **Sprint 28** | Observabilidade, Monitoramento de Falhas e Telemetria | **[Planejado]**| Auditoria de Segurança Avançada (AuditLog) |
+| **Sprint 29** | Otimização de Performance e Compactação de Bundle | **[Planejado]**| Lazy Loading de Gráficos e Componentes |
+| **Sprint 30** | Release Candidate (RC 1.0) & Preparação Comercial | **[Planejado]**| Validação Científica & Onboarding Perfeito |
 
 ---
 
-### 3. CONTROLE DE DÉBITOS TÉCNICOS E MONITORAMENTO
-*   **Segurança**: Substituir todas as queries legadas de teste por transações seguras no SDK do Firestore.
-*   **Performance**: Otimizar tempos de carregamento de gráficos interativos através de lazy loading e code-splitting no roteador central do React.
-*   **Acessibilidade**: Certificar compatibilidade total do leitor de tela (ARIA labels) nos widgets interactivos do diário emocional.
+### Detalhamento da Arquitetura de 4 Camadas Decopladas
+
+Para garantir a escalabilidade corporativa e modularidade de parcerias (SentiCore SDK), adotamos a seguinte divisão arquitetural:
+
+1. **Camada 1 — Interface (Apresentação)**:
+   - React 18 + Vite, Tailwind CSS para alta densidade visual.
+   - Componentes visuais desacoplados e reusáveis em `/src/components/`.
+   - Páginas de fluxo em `/src/pages/`.
+   
+2. **Camada 2 — Aplicação (Regras de Negócio)**:
+   - Casos de uso terapêuticos e gerenciadores locais.
+   - Gerenciamento de sessões de pacientes, cálculos de engajamento (Índice de Continuidade do Cuidado - ICC) e persistência de dados sensíveis locais.
+   
+3. **Camada 3 — SentiCore (Orquestração de Agentes)**:
+   - Motor central de agentes em `/src/core/`.
+   - Decision Engine, políticas de roteamento ético de conversas (`routingRules.ts`) e o SentiCore Command Center.
+   
+4. **Camada 4 — Infraestrutura (Serviços Externos)**:
+   - Abstrações de conexões externas em `/src/services/` e `/src/contexts/`.
+   - Firebase/Firestore para Multi-tenant seguro (`firestore.rules`).
+   - SDK do Google Gemini, Google Live para chamadas de voz de baixa latência, OneSignal para alarmes de crise e Google Analytics para telemetria agregada.
+
+---
+
+### Visão Estratégica de Longo Prazo (5 Anos)
+
+#### Ano 1: Consolidação da Plataforma e Senti Business B2B
+- Lançamento dos ambientes corporativos de bem-estar com relatórios demográficos anônimos.
+- Compilação mobile nativa para Android/iOS via Capacitor.
+
+#### Ano 2: Saúde Pública Integrada (Senti Public)
+- Homologação do sistema para Unidades Básicas de Saúde (UBS) e fluxos regulatórios municipais.
+- Matchmaking de assistência social georreferenciada em territórios de alta vulnerabilidade.
+
+#### Ano 3: Clínicas, Universidades e Pesquisa Científica
+- Módulo acadêmico com supervisão de prontuários eletrônicos interligados.
+- Integração profunda com prontuários médicos interoperáveis padrão HL7 / FHIR.
+
+#### Ano 4: Expansão Internacional e Multilinguismo
+- Adaptação a regras HIPAA (EUA) e GDPR (Europa).
+- Localização poética e cultural do tom de voz de acolhimento emocional.
+
+#### Ano 5: Ecossistema Autônomo e Integração com Wearables
+- Leitura contínua de biomarcadores via smartwatches para prevenção de surtos de ansiedade e ataques de pânico com acionamento de apoio humano imediato.

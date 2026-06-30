@@ -178,6 +178,58 @@ export interface UserProfile {
   nextBilling?: string;
   // Multitenancy
   tenantId?: string;
+  organizationRole?: string; // e.g., 'Owner', 'Administrador', 'Gestor', 'Analista', 'Diretor', 'Profissional', 'Assistente', 'Coordenador', 'Operador'
+  organizationGroup?: string; // e.g., 'Setor de Vendas', 'Bairro Centro', 'Graduação de Medicina'
+}
+
+export interface OrganizationSettings {
+  primaryColor?: string; // e.g. '#10b981'
+  welcomeMessage?: string; // Custom welcome message on institutional login portal
+  allowSelfRegistration: boolean; // auto-onboard users with matching email domains
+  enableIaraAdvanced: boolean; // advanced IARA access
+  enableGoogleLive: boolean; // Google Live API features
+}
+
+export interface OrganizationInvite {
+  id: string;
+  tenantId: string;
+  email: string;
+  role: string; // RBAC roles specific to company, clinic, or prefeitura
+  group?: string; // Sector, neighborhood, department, or group
+  status: 'pending' | 'accepted' | 'expired';
+  code: string; // invite code
+  createdAt: string;
+}
+
+export interface InstitutionProgram {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string;
+  active: boolean;
+  targetGroup?: string; // Who the program targets (e.g., 'Setor de Vendas', 'Estudantes')
+  contentTrail: string[]; // List of content titles/IDs associated with this program
+  goals?: string[]; // Program goals (e.g., 'Diminuir Estresse', 'Melhorar Sono')
+  campaignName?: string; // Specific marketing or care campaign
+  activeUsersCount?: number;
+  participationRate?: number; // 0-100 percentage
+  createdAt: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface InstitutionalContract {
+  id: string;
+  tenantId: string;
+  name: string;
+  status: 'active' | 'expired' | 'pending';
+  value: number;
+  maxUsers: number;
+  billingPeriod: 'monthly' | 'annual' | 'one_time';
+  startDate: string;
+  endDate: string;
+  features: string[];
+  createdAt: string;
 }
 
 export interface Organization {
@@ -197,6 +249,8 @@ export interface Organization {
     nivelEstresse: number;
     totalMensagensIara: number;
   };
+  settings?: OrganizationSettings;
+  contractId?: string;
 }
 
 export interface NewsCardProps {

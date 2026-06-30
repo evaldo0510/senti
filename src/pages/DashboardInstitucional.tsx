@@ -16,12 +16,20 @@ import {
   BarChart3,
   Mail,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Palette,
+  FileText,
+  UserPlus,
+  Plus,
+  Settings,
+  Send,
+  Check,
+  Lock
 } from "lucide-react";
 import { logout } from "../services/firebase";
 import { useTenant } from "../hooks/useTenant";
 import { organizationService } from "../services/organizationService";
-import { UserProfile } from "../types";
+import { UserProfile, InstitutionProgram, OrganizationInvite, InstitutionalContract } from "../types";
 import { 
   AreaChart, 
   Area, 
@@ -52,19 +60,67 @@ export default function DashboardInstitucional() {
   const [loading, setLoading] = useState(true);
   const [recalculating, setRecalculating] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"overview" | "epidemiology" | "members" | "professionals">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "epidemiology" | "members" | "professionals" | "programs" | "branding" | "contracts" | "sentiCoreAgent">("overview");
 
-  // Load organization users and therapists
+  // New B2B states
+  const [programs, setPrograms] = useState<InstitutionProgram[]>([]);
+  const [invites, setInvites] = useState<OrganizationInvite[]>([]);
+  const [contracts, setContracts] = useState<InstitutionalContract[]>([]);
+
+  // Form states
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("");
+  const [inviteGroup, setInviteGroup] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+
+  const [progName, setProgName] = useState("");
+  const [progDesc, setProgDesc] = useState("");
+  const [progTarget, setProgTarget] = useState("");
+  const [progCampaign, setProgCampaign] = useState("");
+  const [selectedTrails, setSelectedTrails] = useState<string[]>([]);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+
+  // Settings states
+  const [primaryColor, setPrimaryColor] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [allowSelfRegistration, setAllowSelfRegistration] = useState(true);
+  const [enableIaraAdvanced, setEnableIaraAdvanced] = useState(true);
+  const [enableGoogleLive, setEnableGoogleLive] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  // SentiCore Agent Chat
+  const [agentQuestion, setAgentQuestion] = useState("");
+  const [agentAnswer, setAgentAnswer] = useState<any>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+
+  // Sync setting inputs when tenant loads
+  useEffect(() => {
+    if (tenant) {
+      setPrimaryColor(tenant.settings?.primaryColor || "#10b981");
+      setWelcomeMessage(tenant.settings?.welcomeMessage || "");
+      setAllowSelfRegistration(tenant.settings?.allowSelfRegistration ?? true);
+      setEnableIaraAdvanced(tenant.settings?.enableIaraAdvanced ?? true);
+      setEnableGoogleLive(tenant.settings?.enableGoogleLive ?? false);
+    }
+  }, [tenant]);
+
+  // Load organization users, therapists, programs, invites, and contracts
   useEffect(() => {
     if (tenantId) {
       setLoading(true);
       Promise.all([
         organizationService.getOrganizationUsers(tenantId),
-        organizationService.getOrganizationTherapists(tenantId)
+        organizationService.getOrganizationTherapists(tenantId),
+        organizationService.getPrograms(tenantId),
+        organizationService.getInvites(tenantId),
+        organizationService.getContracts(tenantId)
       ])
-        .then(([tenantUsers, tenantTherapists]) => {
+        .then(([tenantUsers, tenantTherapists, tenantPrograms, tenantInvites, tenantContracts]) => {
           setUsers(tenantUsers);
           setTherapists(tenantTherapists);
+          setPrograms(tenantPrograms);
+          setInvites(tenantInvites);
+          setContracts(tenantContracts);
         })
         .catch((err) => {
           console.error("Erro ao carregar dados do Dashboard Institucional:", err);
@@ -93,6 +149,141 @@ export default function DashboardInstitucional() {
   const handleLogout = async () => {
     await logout();
     navigate("/login");
+  };
+
+  const handleCreateInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantId || !inviteEmail || !inviteRole) return;
+    try {
+      const code = `SA-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newInvite = await organizationService.createInvite({
+        tenantId,
+        email: inviteEmail,
+        role: inviteRole,
+        group: inviteGroup || undefined,
+        code
+      });
+      setInvites(prev => [newInvite, ...prev]);
+      setInviteEmail("");
+      setInviteRole("");
+      setInviteGroup("");
+      setInviteMessage(`Convite gerado com sucesso! Código de Onboarding: ${code}`);
+      setTimeout(() => setInviteMessage(""), 6000);
+    } catch (err) {
+      console.error("Erro ao criar convite:", err);
+      alert("Erro ao criar convite.");
+    }
+  };
+
+  const handleCreateProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantId || !progName || !progDesc) return;
+    try {
+      const newProg = await organizationService.createProgram({
+        tenantId,
+        name: progName,
+        description: progDesc,
+        targetGroup: progTarget || undefined,
+        campaignName: progCampaign || undefined,
+        contentTrail: selectedTrails,
+        goals: selectedGoals,
+        active: true
+      });
+      setPrograms(prev => [newProg, ...prev]);
+      setProgName("");
+      setProgDesc("");
+      setProgTarget("");
+      setProgCampaign("");
+      setSelectedTrails([]);
+      setSelectedGoals([]);
+      alert("Programa de Cuidado publicado com sucesso no portal de onboarding!");
+    } catch (err) {
+      console.error("Erro ao publicar programa de cuidado:", err);
+      alert("Erro ao publicar programa de cuidado.");
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tenantId) return;
+    setSavingSettings(true);
+    try {
+      await organizationService.updateOrganization(tenantId, {
+        settings: {
+          primaryColor,
+          welcomeMessage,
+          allowSelfRegistration,
+          enableIaraAdvanced,
+          enableGoogleLive
+        }
+      });
+      alert("Configurações de marca e portal salvas com sucesso!");
+    } catch (err) {
+      console.error("Erro ao salvar configurações:", err);
+      alert("Erro ao salvar configurações.");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleCreateContract = async (name: string, price: number, maxUsers: number, period: 'monthly' | 'annual') => {
+    if (!tenantId) return;
+    try {
+      const newContract = await organizationService.createContract({
+        tenantId,
+        name,
+        value: price,
+        maxUsers,
+        billingPeriod: period,
+        status: 'active',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        features: ["IARA Avançada", "Corpo Clínico Integrado", "PCH - Poesia Cognitiva Hipnótica", "Relatório Epidemiológico", "Canal Direto Ouvidoria"]
+      });
+      setContracts(prev => [newContract, ...prev]);
+      await organizationService.updateOrganization(tenantId, { maxUsers });
+      alert(`Contrato de expansão '${name}' assinado e ativado! Limite expandido para ${maxUsers} usuários.`);
+      if (tenant) {
+        tenant.maxUsers = maxUsers;
+      }
+    } catch (err) {
+      console.error("Erro ao simular contrato:", err);
+    }
+  };
+
+  const handleSentiCoreAgentQuestion = async (predefinedQuestion?: string) => {
+    if (!tenantId || !tenant) return;
+    const q = predefinedQuestion || agentQuestion;
+    if (!q) return;
+    setAgentLoading(true);
+    setAgentAnswer(null);
+    try {
+      const res = await fetch("/api/gemini/b2b-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationName: tenant.name,
+          organizationType: tenant.tipo,
+          indicadores: tenant.indicadores,
+          userCount: users.length,
+          activePrograms: programs.map(p => p.name),
+          question: q
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAgentAnswer(data);
+      } else {
+        const errData = await res.json();
+        alert(`Erro na análise: ${errData.error || 'Erro desconhecido'}`);
+      }
+    } catch (err: any) {
+      console.error("Erro no Agente SentiCore B2B:", err);
+      alert("Erro ao conectar com o Agente SentiCore.");
+    } finally {
+      setAgentLoading(false);
+      setAgentQuestion("");
+    }
   };
 
   if (tenantLoading || loading) {
@@ -238,41 +429,77 @@ export default function DashboardInstitucional() {
           </div>
 
           {/* Abas */}
-          <nav className="space-y-2">
+          <nav className="space-y-1 overflow-y-auto max-h-[calc(100vh-280px)] pr-1">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTab === "overview" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              <BarChart3 className="w-4 h-4" /> Visão Geral & Métricas
+              <BarChart3 className="w-4 h-4 text-emerald-400" /> Visão Geral & Métricas
             </button>
 
             <button
               onClick={() => setActiveTab("epidemiology")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTab === "epidemiology" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              <Activity className="w-4 h-4" /> Relatório Epidemiológico
+              <Activity className="w-4 h-4 text-rose-400" /> Relatório Epidemiológico
             </button>
 
             <button
               onClick={() => setActiveTab("members")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTab === "members" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              <Users className="w-4 h-4" /> Beneficiários ({users.length})
+              <Users className="w-4 h-4 text-blue-400" /> Membros & Convites
+            </button>
+
+            <button
+              onClick={() => setActiveTab("programs")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "programs" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Plus className="w-4 h-4 text-purple-400" /> Programas de Cuidado ({programs.length})
             </button>
 
             <button
               onClick={() => setActiveTab("professionals")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition ${
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTab === "professionals" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              <Heart className="w-4 h-4" /> Corpo Clínico ({therapists.length})
+              <Heart className="w-4 h-4 text-pink-400" /> Corpo Clínico ({therapists.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab("sentiCoreAgent")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "sentiCoreAgent" ? "bg-emerald-500 text-white animate-pulse" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-yellow-400" /> Agente SentiCore (AI)
+            </button>
+
+            <button
+              onClick={() => setActiveTab("branding")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "branding" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Palette className="w-4 h-4 text-sky-400" /> Portal & Branding
+            </button>
+
+            <button
+              onClick={() => setActiveTab("contracts")}
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "contracts" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <FileText className="w-4 h-4 text-orange-400" /> Contratos & Vagas
             </button>
           </nav>
         </div>
@@ -696,6 +923,127 @@ export default function DashboardInstitucional() {
                 </table>
               </div>
             </div>
+
+            {/* Sub-painel de Convites de Onboarding (RBAC) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+              {/* Form de Novo Convite */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4 text-emerald-500" />
+                    Convidar Novo Usuário
+                  </h4>
+                  <p className="text-[10px] text-slate-400">Envie um convite de onboarding com papel de acesso (RBAC) definido.</p>
+                </div>
+
+                <form onSubmit={handleCreateInvite} className="space-y-3.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">E-mail do Colaborador</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="colaborador@organizacao.com"
+                      value={inviteEmail}
+                      onChange={e => setInviteEmail(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Papel de Acesso (RBAC)</label>
+                    <select
+                      required
+                      value={inviteRole}
+                      onChange={e => setInviteRole(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50 font-bold"
+                    >
+                      <option value="">Selecione o papel...</option>
+                      <option value="paciente">Beneficiário Comum (Paciente)</option>
+                      <option value="analista">Analista de Saúde Ocupacional</option>
+                      <option value="gestor">Gestor / Coordenador</option>
+                      <option value="admin">Administrador do Portal</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Setor / Departamento</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Recursos Humanos, Financeiro, Vendas"
+                      value={inviteGroup}
+                      onChange={e => setInviteGroup(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-slate-900 text-white hover:bg-emerald-600 text-xs font-black rounded-xl transition flex items-center justify-center gap-2 shadow"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" /> Enviar Convite Seguro
+                  </button>
+                </form>
+
+                {inviteMessage && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 text-[10px] font-bold p-3 rounded-xl flex items-center gap-2">
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{inviteMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Lista de Convites Ativos */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4 lg:col-span-2">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    Histórico de Convites Emitidos
+                  </h4>
+                  <p className="text-[10px] text-slate-400">Códigos e status dos convites de onboarding vinculados a este tenant.</p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-black/5 text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
+                        <th className="px-4 py-2.5">E-mail</th>
+                        <th className="px-4 py-2.5">Papel (RBAC)</th>
+                        <th className="px-4 py-2.5">Código Onboarding</th>
+                        <th className="px-4 py-2.5">Setor</th>
+                        <th className="px-4 py-2.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/5 text-xs text-slate-750">
+                      {invites.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-slate-400 text-[10px]">
+                            Nenhum convite pendente. Crie um ao lado!
+                          </td>
+                        </tr>
+                      ) : (
+                        invites.map(inv => (
+                          <tr key={inv.id} className="hover:bg-slate-50/50">
+                            <td className="px-4 py-3 font-mono">{inv.email}</td>
+                            <td className="px-4 py-3 font-bold uppercase text-[9px] text-slate-500">{inv.role}</td>
+                            <td className="px-4 py-3 font-mono font-bold text-slate-900 bg-slate-100/50 rounded inline-block mt-1">{inv.code}</td>
+                            <td className="px-4 py-3 text-slate-400">{inv.group || "Geral"}</td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                inv.status === "accepted" 
+                                  ? "bg-emerald-50 text-emerald-600 border border-emerald-100" 
+                                  : "bg-amber-50 text-amber-600 border border-amber-100"
+                              }`}>
+                                {inv.status === "accepted" ? "Ativado" : "Pendente"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -761,6 +1109,616 @@ export default function DashboardInstitucional() {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------- ABA: PROGRAMAS INSTITUCIONAIS -------------------- */}
+        {activeTab === "programs" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Form de Criação */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Plus className="w-4 h-4 text-purple-500" />
+                    Novo Programa de Cuidado
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Lance uma jornada preventiva de bem-estar com trilhas e metas exclusivas.</p>
+                </div>
+
+                <form onSubmit={handleCreateProgram} className="space-y-3.5">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Nome do Programa</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Qualidade de Vida SentiPae"
+                      value={progName}
+                      onChange={e => setProgName(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Descrição / Objetivo Principal</label>
+                    <textarea
+                      required
+                      rows={2}
+                      placeholder="Ex: Campanha de prevenção ao esgotamento psicológico e higiene do sono coletiva."
+                      value={progDesc}
+                      onChange={e => setProgDesc(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Grupo / Setor de Destino</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Todos os Colaboradores, Professores"
+                      value={progTarget}
+                      onChange={e => setProgTarget(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Nome da Campanha Ocupacional</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Janeiro Branco, Setembro Amarelo"
+                      value={progCampaign}
+                      onChange={e => setProgCampaign(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                    />
+                  </div>
+
+                  {/* Seleção de Trilhas */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block">Trilhas de Apoio</label>
+                    <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-black/5 max-h-32 overflow-y-auto">
+                      {["IARA Conversa Preventiva", "Mindfulness & Presença", "Manejo de Crise de Ansiedade", "Qualidade de Sono PCH", "Resiliência no Trabalho"].map(trail => (
+                        <label key={trail} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedTrails.includes(trail)}
+                            onChange={e => {
+                              if (e.target.checked) setSelectedTrails(p => [...p, trail]);
+                              else setSelectedTrails(p => p.filter(t => t !== trail));
+                            }}
+                            className="rounded text-emerald-500"
+                          />
+                          <span>{trail}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Seleção de Metas */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block">Metas Institucionais</label>
+                    <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-black/5 max-h-32 overflow-y-auto">
+                      {["Reduzir absenteísmo laboral", "Melhorar qualidade de sono coletivo", "Reduzir escala de Burnout", "Apoiar munícipes em isolamento social", "Acolhimento psicológico de urgência"].map(goal => (
+                        <label key={goal} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedGoals.includes(goal)}
+                            onChange={e => {
+                              if (e.target.checked) setSelectedGoals(p => [...p, goal]);
+                              else setSelectedGoals(p => p.filter(g => g !== goal));
+                            }}
+                            className="rounded text-emerald-500"
+                          />
+                          <span>{goal}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-slate-900 text-white hover:bg-emerald-600 text-xs font-black rounded-xl transition flex items-center justify-center gap-2 shadow"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Publicar no Portal
+                  </button>
+                </form>
+              </div>
+
+              {/* Lista de Programas */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4 lg:col-span-2">
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-purple-500" />
+                    Programas Ativos de Bem-estar
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Jornadas integradas em andamento e divulgadas aos beneficiários deste tenant.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {programs.length === 0 ? (
+                    <div className="col-span-full py-12 text-center text-slate-400 text-xs border border-dashed border-black/10 rounded-2xl">
+                      Nenhum programa customizado ativo. Use o formulário para criar o primeiro!
+                    </div>
+                  ) : (
+                    programs.map(prog => (
+                      <div key={prog.id} className="border border-black/5 rounded-2xl p-4 space-y-3 hover:border-purple-500/20 transition">
+                        <div className="flex justify-between items-start">
+                          <span className="px-2 py-0.5 bg-purple-50 text-purple-600 font-mono text-[9px] font-bold rounded uppercase">
+                            {prog.campaignName || "Preventivo"}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">Público: {prog.targetGroup || "Geral"}</span>
+                        </div>
+                        <h4 className="text-xs font-black text-slate-955 leading-snug">{prog.name}</h4>
+                        <p className="text-[10px] text-slate-450 leading-relaxed">{prog.description}</p>
+
+                        <div className="space-y-1.5 pt-2 border-t border-black/5">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Trilhas Inclusas:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {prog.contentTrail.map((t, idx) => (
+                              <span key={idx} className="bg-slate-100 text-slate-600 text-[9px] px-1.5 py-0.5 rounded font-mono font-medium">{t}</span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 pt-1.5">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Metas Estabelecidas:</div>
+                          <div className="flex flex-wrap gap-1">
+                            {prog.goals.map((g, idx) => (
+                              <span key={idx} className="bg-emerald-50 text-emerald-700 text-[9px] px-1.5 py-0.5 rounded font-medium">{g}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------- ABA: PORTAL & BRANDING -------------------- */}
+        {activeTab === "branding" && (
+          <div className="space-y-6 animate-fadeIn max-w-3xl">
+            <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                  <Palette className="w-4 h-4 text-emerald-500" />
+                  Customização do Portal de Onboarding
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  Configure a identidade visual do portal e recursos inteligentes disponíveis aos beneficiários do seu tenant.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveSettings} className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block">Cor Primária Institucional</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="color"
+                        value={primaryColor}
+                        onChange={e => setPrimaryColor(e.target.value)}
+                        className="w-10 h-8 border border-black/10 rounded cursor-pointer p-0 bg-transparent"
+                      />
+                      <input
+                        type="text"
+                        value={primaryColor}
+                        onChange={e => setPrimaryColor(e.target.value)}
+                        placeholder="#10b981"
+                        className="flex-1 px-3 py-1.5 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 font-mono bg-slate-50"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase block">Onboarding por Domínio de E-mail</label>
+                    <div className="flex items-center gap-2.5 h-8">
+                      <input
+                        type="checkbox"
+                        checked={allowSelfRegistration}
+                        onChange={e => setAllowSelfRegistration(e.target.checked)}
+                        id="selfReg"
+                        className="rounded text-emerald-500 w-4 h-4"
+                      />
+                      <label htmlFor="selfReg" className="text-xs text-slate-700 cursor-pointer font-medium select-none">
+                        Permitir auto-cadastro por e-mails com domínio corporativo
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Mensagem de Boas-Vindas Personalizada</label>
+                  <textarea
+                    rows={3}
+                    placeholder="Ex: Olá! Seja muito bem-vindo ao portal de saúde do SentiPae. Aqui você conta com apoio profissional e com a IARA 24 horas por dia de forma sigilosa."
+                    value={welcomeMessage}
+                    onChange={e => setWelcomeMessage(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50"
+                  />
+                </div>
+
+                <div className="border-t border-black/5 pt-4 space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recursos de Inteligência Habilitados</h4>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={enableIaraAdvanced}
+                      onChange={e => setEnableIaraAdvanced(e.target.checked)}
+                      id="enableIaraAdv"
+                      className="rounded text-emerald-500 w-4 h-4"
+                    />
+                    <div>
+                      <label htmlFor="enableIaraAdv" className="text-xs text-slate-800 font-bold cursor-pointer block select-none">
+                        IARA Avançada com SentiCore
+                      </label>
+                      <span className="text-[9px] text-slate-400">Habilita suporte emocional de alta sensibilidade e acompanhamento dinâmico.</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={enableGoogleLive}
+                      onChange={e => setEnableGoogleLive(e.target.checked)}
+                      id="enableLiveVoice"
+                      className="rounded text-emerald-500 w-4 h-4"
+                    />
+                    <div>
+                      <label htmlFor="enableLiveVoice" className="text-xs text-slate-800 font-bold cursor-pointer block select-none">
+                        Integração Google Live API (Conversação de Voz em Tempo Real)
+                      </label>
+                      <span className="text-[9px] text-slate-400">Ativa a interface de voz sussurrada e acolhimento imediato de crises via áudio bidirecional.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="px-5 py-2 bg-emerald-500 text-white hover:bg-emerald-600 text-xs font-black rounded-xl transition flex items-center gap-2 shadow disabled:opacity-50"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  {savingSettings ? "Salvando configurações..." : "Salvar Configurações de Branding"}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------- ABA: CONTRATOS E VAGAS -------------------- */}
+        {activeTab === "contracts" && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Resumo do Contrato Ativo */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Card de Slots/Vagas */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Aproveitamento de Vagas</span>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-3xl font-black text-slate-900">{users.length}</h3>
+                  <span className="text-slate-400 text-xs font-mono">/ {tenant?.maxUsers || 100}</span>
+                </div>
+                <p className="text-[10px] text-slate-400">Colaboradores/munícipe cadastrados ativamente.</p>
+
+                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-1000" 
+                    style={{ width: `${Math.min(100, ((users.length / (tenant?.maxUsers || 100)) * 100))}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                  <span>{Math.round((users.length / (tenant?.maxUsers || 100)) * 100)}% Utilizado</span>
+                  <span>{(tenant?.maxUsers || 100) - users.length} Vagas Livres</span>
+                </div>
+              </div>
+
+              {/* Card de Plano do Contrato */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-3 lg:col-span-2 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 font-mono text-[9px] font-bold rounded uppercase">
+                      Contrato Premium Corporativo
+                    </span>
+                    <span className="text-xs font-black text-emerald-600">Status: Ativo</span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 leading-snug">Vínculo Contratual Multitenant SentiPae</h4>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Acesso integral à IARA Avançada, biblioteca de Poesia Cognitiva Hipnótica (PCH), agendamentos guiados com corpo clínico multidisciplinar, e analytics de estresse consolidado com total conformidade com a LGPD.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-black/5 text-[11px]">
+                  <div>
+                    <span className="text-slate-400">Início do Contrato:</span>
+                    <div className="font-bold text-slate-700">01/01/2026</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Vencimento:</span>
+                    <div className="font-bold text-slate-700">31/12/2026</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Valor Mensal:</span>
+                    <div className="font-bold text-slate-700">R$ 2.450,00</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Faturamento:</span>
+                    <div className="font-bold text-slate-700">Recorrente</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Simulação de Expansão de Vagas */}
+            <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-emerald-500" />
+                  Expansão de Vagas & Upgrade SentiPae (Simulação Comercial)
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  Precisa incluir mais colaboradores ou ampliar a cobertura pública? Escolha um plano de expansão imediata para simular ou ativar novas vagas.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                {[
+                  { name: "Expansão Plus (250 vagas)", users: 250, price: 4900, desc: "Ideal para prefeituras de pequeno porte ou indústrias em crescimento." },
+                  { name: "Expansão Premium (500 vagas)", users: 500, price: 8500, desc: "Suporte expandido, IARA B2B de alta performance e auditorias de estresse semanais." },
+                  { name: "Expansão Enterprise (1000 vagas)", users: 1000, price: 14500, desc: "Matchmaking em saúde pública subsidiado, integração com folha de pagamento e SLAs prioritários." }
+                ].map(plan => (
+                  <div key={plan.name} className="border border-black/5 rounded-2xl p-5 space-y-4 hover:border-emerald-500/20 transition flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-black text-slate-950">{plan.name}</h4>
+                      <p className="text-[10px] text-slate-450 leading-relaxed">{plan.desc}</p>
+                      <div className="pt-2">
+                        <span className="text-lg font-black text-slate-900">R$ {plan.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        <span className="text-[10px] text-slate-400 font-mono"> / mês</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleCreateContract(plan.name, plan.price, plan.users, "monthly")}
+                      className="w-full py-2 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-800 text-[10px] font-bold rounded-xl transition"
+                    >
+                      Assinar e Ativar Expansão
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Histórico de Contratos */}
+            <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-orange-500" />
+                  Histórico de Contratos & Ativações B2B
+                </h3>
+                <p className="text-[10px] text-slate-400">Registro histórico de todas as faturas e contratos celebrados.</p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-black/5 text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">
+                      <th className="px-4 py-2.5">Nome do Contrato</th>
+                      <th className="px-4 py-2.5">Vagas Contratadas</th>
+                      <th className="px-4 py-2.5">Valor Mensal</th>
+                      <th className="px-4 py-2.5">Vencimento</th>
+                      <th className="px-4 py-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-black/5 text-xs text-slate-700">
+                    <tr className="hover:bg-slate-50/50">
+                      <td className="px-4 py-3 font-bold">Contrato Base Multitenant</td>
+                      <td className="px-4 py-3 font-mono">100 vagas</td>
+                      <td className="px-4 py-3 font-bold text-slate-900">R$ 2.450,00</td>
+                      <td className="px-4 py-3 text-slate-400">31/12/2026</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 text-[9px] font-bold">
+                          Ativo
+                        </span>
+                      </td>
+                    </tr>
+                    {contracts.map(contract => (
+                      <tr key={contract.id} className="hover:bg-slate-50/50">
+                        <td className="px-4 py-3 font-bold">{contract.name}</td>
+                        <td className="px-4 py-3 font-mono">{contract.maxUsers} vagas</td>
+                        <td className="px-4 py-3 font-bold text-slate-900">R$ {contract.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                        <td className="px-4 py-3 text-slate-400">{contract.endDate}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 text-[9px] font-bold">
+                            Ativo (Expansão)
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* -------------------- ABA: AGENTE SENTICORE (AI DYNAMIC AUDIT) -------------------- */}
+        {activeTab === "sentiCoreAgent" && (
+          <div className="space-y-6 animate-fadeIn">
+            {/* Banner Informativo */}
+            <div className="bg-slate-900 text-white p-6 rounded-3xl space-y-4 border border-emerald-500/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500 text-white rounded-2xl shadow-lg shadow-emerald-500/20">
+                  <Sparkles className="w-5 h-5 text-white animate-spin" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider">Agente SentiCore Organizacional</h3>
+                  <p className="text-[10px] text-slate-400">Inteligência Artificial de Auditoria Coletiva e Prescrição de Ações Preventivas.</p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-350 leading-relaxed max-w-3xl">
+                O Agente SentiCore consolidará os indicadores de humor, estresse, mensagens e engajamento da sua organização de forma 100% anônima (em total conformidade com a LGPD) e gerará uma análise diagnóstica, alertas críticos e um plano tático imediato com base na nossa metodologia proprietária de bem-estar.
+              </p>
+            </div>
+
+            {/* Console de Perguntas e Respostas */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Painel Lateral de Ativação / Prompts Rápidos */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-4">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Scans e Perguntas Rápidas</h4>
+                <p className="text-[10px] text-slate-455 leading-relaxed">Clique para disparar um scan temático ou digite sua pergunta customizada no campo ao lado.</p>
+
+                <div className="space-y-2 pt-2">
+                  <button
+                    onClick={() => handleSentiCoreAgentQuestion("Disparar varredura completa de saúde mental coletiva (Auditoria Geral)")}
+                    disabled={agentLoading}
+                    className="w-full text-left p-3 bg-slate-50 hover:bg-emerald-50 border border-black/5 rounded-2xl transition text-xs font-bold text-slate-800 hover:text-emerald-700 flex flex-col gap-1"
+                  >
+                    <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">Scan 1</span>
+                    Auditoria de Saúde Coletiva
+                  </button>
+
+                  <button
+                    onClick={() => handleSentiCoreAgentQuestion("Como posso combater sintomas de exaustão e fadiga ocupacional no nosso ecossistema?")}
+                    disabled={agentLoading}
+                    className="w-full text-left p-3 bg-slate-50 hover:bg-indigo-50 border border-black/5 rounded-2xl transition text-xs font-bold text-slate-800 hover:text-indigo-700 flex flex-col gap-1"
+                  >
+                    <span className="text-[9px] text-indigo-600 font-bold uppercase tracking-wider">Scan 2</span>
+                    Plano de Alívio de Exaustão
+                  </button>
+
+                  <button
+                    onClick={() => handleSentiCoreAgentQuestion("Gerar relatório de conformidade e recomendações para o comitê executivo")}
+                    disabled={agentLoading}
+                    className="w-full text-left p-3 bg-slate-50 hover:bg-purple-50 border border-black/5 rounded-2xl transition text-xs font-bold text-slate-800 hover:text-purple-700 flex flex-col gap-1"
+                  >
+                    <span className="text-[9px] text-purple-600 font-bold uppercase tracking-wider">Scan 3</span>
+                    Relatório Executivo para Comitê
+                  </button>
+                </div>
+              </div>
+
+              {/* Chat Console */}
+              <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-5 lg:col-span-3 flex flex-col justify-between min-h-[450px]">
+                {/* Janela de Resultados */}
+                <div className="flex-1 overflow-y-auto space-y-5 pr-2 max-h-[500px]">
+                  {agentLoading ? (
+                    <div className="h-full flex flex-col items-center justify-center py-20 text-center space-y-4">
+                      <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-900 uppercase tracking-wider">Processando Auditoria SentiCore...</p>
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-xs">Analisando indicadores agregados e contextualizando com as diretrizes do portal.</p>
+                      </div>
+                    </div>
+                  ) : agentAnswer ? (
+                    <div className="space-y-6">
+                      {/* Sumário Executivo */}
+                      <div className="border border-black/5 rounded-2xl p-5 bg-emerald-50/20 space-y-2">
+                        <div className="flex items-center gap-2 text-[10px] text-emerald-700 font-black uppercase tracking-wider">
+                          <Sparkles className="w-4 h-4 text-emerald-600" />
+                          Sumário Clínico-Institucional
+                        </div>
+                        <p className="text-xs text-slate-750 leading-relaxed font-medium">{agentAnswer.executiveSummary}</p>
+                      </div>
+
+                      {/* Alertas Críticos */}
+                      {agentAnswer.criticalAlerts && agentAnswer.criticalAlerts.length > 0 && (
+                        <div className="border border-red-500/10 rounded-2xl p-5 bg-red-50/20 space-y-2">
+                          <div className="flex items-center gap-2 text-[10px] text-red-700 font-black uppercase tracking-wider">
+                            <AlertCircle className="w-4 h-4 text-red-600" />
+                            Alertas de Atenção Epidemiológica
+                          </div>
+                          <ul className="list-disc pl-5 text-xs text-red-900 space-y-1">
+                            {agentAnswer.criticalAlerts.map((alert: string, idx: number) => (
+                              <li key={idx} className="leading-relaxed font-semibold">{alert}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Plano de Ação */}
+                      {agentAnswer.actionPlan && agentAnswer.actionPlan.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Plano de Ação Preventivo Recomendado</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {agentAnswer.actionPlan.map((action: any, idx: number) => (
+                              <div key={idx} className="border border-black/5 rounded-xl p-4 bg-slate-50 space-y-2 hover:border-emerald-500/25 transition">
+                                <div className="flex justify-between items-center text-[9px] font-mono font-bold uppercase">
+                                  <span className="text-emerald-600">Impacto: {action.expectedImpact || 'N/A'}</span>
+                                  <span className={`px-1.5 py-0.5 rounded ${
+                                    action.urgency === 'Crítica' || action.urgency === 'Alta' 
+                                      ? 'bg-red-100 text-red-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>{action.urgency}</span>
+                                </div>
+                                <h5 className="text-xs font-black text-slate-900 leading-snug">{action.title}</h5>
+                                <p className="text-[10px] text-slate-450 leading-relaxed">{action.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Insights IARA */}
+                      {agentAnswer.iaraInsights && (
+                        <div className="border border-purple-500/10 rounded-2xl p-5 bg-purple-50/20 space-y-2">
+                          <div className="flex items-center gap-2 text-[10px] text-purple-700 font-black uppercase tracking-wider">
+                            <Brain className="w-4 h-4 text-purple-600" />
+                            Diretrizes para a IARA Conversacional
+                          </div>
+                          <p className="text-xs text-purple-900 leading-relaxed font-medium">{agentAnswer.iaraInsights}</p>
+                        </div>
+                      )}
+
+                      {/* Resposta direta para perguntas customizadas */}
+                      {agentAnswer.directAnswer && (
+                        <div className="border border-blue-500/10 rounded-2xl p-5 bg-blue-50/20 space-y-2">
+                          <div className="flex items-center gap-2 text-[10px] text-blue-700 font-black uppercase tracking-wider">
+                            <Mail className="w-4 h-4 text-blue-600" />
+                            Resposta Direta Consultiva
+                          </div>
+                          <p className="text-xs text-blue-900 leading-relaxed font-medium whitespace-pre-line">{agentAnswer.directAnswer}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center py-20 text-center space-y-4">
+                      <Sparkles className="w-8 h-8 text-emerald-300 animate-pulse" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 uppercase tracking-wider">Aguardando Solicitação de Scan</p>
+                        <p className="text-[10px] text-slate-400 mt-1 max-w-xs">Dispare uma auditoria completa ou faça uma pergunta específica utilizando a inteligência do SentiCore.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Input de Envio de Pergunta */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleSentiCoreAgentQuestion();
+                  }}
+                  className="flex gap-2 pt-4 border-t border-black/5"
+                >
+                  <input
+                    type="text"
+                    placeholder="Faça uma pergunta sobre o comportamento emocional coletivo..."
+                    value={agentQuestion}
+                    onChange={(e) => setAgentQuestion(e.target.value)}
+                    disabled={agentLoading}
+                    className="flex-1 px-4 py-2.5 text-xs border border-black/10 rounded-xl focus:outline-none focus:border-emerald-500 bg-slate-50 disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    disabled={agentLoading || !agentQuestion}
+                    className="px-4 py-2 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl font-bold text-xs transition flex items-center gap-1.5 disabled:opacity-40"
+                  >
+                    <Send className="w-3.5 h-3.5" /> Enviar
+                  </button>
+                </form>
               </div>
             </div>
           </div>

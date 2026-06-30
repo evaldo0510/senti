@@ -6,7 +6,7 @@ import { UserProfile } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LoadingScreen } from './LoadingScreen';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -139,7 +139,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return false;
   };
 
-  if (loading) {
+  if (loading || !isAuthReady) {
     return <LoadingScreen message="Autenticando sua sessão..." />;
   }
 
@@ -151,7 +151,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <LoadingScreen message="Verificando permissões..." />;
@@ -161,11 +162,18 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
     return <Navigate to="/login" replace />;
   }
 
+  // Se onboardingCompleted for falso ou não existir, redirecionar o usuário para a rota /onboarding
+  const isStandardUser = !profile || profile.tipo === 'usuario';
+  if (isStandardUser && !profile?.onboardingCompleted && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return <>{children}</>;
 };
 
 export const PremiumProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, loading, hasPremiumAccess } = useAuth();
+  const { user, profile, loading, hasPremiumAccess } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return <LoadingScreen message="Verificando assinatura..." />;
@@ -173,6 +181,12 @@ export const PremiumProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Se onboardingCompleted for falso ou não existir, redirecionar o usuário para a rota /onboarding
+  const isStandardUser = !profile || profile.tipo === 'usuario';
+  if (isStandardUser && !profile?.onboardingCompleted && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (!hasPremiumAccess()) {

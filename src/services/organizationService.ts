@@ -11,7 +11,7 @@ import {
   addDoc,
   orderBy
 } from 'firebase/firestore';
-import { Organization, UserProfile } from '../types';
+import { Organization, UserProfile, OrganizationInvite, InstitutionProgram, InstitutionalContract } from '../types';
 
 export const organizationService = {
   getOrganization: async (id: string): Promise<Organization | null> => {
@@ -151,13 +151,23 @@ export const organizationService = {
       let sumStress = 0;
       let countStress = 0;
 
-      // Firestore doesn't easily allow batch user IN queries for subcollections in a single step,
-      // so we fetch all emotion logs of the last 30 days and filter in memory to maintain simplicity
+      // Query emotion logs filtered by tenantId for strict multitenancy security and performance
       try {
-        const logsSnapshot = await getDocs(collection(db, 'emotion_logs'));
-        const tenantLogs = logsSnapshot.docs
-          .map(doc => doc.data())
-          .filter(log => userIds.includes(log.userId));
+        const qLogs = query(collection(db, 'emotion_logs'), where('tenantId', '==', tenantId));
+        const logsSnapshot = await getDocs(qLogs);
+        let tenantLogs = logsSnapshot.docs.map(doc => doc.data());
+
+        // Fallback for older legacy logs that lack the tenantId field
+        if (tenantLogs.length === 0) {
+          try {
+            const allLogsSnap = await getDocs(collection(db, 'emotion_logs'));
+            tenantLogs = allLogsSnap.docs
+              .map(doc => doc.data())
+              .filter(log => userIds.includes(log.userId));
+          } catch (fallbackErr) {
+            console.warn("Legacy fallback failed (expected under strict security rules):", fallbackErr);
+          }
+        }
 
         tenantLogs.forEach(log => {
           if (log.value !== undefined) {
@@ -194,6 +204,140 @@ export const organizationService = {
       return indicadores;
     } catch (error) {
       console.error("Erro ao atualizar indicadores agregados:", error);
+      throw error;
+    }
+  },
+
+  // --- INSTITUTION PROGRAMS OPS ---
+  getPrograms: async (tenantId: string): Promise<InstitutionProgram[]> => {
+    const path = 'institutionPrograms';
+    try {
+      const q = query(collection(db, path), where('tenantId', '==', tenantId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InstitutionProgram));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  createProgram: async (program: Omit<InstitutionProgram, 'id' | 'createdAt'>): Promise<InstitutionProgram> => {
+    const path = 'institutionPrograms';
+    try {
+      const newDocRef = doc(collection(db, path));
+      const newProgram: InstitutionProgram = {
+        ...program,
+        id: newDocRef.id,
+        active: true,
+        activeUsersCount: 0,
+        participationRate: 0,
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(newDocRef, newProgram);
+      return newProgram;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+      throw error;
+    }
+  },
+
+  updateProgram: async (programId: string, data: Partial<InstitutionProgram>): Promise<void> => {
+    const path = `institutionPrograms/${programId}`;
+    try {
+      await updateDoc(doc(db, 'institutionPrograms', programId), data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
+    }
+  },
+
+  deleteProgram: async (programId: string): Promise<void> => {
+    const path = `institutionPrograms/${programId}`;
+    try {
+      await updateDoc(doc(db, 'institutionPrograms', programId), { active: false });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
+    }
+  },
+
+  // --- ORGANIZATION INVITES OPS ---
+  getInvites: async (tenantId: string): Promise<OrganizationInvite[]> => {
+    const path = 'organizationInvites';
+    try {
+      const q = query(collection(db, path), where('tenantId', '==', tenantId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as OrganizationInvite));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  createInvite: async (invite: Omit<OrganizationInvite, 'id' | 'createdAt' | 'status'>): Promise<OrganizationInvite> => {
+    const path = 'organizationInvites';
+    try {
+      const newDocRef = doc(collection(db, path));
+      const newInvite: OrganizationInvite = {
+        ...invite,
+        id: newDocRef.id,
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(newDocRef, newInvite);
+      return newInvite;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+      throw error;
+    }
+  },
+
+  updateInviteStatus: async (inviteId: string, status: 'pending' | 'accepted' | 'expired'): Promise<void> => {
+    const path = `organizationInvites/${inviteId}`;
+    try {
+      await updateDoc(doc(db, 'organizationInvites', inviteId), { status });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+      throw error;
+    }
+  },
+
+  // --- CONTRACTS OPS ---
+  getContracts: async (tenantId: string): Promise<InstitutionalContract[]> => {
+    const path = 'contracts';
+    try {
+      const q = query(collection(db, path), where('tenantId', '==', tenantId));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as InstitutionalContract));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+      return [];
+    }
+  },
+
+  createContract: async (contract: Omit<InstitutionalContract, 'id' | 'createdAt'>): Promise<InstitutionalContract> => {
+    const path = 'contracts';
+    try {
+      const newDocRef = doc(collection(db, path));
+      const newContract: InstitutionalContract = {
+        ...contract,
+        id: newDocRef.id,
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(newDocRef, newContract);
+      return newContract;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+      throw error;
+    }
+  },
+
+  updateContract: async (contractId: string, data: Partial<InstitutionalContract>): Promise<void> => {
+    const path = `contracts/${contractId}`;
+    try {
+      await updateDoc(doc(db, 'contracts', contractId), data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
       throw error;
     }
   }

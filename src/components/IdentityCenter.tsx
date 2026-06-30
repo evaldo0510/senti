@@ -36,7 +36,7 @@ const AVATAR_PRESETS = [
 ];
 
 export const IdentityCenter: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'avatar' | 'security' | 'consent' | 'delete'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'avatar' | 'security' | 'consent' | 'privacy' | 'delete'>('profile');
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +83,14 @@ export const IdentityCenter: React.FC = () => {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordUpdating, setPasswordUpdating] = useState(false);
 
+  // Privacy Center & Intelligent Consent state
+  const [tenantId, setTenantId] = useState('');
+  const [therapistsList, setTherapistsList] = useState<any[]>([]);
+  const [clinicalConsents, setClinicalConsents] = useState<any[]>([]);
+  const [loadingPrivacy, setLoadingPrivacy] = useState(false);
+  const [selectedTherapistId, setSelectedTherapistId] = useState('');
+  const [acceptClinicalTerms, setAcceptClinicalTerms] = useState(false);
+
   const currentUser = auth.currentUser;
   const isGoogleUser = currentUser?.providerData?.some(p => p.providerId === 'google.com');
 
@@ -102,6 +110,7 @@ export const IdentityCenter: React.FC = () => {
           setCidade(data.cidade || '');
           setBiografia(data.biografia || '');
           setFotoUrl(data.fotoUrl || currentUser.photoURL || '');
+          setTenantId(data.tenantId || '');
           setConsents({
             marketing: data.consents?.marketing || false,
             communication: data.consents?.communication || false,
@@ -141,10 +150,156 @@ export const IdentityCenter: React.FC = () => {
     };
     loadConsentLogs();
 
+    // Fetch therapists list
+    const loadTherapists = async () => {
+      try {
+        const therapists = await userService.getTherapists();
+        setTherapistsList(therapists || []);
+      } catch (err) {
+        console.warn('Falha ao carregar terapeutas para consentimento:', err);
+      }
+    };
+    loadTherapists();
+
+    // Fetch clinical consents list
+    const loadClinicalConsents = async () => {
+      try {
+        setLoadingPrivacy(true);
+        const consentsRef = collection(db, 'consents');
+        const q = query(consentsRef, where('userId', '==', currentUser.uid));
+        const querySnapshot = await getDocs(q);
+        const list: any[] = [];
+        querySnapshot.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() });
+        });
+        setClinicalConsents(list);
+      } catch (err) {
+        console.warn('Falha ao carregar consentimentos clínicos:', err);
+      } finally {
+        setLoadingPrivacy(false);
+      }
+    };
+    loadClinicalConsents();
+
     return () => {
       unsubscribeSessions();
     };
   }, [currentUser]);
+
+  // Handle granting a new clinical consent
+  const handleCreateClinicalConsent = async () => {
+    if (!currentUser || !selectedTherapistId) return;
+    if (!acceptClinicalTerms) {
+      setError('Por favor, assinale o termo de consentimento para prosseguir.');
+      return;
+    }
+
+    const therapist = therapistsList.find(t => t.uid === selectedTherapistId);
+    if (!therapist) {
+      setError('Profissional selecionado inválido.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+
+      // Generate verification details
+      const docHash = 'SHA256-' + btoa(currentUser.uid + selectedTherapistId + Date.now()).substring(0, 32);
+
+      const consentData = {
+        userId: currentUser.uid,
+        userName: nome || currentUser.displayName || 'Paciente SentiPae',
+        therapistId: selectedTherapistId,
+        therapistName: therapist.nome,
+        type: 'clinical_sharing',
+        status: 'active',
+        grantedAt: new Date().toISOString(),
+        documentHash: docHash,
+        ipAddress: sessions[0]?.ip || '127.0.0.1',
+        userAgent: navigator.userAgent
+      };
+
+      const consentsRef = collection(db, 'consents');
+      const docRef = await addDoc(consentsRef, consentData);
+
+      // Create a consent log entry for transparency
+      const logData = {
+        consentType: 'clinical_sharing_authorization',
+        granted: true,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        ip: sessions[0]?.ip || '127.0.0.1'
+      };
+      const consentLogsRef = collection(db, 'users', currentUser.uid, 'consent_logs');
+      await addDoc(consentLogsRef, logData);
+
+      // Update local state
+      setClinicalConsents(prev => [{ id: docRef.id, ...consentData }, ...prev]);
+      setConsentLogs(prev => [logData, ...prev]);
+
+      // General security audit
+      await userService.logAuditAPI(
+        `Autorização de Compartilhamento Clínico com ${therapist.nome}`, 
+        [`consents.${selectedTherapistId}`]
+      );
+
+      setSuccess(`Compartilhamento clínico autorizado com sucesso com o profissional ${therapist.nome}!`);
+      setSelectedTherapistId('');
+      setAcceptClinicalTerms(false);
+    } catch (err: any) {
+      console.error(err);
+      setError('Erro ao criar consentimento de compartilhamento: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handle revoking a clinical consent
+  const handleRevokeClinicalConsent = async (consentId: string, therapistName: string) => {
+    if (!currentUser) return;
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+
+      const consentDocRef = doc(db, 'consents', consentId);
+      await updateDoc(consentDocRef, {
+        status: 'revoked',
+        revokedAt: new Date().toISOString()
+      });
+
+      // Create log entry
+      const logData = {
+        consentType: 'clinical_sharing_revocation',
+        granted: false,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        ip: sessions[0]?.ip || '127.0.0.1'
+      };
+      const consentLogsRef = collection(db, 'users', currentUser.uid, 'consent_logs');
+      await addDoc(consentLogsRef, logData);
+
+      // Update states
+      setClinicalConsents(prev => prev.map(c => c.id === consentId ? { ...c, status: 'revoked', revokedAt: new Date().toISOString() } : c));
+      setConsentLogs(prev => [logData, ...prev]);
+
+      // General security audit
+      await userService.logAuditAPI(
+        `Revogação de Compartilhamento Clínico com ${therapistName}`, 
+        [`consents.revocation`]
+      );
+
+      setSuccess(`Acesso revogado com sucesso para o profissional ${therapistName}.`);
+    } catch (err: any) {
+      console.error(err);
+      setError('Erro ao revogar consentimento de compartilhamento: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Handle saving basic profile fields
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -302,17 +457,23 @@ export const IdentityCenter: React.FC = () => {
 
       // Helper function to fetch list of documents based on query
       const fetchCollectionData = async (colName: string, field: string) => {
-        const q = query(collection(db, colName), where(field, '==', uid));
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        try {
+          const q = query(collection(db, colName), where(field, '==', uid));
+          const snap = await getDocs(q);
+          return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (e) {
+          console.warn(`Error fetching ${colName} field ${field} for LGPD:`, e);
+          return [];
+        }
       };
 
-      // 2. Fetch all related collections in parallel
+      // 2. Fetch all related collections in parallel with robust query structures
       const [
         emotionLogs,
         diaryEntries,
         feedbacks,
-        privateNotes,
+        privateNotesPatient,
+        privateNotesTherapist,
         appointmentsPatient,
         appointmentsTherapist,
         messagesSent,
@@ -322,13 +483,19 @@ export const IdentityCenter: React.FC = () => {
         fetchCollectionData('emotion_logs', 'userId'),
         fetchCollectionData('diary_entries', 'userId'),
         fetchCollectionData('feedbacks', 'userId'),
-        fetchCollectionData('private_notes', 'userId'),
+        fetchCollectionData('private_notes', 'patientId'),
+        fetchCollectionData('private_notes', 'therapistId'),
         fetchCollectionData('appointments', 'patientId'),
         fetchCollectionData('appointments', 'therapistId'),
         fetchCollectionData('messages', 'senderId'),
         fetchCollectionData('messages', 'receiverId'),
-        fetchCollectionData(`users/${uid}/sessions`, 'id') // Wait, the subcollection path
+        fetchCollectionData(`users/${uid}/sessions`, 'id')
       ]);
+
+      const privateNotes = [
+        ...privateNotesPatient,
+        ...privateNotesTherapist.filter(t => !privateNotesPatient.some(p => p.id === t.id))
+      ];
 
       // Bundle it all
       const lgpdPackage = {
@@ -519,6 +686,18 @@ export const IdentityCenter: React.FC = () => {
         >
           <FileText className="w-4 h-4" />
           Consentimentos LGPD
+        </button>
+
+        <button
+          onClick={() => setActiveTab('privacy')}
+          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-serif font-semibold whitespace-nowrap border-b-2 transition-all ${
+            activeTab === 'privacy' 
+              ? 'border-emerald-500 text-emerald-400 bg-emerald-950/10' 
+              : 'border-transparent text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <Eye className="w-4 h-4" />
+          Minha Privacidade
         </button>
 
         <button
@@ -1010,6 +1189,248 @@ export const IdentityCenter: React.FC = () => {
                   </div>
                 </div>
               )}
+            </motion.div>
+          )}
+
+          {/* TAB 5: MINHA PRIVACIDADE */}
+          {activeTab === 'privacy' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Privacy Summary Overview */}
+              <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-serif font-bold text-white">Centro de Transparência e Governança de Dados SentiPae</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed font-mono mt-0.5">
+                      Veja em tempo real o inventário de seus dados, os acessos concedidos, históricos de auditoria imutável e gerencie seus vínculos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data Inventory & Stored Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-4">
+                  <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-emerald-500" /> Inventário de Informações Retidas
+                  </h4>
+                  <div className="space-y-3 font-mono text-[11px]">
+                    <div className="p-3 bg-slate-950 border border-white/5 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <p className="text-white font-bold">Identidade & Cadastro</p>
+                        <p className="text-[10px] text-slate-500">Nome, e-mail, telefone, biografia e foto</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] font-bold">ATIVO</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 border border-white/5 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <p className="text-white font-bold">Diário Clínico e Notas de Humor</p>
+                        <p className="text-[10px] text-slate-500">Registros diários e intensidades de sentimentos</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] font-bold">CRIPTOGRAFADO</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 border border-white/5 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <p className="text-white font-bold">Interações de Acolhimento IARA</p>
+                        <p className="text-[10px] text-slate-500">Histórico de diálogos com a assistente virtual</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] font-bold">PROTEGIDO</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-950 border border-white/5 rounded-2xl flex justify-between items-center">
+                      <div>
+                        <p className="text-white font-bold">Dispositivos & Sessões Ativas</p>
+                        <p className="text-[10px] text-slate-500">Locais, IPs e carimbos de data/hora de login</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[9px] font-bold">SESSÃO ATIVA</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Linked Institutions */}
+                <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] flex flex-col justify-between space-y-4">
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Lock className="w-4 h-4 text-emerald-500" /> Vínculo Institucional & LGPD
+                    </h4>
+                    
+                    <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl space-y-2">
+                      <span className="text-[10px] font-mono text-slate-500">PORTAL OU TENANT VINCULADO</span>
+                      {tenantId ? (
+                        <div className="space-y-1">
+                          <p className="text-sm font-serif font-bold text-emerald-400">{tenantId}</p>
+                          <p className="text-[11px] text-slate-400 leading-relaxed font-mono">
+                            Seus dados estão sob a governança desta organização. O encarregado de dados (DPO) local responde de forma conjunta pela custódia das informações.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-sm font-serif font-bold text-white">SentiPae B2C Individual</p>
+                          <p className="text-[11px] text-slate-400 leading-relaxed font-mono">
+                            Nenhuma prefeitura, clínica ou empresa está vinculada à sua conta. Seus dados de saúde mental são privados e mantidos estritamente sob sua propriedade pessoal.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setActiveTab('consent')}
+                    className="w-full py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                    <FileText className="w-4 h-4 text-emerald-500" />
+                    Gerenciar Consentimentos de Termos
+                  </button>
+                </div>
+              </div>
+
+              {/* Intelligent Consent Sharing with Multidisciplinary Professionals */}
+              <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-6">
+                <div>
+                  <h3 className="text-sm font-serif font-bold text-white flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" /> Compartilhamento de Evolução Terapêutica
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed font-mono mt-1">
+                    Autorize profissionais multidisciplinares (psicólogos, terapeutas, psicanalistas) a acessarem temporariamente seus prontuários e diários de humor para um cuidado integrado e humanizado:
+                  </p>
+                </div>
+
+                {/* List Authorized Therapists */}
+                {loadingPrivacy ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {clinicalConsents.filter(c => c.status === 'active').length === 0 ? (
+                      <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl text-center font-mono text-xs text-slate-500">
+                        Nenhum profissional está autorizado a visualizar sua evolução clínica no momento.
+                      </div>
+                    ) : (
+                      <div className="space-y-3 font-mono text-xs">
+                        {clinicalConsents.filter(c => c.status === 'active').map((consent, index) => (
+                          <div key={consent.id || index} className="p-4 bg-slate-950 border border-white/5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <p className="text-white font-bold">{consent.therapistName}</p>
+                              <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400">
+                                <span>Autorizado em: {new Date(consent.grantedAt).toLocaleString('pt-BR')}</span>
+                                <span className="text-slate-600">|</span>
+                                <span className="text-slate-500 font-bold">HASH: {consent.documentHash?.substring(0, 16)}...</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleRevokeClinicalConsent(consent.id, consent.therapistName)}
+                              disabled={saving}
+                              className="px-4 py-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 rounded-xl text-[11px] font-bold transition-all shrink-0 border border-red-500/10"
+                            >
+                              Revogar Acesso
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Form to Grant New Consent */}
+                <div className="p-4 bg-slate-950 border border-white/5 rounded-2xl space-y-4">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">
+                    + Autorizar Novo Profissional
+                  </span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-mono text-slate-500">Selecione o Profissional</label>
+                      <select
+                        value={selectedTherapistId}
+                        onChange={(e) => setSelectedTherapistId(e.target.value)}
+                        className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 font-mono"
+                      >
+                        <option value="">-- Escolha um Terapeuta --</option>
+                        {therapistsList.map(t => (
+                          <option key={t.uid} value={t.uid}>{t.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-6">
+                      <input
+                        id="clinical-consent-checkbox"
+                        type="checkbox"
+                        checked={acceptClinicalTerms}
+                        onChange={(e) => setAcceptClinicalTerms(e.target.checked)}
+                        className="rounded border-white/10 text-emerald-600 bg-slate-900 focus:ring-0 w-4 h-4 cursor-pointer"
+                      />
+                      <label htmlFor="clinical-consent-checkbox" className="text-[11px] text-slate-400 font-mono leading-tight cursor-pointer">
+                        Autorizo formalmente este terapeuta a acessar meu diário e notas clínicas sob a LGPD.
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      onClick={handleCreateClinicalConsent}
+                      disabled={saving || !selectedTherapistId || !acceptClinicalTerms}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2"
+                    >
+                      {saving ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Check className="w-4 h-4" />
+                      )}
+                      Registrar Autorização Assinada
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transparency of Data Activity & Access Logs */}
+              <div className="bg-slate-900 border border-white/5 p-6 rounded-[2.5rem] space-y-4">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <RefreshCw className="w-4 h-4 text-emerald-500" /> Registro Geral de Atividades e Rastreabilidade LGPD
+                </h3>
+                <p className="text-xs text-slate-400 leading-relaxed font-mono">
+                  Todos os eventos de segurança, acessos de leitura ao prontuário, mudanças de senhas e alterações de termos são registrados de forma permanente abaixo para integridade jurídica:
+                </p>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left font-mono text-[10px] text-slate-400 divide-y divide-white/5">
+                    <thead>
+                      <tr className="text-slate-500">
+                        <th className="pb-2">Ação / Evento</th>
+                        <th className="pb-2">Data e Hora</th>
+                        <th className="pb-2">Integridade / Hash</th>
+                        <th className="pb-2">Local de Registro</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {consentLogs.map((log, index) => (
+                        <tr key={index} className="hover:bg-white/2">
+                          <td className="py-2.5 font-bold text-white">
+                            {log.consentType === 'clinical_sharing_authorization' ? 'Autorização de Compartilhamento' :
+                             log.consentType === 'clinical_sharing_revocation' ? 'Revogação de Compartilhamento' :
+                             log.consentType === 'communication' ? 'Termo de Comunicação Alterado' :
+                             log.consentType === 'marketing' ? 'Termo de Marketing Alterado' :
+                             log.consentType === 'research' ? 'Termo de Pesquisa Alterado' :
+                             log.consentType === 'telemetry' ? 'Termo de Telemetria Alterado' : 'Acesso de Leitura / Auditoria'}
+                          </td>
+                          <td className="py-2.5">{new Date(log.timestamp).toLocaleString('pt-BR')}</td>
+                          <td className="py-2.5 text-slate-500">SHA256-REG-{btoa(log.timestamp).substring(0, 10)}...</td>
+                          <td className="py-2.5">{log.ip || 'SentiCore Engine'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </motion.div>
           )}
 

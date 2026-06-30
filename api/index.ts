@@ -1183,6 +1183,79 @@ app.post("/api/gemini/analyze-with-ai", async (req: any, res: any) => {
   }
 });
 
+app.post("/api/gemini/b2b-analysis", async (req: any, res: any) => {
+  const { organizationName, organizationType, indicadores, userCount, activePrograms = [], question = "" } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const isPrefeitura = organizationType === "prefeitura";
+
+    const promptText = `Você é o Agente SentiCore Institucional B2B/B2G da plataforma SentiPae. 
+    Seu papel é atuar como consultor estratégico e psicólogo organizacional inteligente para gestores de RH, diretores de clínicas e coordenadores municipais de saúde mental.
+    Sua missão é emitir diagnósticos estratégicos e recomendações de saúde pública/corporativa totalmente anônimas e consolidadas, sem expor dados individuais de pacientes (respeitando estritamente a LGPD).
+    
+    Dados da Organização:
+    - Nome: ${organizationName}
+    - Tipo: ${organizationType} (e.g. empresa, prefeitura, clinica, hospital)
+    - Beneficiários Ativos: ${userCount}
+    - Programas Ativos: ${JSON.stringify(activePrograms)}
+    - Indicadores Agregados:
+      * Humor Médio: ${indicadores?.humorMedio || 7.0}/10
+      * Nível de Estresse: ${indicadores?.nivelEstresse || 3.0}/10
+      * Consultas Realizadas: ${indicadores?.totalConsultas || 0}
+      * Total de Mensagens com a IARA: ${indicadores?.totalMensagensIara || 0}
+      
+    ${question ? `Pergunta específica do Gestor: "${question}"` : "Por favor, realize um escaneamento epidemiológico abrangente desta organização e forneça conselhos estratégicos."}
+    
+    O JSON de resposta deve seguir estritamente este formato estruturado:
+    {
+      "executiveSummary": "Um resumo de 3-4 frases avaliando a saúde emocional coletiva da organização de forma técnica, empática e profissional.",
+      "criticalAlerts": ["Lista de 1-2 alertas de risco organizacional ou epidemiológico baseados nos indicadores (ex: Burnout, Ansiedade por produtividade)"],
+      "actionPlan": [
+        {
+          "title": "Título da ação sugerida (ex: Campanha Pausa Ativa, Mutirão de Saúde)",
+          "description": "Explicação prática e detalhada de como implementar esta ação",
+          "urgency": "Crítica" | "Alta" | "Média" | "Baixa",
+          "expectedImpact": "O que a organização espera colher com isso"
+        }
+      ],
+      "iaraInsights": "Algum insight especial extraído da inteligência artificial coletiva para este perfil de organização.",
+      "answer": "Se houver uma pergunta específica do gestor, coloque a resposta detalhada aqui (máximo 4 frases). Caso contrário, faça uma breve conclusão de fechamento."
+    }`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        {
+          text: promptText
+        }
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    res.json(result);
+  } catch (error: any) {
+    console.error("Erro ao gerar análise B2B SentiCore:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/gemini/transcribe-audio", async (req: any, res: any) => {
   const { base64Data, mimeType } = req.body;
 
