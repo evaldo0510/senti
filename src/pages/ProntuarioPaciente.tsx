@@ -31,6 +31,7 @@ import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 import { UserProfile, Appointment, MoodEntry, PrivateNote } from "../types";
 import { cn } from "../lib/utils";
+import ProntuarioInteligenteUnificado from "../components/ProntuarioInteligenteUnificado";
 import { 
   LineChart, 
   Line, 
@@ -50,7 +51,7 @@ export default function ProntuarioPaciente() {
   const [loading, setLoading] = useState(true);
 
   // Private Clinical Notes State
-  const [activeTab, setActiveTab] = useState<'evolution' | 'private_notes'>('evolution');
+  const [activeTab, setActiveTab] = useState<'evolution' | 'private_notes' | 'piu'>('evolution');
   const [privateNotes, setPrivateNotes] = useState<PrivateNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [useCustomKey, setUseCustomKey] = useState(false);
@@ -547,9 +548,21 @@ export default function ProntuarioPaciente() {
                 <Lock className="w-4 h-4" />
                 Notas Secundárias (Privadas)
               </button>
+              <button
+                onClick={() => setActiveTab('piu')}
+                className={cn(
+                  "flex-1 py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer",
+                  activeTab === 'piu' 
+                    ? "bg-purple-600 text-white shadow-lg shadow-purple-950/40" 
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Shield className="w-4 h-4" />
+                PIU & ICC Hub
+              </button>
             </div>
 
-            {activeTab === 'evolution' ? (
+            {activeTab === 'evolution' && (
               <div className="space-y-8">
                 {/* Mood Chart */}
                 <div className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-4">
@@ -707,7 +720,9 @@ export default function ProntuarioPaciente() {
                   </div>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {activeTab === 'private_notes' && (
               <motion.div 
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -923,6 +938,10 @@ export default function ProntuarioPaciente() {
                   </div>
                 </div>
               </motion.div>
+            )}
+
+            {activeTab === 'piu' && (
+              <ProntuarioInteligenteUnificado patientId={id} userType="terapeuta" defaultTab="profissional" />
             )}
           </div>
         </div>

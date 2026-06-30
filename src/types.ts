@@ -118,6 +118,13 @@ export interface UserProfile {
   intensidade?: number; // 0-100
   estilo?: 'acolhedor' | 'provocador' | 'analitico' | 'pratico';
   abordagem?: string;
+  idioma?: string;
+  contatoProfissional?: string;
+  areaAtuacao?: string;
+  publicoAtendido?: string;
+  modalidade?: 'presencial' | 'online' | 'hibrido';
+  validationStatus?: 'pending_approval' | 'under_review' | 'approved' | 'active' | 'suspended';
+  iaraBriefingAllowed?: boolean;
   googleCalendarConnected?: boolean;
   googleAuthenticatorEnabled?: boolean;
   totalEarnings?: number;
@@ -214,4 +221,116 @@ export interface PrivateNote {
   updatedAt: string;
   tenantId?: string; // Multitenancy
 }
+
+// Sprint 17 Financial Engine interfaces
+export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'cancelled' | 'expired';
+
+export interface FinancialPlan {
+  id: string;
+  name: string;
+  price: number;
+  period: 'monthly' | 'annual' | 'colaborador' | 'estudante' | 'contrato';
+  features: string[];
+  category: 'b2c' | 'b2b2c' | 'b2b';
+}
+
+export interface FinancialSubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  amount: number;
+  period: 'monthly' | 'annual' | 'colaborador' | 'estudante' | 'contrato';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  gatewayId: string;
+  paymentProvider: 'stripe' | 'mercadopago' | 'simulated';
+  createdAt: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  userId: string;
+  amount: number;
+  status: 'pending' | 'success' | 'failed';
+  provider: 'stripe' | 'mercadopago' | 'simulated';
+  subId?: string;
+  appointmentId?: string;
+  productId?: string;
+  type: 'subscription' | 'appointment' | 'marketplace';
+  createdAt: string;
+}
+
+export interface TransactionRecord {
+  id: string;
+  userId: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  description: string;
+  referenceId: string; // ID of payment or payout or commission
+  referenceType: 'appointment' | 'subscription' | 'marketplace_payout' | 'commission';
+  status: 'completed' | 'pending' | 'failed';
+  createdAt: string;
+}
+
+export interface InvoiceRecord {
+  id: string;
+  userId: string;
+  subscriptionId?: string;
+  paymentId: string;
+  amount: number;
+  status: 'paid' | 'open' | 'uncollectible' | 'void';
+  invoiceNumber: string;
+  dueDate: string;
+  paidAt?: string;
+  pdfUrl?: string;
+  createdAt: string;
+}
+
+export interface CommissionRecord {
+  id: string;
+  appointmentId?: string;
+  productId?: string;
+  therapistId: string;
+  totalAmount: number;
+  commissionPercentage: number;
+  commissionAmount: number;
+  therapistAmount: number;
+  status: 'pending' | 'paid' | 'cancelled';
+  createdAt: string;
+}
+
+export interface PayoutRecord {
+  id: string;
+  therapistId: string;
+  amount: number;
+  status: 'pending' | 'processing' | 'paid' | 'failed';
+  bankName?: string;
+  bankAgency?: string;
+  bankAccount?: string;
+  pixKeyType?: string;
+  pixKey?: string;
+  paidAt?: string;
+  createdAt: string;
+}
+
+export interface CouponRecord {
+  id: string;
+  code: string;
+  discountPercentage: number;
+  active: boolean;
+  maxUses: number;
+  currentUses: number;
+  validUntil: string;
+  createdAt: string;
+}
+
+export interface BillingEventRecord {
+  id: string;
+  userId: string;
+  eventType: string; // e.g., 'subscription.created', 'payment.failed'
+  payload: any;
+  createdAt: string;
+}
+
 

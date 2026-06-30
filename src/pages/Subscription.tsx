@@ -20,7 +20,8 @@ import {
   Crown,
   CreditCard,
   Building,
-  UserCheck
+  UserCheck,
+  Users
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuth } from "../components/AuthProvider";
@@ -32,7 +33,8 @@ export default function Subscription() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'premium' | 'professional' | 'enterprise'>('premium');
+  const [activeMarket, setActiveMarket] = useState<'b2c' | 'b2b2c' | 'b2b'>('b2c');
+  const [selectedPlan, setSelectedPlan] = useState<string>('premium');
   const [selectedProvider, setSelectedProvider] = useState<'stripe' | 'mercadopago'>('stripe');
 
   useEffect(() => {
@@ -83,9 +85,30 @@ export default function Subscription() {
   };
 
   const plans = [
+    // Pessoa Física (B2C)
     {
-      id: "premium" as const,
-      name: "Plano Premium",
+      id: "free",
+      category: "b2c" as const,
+      name: "SentiPae Gratuito",
+      price: "R$ 0,00",
+      period: "mês",
+      icon: Sparkles,
+      description: "Ideal para experimentar os primeiros passos de acolhimento emocional com inteligência artificial.",
+      badge: "Iniciante",
+      color: "from-slate-500/20 to-slate-500/10 border-slate-500/30 text-slate-400",
+      features: [
+        "Cadastro e perfil pessoal completo",
+        "Acolhimento tático com a IARA (via Texto)",
+        "Limite diário de 20 mensagens com a IA",
+        "Diário emocional básico de sentimentos",
+        "Conteúdos e pílulas de bem-estar gratuitos",
+        "Jornada inicial de autoconhecimento"
+      ]
+    },
+    {
+      id: "premium",
+      category: "b2c" as const,
+      name: "SentiPae Premium",
       price: "R$ 39,90",
       period: "mês",
       icon: Crown,
@@ -93,47 +116,142 @@ export default function Subscription() {
       badge: "Mais Popular",
       color: "from-emerald-500/20 to-teal-500/10 border-emerald-500/30 text-emerald-400",
       features: [
-        "Conversas ilimitadas com a IARA AI",
-        "Diário emocional completo de sentimentos",
-        "Exercícios de biofeedback e respiração",
-        "Relatórios analíticos personalizados",
-        "Suporte prioritário 24/7"
+        "Conversas ILIMITADAS com a IARA AI via texto",
+        "IARA de Voz em Tempo Real (Google Live)",
+        "Programas terapêuticos guiados completos",
+        "Biblioteca Premium e pílulas de PCH ilimitadas",
+        "Meu Jardim completo com evolução gamificada",
+        "Relatórios de evolução profundos com gráficos de humor"
       ]
     },
     {
-      id: "professional" as const,
-      name: "Plano Profissional",
-      price: "R$ 99,90",
+      id: "plus_familia",
+      category: "b2c" as const,
+      name: "SentiPae Plus Família",
+      price: "R$ 79,90",
+      period: "mês",
+      icon: Users,
+      description: "Cuidado familiar estendido. Gerencie múltiplos perfis e compartilhe jornadas de bem-estar.",
+      badge: "Foco Familiar",
+      color: "from-indigo-500/20 to-cyan-500/10 border-indigo-500/30 text-indigo-400",
+      features: [
+        "Até 4 perfis familiares totalmente independentes",
+        "Todas as funcionalidades do plano Premium para cada perfil",
+        "Jornadas de autocuidado compartilhadas",
+        "Acompanhamento e evolução familiar agregada",
+        "Biblioteca de meditações e conteúdos para família"
+      ]
+    },
+
+    // Profissionais e Clínicas (B2B2C)
+    {
+      id: "professional_inicial",
+      category: "b2b2c" as const,
+      name: "Profissional Inicial",
+      price: "R$ 0,00",
       period: "mês",
       icon: UserCheck,
-      description: "Perfeito para terapeutas independentes impulsionarem o atendimento e automatizarem a agenda.",
-      badge: "Para Terapeutas",
-      color: "from-indigo-500/20 to-purple-500/10 border-indigo-500/30 text-indigo-400",
+      description: "Excelente para profissionais em início de carreira testarem sua presença na rede SentiPae.",
+      badge: "Básico Terapeuta",
+      color: "from-slate-500/20 to-slate-500/10 border-slate-500/30 text-slate-400",
       features: [
-        "Cadastro e Perfil Público na plataforma",
-        "Sistema completo de agendamento de consultas",
-        "Gestão clínica de pacientes e evolução",
-        "Sincronização com o Google Calendar",
-        "Canal exclusivo SENTI Go de urgências"
+        "Perfil público profissional visível na rede SentiPae",
+        "Presença nas buscas de especialistas por usuários",
+        "Agenda de atendimentos básica integrada",
+        "Gestão básica de consultas e agendamentos"
       ]
     },
     {
-      id: "enterprise" as const,
-      name: "Plano Institucional",
-      price: "Orçamento",
-      period: "negociável",
+      id: "professional", // corresponds to professional pro
+      category: "b2b2c" as const,
+      name: "Profissional Pro",
+      price: "R$ 99,90",
+      period: "mês",
+      icon: Zap,
+      description: "Completo para psicólogos e terapeutas que desejam automatizar rotinas e evoluções clínicas.",
+      badge: "Recomendado",
+      color: "from-indigo-500/20 to-purple-500/10 border-indigo-500/30 text-indigo-400",
+      features: [
+        "Agenda avançada com sincronização Google Calendar",
+        "Teleatendimento por videoconferência encriptada",
+        "Gestão clínica de prontuários com segurança LGPD",
+        "Anotações clínicas encriptadas de alta privacidade",
+        "Relatórios de produtividade e faturamento clínico",
+        "IA de apoio administrativo e resumos clínicos"
+      ]
+    },
+    {
+      id: "clinica",
+      category: "b2b2c" as const,
+      name: "Clínica Integrada",
+      price: "R$ 299,90",
+      period: "mês",
       icon: Building,
-      description: "Destinado a Prefeituras, Secretarias de Saúde/Educação, Hospitais, Clínicas, Universidades e Empresas.",
-      badge: "Público & Corporativo",
+      description: "Feito para clínicas e consultórios multidisciplinares gerenciarem equipes e fluxos.",
+      badge: "Para Consultórios",
       color: "from-amber-500/20 to-orange-500/10 border-amber-500/30 text-amber-400",
       features: [
+        "Gestão de múltiplos profissionais credenciados",
+        "Painel administrativo integrado para gestores",
+        "Agenda unificada da equipe de saúde e recepção",
+        "Indicadores consolidados de produtividade",
+        "Relatórios clínicos de evolução unificados"
+      ]
+    },
+
+    // Institucionais (B2B)
+    {
+      id: "empresa",
+      category: "b2b" as const,
+      name: "Empresas & Startups",
+      price: "R$ 15,00",
+      period: "colaborador",
+      icon: Building,
+      description: "Bem-estar corporativo ativo. Proteja a saúde emocional de suas equipes com relatórios agregados.",
+      badge: "B2B Corporativo",
+      color: "from-emerald-500/20 to-indigo-500/10 border-emerald-500/30 text-emerald-400",
+      features: [
+        "Preço escalável por colaborador ativo mensal",
         "Painel administrativo institucional exclusivo (Multitenant)",
-        "Cadastro e credenciamento de profissionais e usuários vinculados",
-        "Dashboard de indicadores agregados (100% anônimos)",
-        "Gestão ativa de campanhas de bem-estar emocional",
-        "Suporte técnico prioritário e gerente de conta exclusivo",
-        "Biblioteca institucional e biblioteca de conteúdos",
-        "Precificação escalável por lotes: Até 100, 500 ou 1000 usuários"
+        "Dashboard com indicadores de bem-estar 100% anônimos",
+        "Gestão ativa de campanhas de saúde mental",
+        "Biblioteca institucional e suporte prioritário 24/7"
+      ]
+    },
+    {
+      id: "universidade",
+      category: "b2b" as const,
+      name: "Universidades",
+      price: "R$ 10,00",
+      period: "estudante",
+      icon: BookOpen,
+      description: "Programas preventivos e de monitoramento de clima para estudantes e corpo docente.",
+      badge: "Foco Acadêmico",
+      color: "from-indigo-500/20 to-blue-500/10 border-indigo-500/30 text-indigo-400",
+      features: [
+        "Preço reduzido por estudante ou docente cadastrado",
+        "Foco em prevenção acadêmica, estresse e burnout",
+        "Relatórios anônimos de clima e sobrecarga mental",
+        "Ativação de pílulas de bem-estar em época de exames",
+        "Acesso simplificado à rede de terapeutas credenciados"
+      ]
+    },
+    {
+      id: "prefeitura",
+      category: "b2b" as const,
+      name: "Prefeituras & SUS",
+      price: "Sob Consulta",
+      period: "contrato",
+      icon: ShieldCheck,
+      description: "Contrato público para atendimento em massa de saúde pública municipal e assistência social.",
+      badge: "Governo & Social",
+      color: "from-amber-500/20 to-red-500/10 border-amber-500/30 text-amber-400",
+      features: [
+        "Isolamento completo e conformidade máxima com LGPD",
+        "Acolhimento contínuo para postos de saúde locais",
+        "Dados demográficos agregados de vulnerabilidade social",
+        "Integração ativa com equipes de assistência do CRAS/CREAS",
+        "Suporte técnico governamental e gerência técnica de conta"
       ]
     }
   ];
@@ -152,11 +270,32 @@ export default function Subscription() {
   const currentActivePlan = profile?.subscriptionPlan || 'trial';
   const isCurrentlyPremium = profile?.subscriptionStatus === 'active';
 
+  // Filter plans based on the active market segment
+  const filteredPlans = plans.filter(p => p.category === activeMarket);
+
+  // Auto-select first plan of new category when category changes
+  const handleMarketChange = (market: 'b2c' | 'b2b2c' | 'b2b') => {
+    setActiveMarket(market);
+    const firstPlanOfMarket = plans.find(p => p.category === market);
+    if (firstPlanOfMarket) {
+      setSelectedPlan(firstPlanOfMarket.id);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 relative selection:bg-emerald-500/30">
       {/* Header */}
       <header className="px-4 py-4 sm:p-6 flex justify-between items-center sticky top-0 bg-slate-950/80 backdrop-blur-md z-40 border-b border-white/5">
-        <button onClick={() => navigate(-1)} className="p-3 -ml-2 hover:bg-white/5 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
+        <button 
+          onClick={() => {
+            if (isCurrentlyPremium) {
+              navigate(-1);
+            } else {
+              navigate("/app");
+            }
+          }} 
+          className="p-3 -ml-2 hover:bg-white/5 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+        >
           <ArrowLeft className="w-4 h-4 text-slate-400" />
         </button>
         <div className="flex items-center gap-2">
@@ -210,9 +349,51 @@ export default function Subscription() {
           </div>
         </section>
 
+        {/* Segmented Control for Market Category */}
+        <div className="flex justify-center">
+          <div className="inline-flex p-1.5 bg-slate-900 border border-white/5 rounded-2xl gap-1">
+            <button
+              onClick={() => handleMarketChange('b2c')}
+              className={cn(
+                "px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2",
+                activeMarket === 'b2c'
+                  ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              )}
+            >
+              <Users className="w-3.5 h-3.5" />
+              Pessoa Física (B2C)
+            </button>
+            <button
+              onClick={() => handleMarketChange('b2b2c')}
+              className={cn(
+                "px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2",
+                activeMarket === 'b2b2c'
+                  ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              )}
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              Profissionais (B2B2C)
+            </button>
+            <button
+              onClick={() => handleMarketChange('b2b')}
+              className={cn(
+                "px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center gap-2",
+                activeMarket === 'b2b'
+                  ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+              )}
+            >
+              <Building className="w-3.5 h-3.5" />
+              Instituições (B2B)
+            </button>
+          </div>
+        </div>
+
         {/* Pricing Bento Grid */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {plans.map((p) => {
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredPlans.map((p) => {
             const isSelected = selectedPlan === p.id;
             const PlanIcon = p.icon;
             const isCurrentUsersPlan = isCurrentlyPremium && currentActivePlan === p.id;

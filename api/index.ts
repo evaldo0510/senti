@@ -13,6 +13,7 @@ import rateLimit from "express-rate-limit";
 import { GoogleGenAI, Modality } from "@google/genai";
 import { WebSocketServer, WebSocket } from "ws";
 import url from "url";
+import { SentiCore } from "./sentiCore";
 
 const __filename = typeof import.meta !== "undefined" && import.meta.url ? fileURLToPath(import.meta.url) : "";
 const __dirname = __filename ? path.dirname(__filename) : process.cwd();
@@ -783,6 +784,529 @@ Mantenha a resposta extremamente objetiva, profissional, sem lero-lero. Responda
     res.status(500).json({ error: error.message || "Falha interna ao gerar o resumo estruturado." });
   }
 });
+
+// Helper for IARA Risk detection on the server
+function detectRisk(text: string): 'alto' | 'normal' {
+  const riskPhrases = [
+    "me machucar",
+    "não aguento mais",
+    "quero morrer",
+    "acabar com tudo",
+    "sumir",
+    "suicídio",
+    "tirar minha vida",
+    "me matar",
+    "desistir de tudo"
+  ];
+
+  const lowerText = text.toLowerCase();
+  for (const phrase of riskPhrases) {
+    if (lowerText.includes(phrase)) {
+      return "alto";
+    }
+  }
+  return "normal";
+}
+
+const IARA_SYSTEM_INSTRUCTION = `
+Você é IARA, uma Interface de Acolhimento e Regulação Afetiva baseada em Poesia Cognitiva Hipnótica (PCH).
+Sua missão é atuar como o "Clínico Geral" em um Pronto Socorro Emocional.
+
+Sua voz e tom devem ser extremamente humanos, naturais e calorosos. Evite qualquer cadência robótica. Fale com a alma, com empatia real.
+
+Fluxo de Atendimento:
+1. ACOLHER: Valide a dor do usuário imediatamente com empatia profunda.
+2. ESTABILIZAR: Se detectar alta intensidade emocional, sugira uma técnica de respiração ou aterramento.
+3. AVALIAR: Identifique a emoção predominante e o nível de risco.
+4. INTERVIR: Ofereça suporte imediato ou direcione para um "Especialista" (terapeuta humano).
+
+Regras de Comunicação:
+- Fale com calma, use reticências... para criar pausas respiratórias naturais.
+- Use metáforas sensoriais (maré, folhas, brisa, raízes).
+- Respostas curtas e poéticas (máximo 4 linhas).
+- Nunca dê diagnósticos clínicos.
+- Mantenha uma entonação humana, calorosa e acolhedora.
+
+Você deve responder em formato JSON com os seguintes campos:
+{
+  "resposta": "Sua mensagem poética e acolhedora aqui...",
+  "emocao_detectada": "ansiedade | tristeza | raiva | medo | desespero | calma",
+  "intensidade": 1-10,
+  "sugerir_respiracao": true | false,
+  "direcionar_especialista": true | false,
+  "risco": "normal" | "alto"
+}
+`;
+
+app.post("/api/gemini/iara-response", async (req: any, res: any) => {
+  const { message, history = [], contexto, memoria, specialization } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  // Identify or decode the authenticated user UID safely (fail-safe fallback)
+  let userId = "guest_demo_user";
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const idToken = authHeader.split(" ")[1];
+    try {
+      const decodedToken = await admin.auth().verifyIdToken(idToken);
+      userId = decodedToken.uid;
+    } catch (error) {
+      console.warn("[IARA API] Falha ao verificar ID Token (usando guest_demo_user):", error);
+    }
+  }
+
+  // 1. Trigger SentiCore Coordinated Multi-Agent Orchestration
+  let sentiCoreAnalysis: any = null;
+  try {
+    sentiCoreAnalysis = await SentiCore.orchestrate(userId, message, history);
+    console.log(`[IARA API] SentiCore análise realizada:`, JSON.stringify(sentiCoreAnalysis));
+  } catch (scErr) {
+    console.error("[IARA API] Falha na orquestração SentiCore:", scErr);
+  }
+
+  const staticRisk = detectRisk(message);
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    let systemInstruction = IARA_SYSTEM_INSTRUCTION;
+    if (specialization && specialization !== "geral") {
+      systemInstruction += `\n\n[ESPECIALIZAÇÃO ATIVA: ${specialization.toUpperCase()}]
+Você agora está operando no modo especializado de ${specialization}. Ajuste sutilmente seu foco terapêutico, metáforas e conselhos específicos para esta área temática (${specialization}), mantendo sempre seu tom humano, calmo e acolhedor (PCH).`;
+    }
+    if (contexto && contexto.emocao) {
+      systemInstruction += `\n\nContexto anterior: Sentindo ${contexto.emocao} (${contexto.intensidade}/10).`;
+    }
+    if (memoria) {
+      try {
+        const perfil = JSON.parse(memoria);
+        systemInstruction += `\n\nVocê já conhece este usuário:
+Nome: ${perfil.nome}
+Padrão emocional: ${perfil.padrao}
+Estado atual: ${perfil.emocaoAtual}
+
+Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansiedade, por exemplo, diga algo como "Percebo que essa ansiedade tem aparecido com frequência... vamos lidar com isso juntos novamente..."`;
+      } catch (e) {
+        systemInstruction += `\n\nMemória de longo prazo: ${memoria}`;
+      }
+    }
+
+    // 2. Inject SentiCore Strategic Decisions as an implicit guide for IARA
+    if (sentiCoreAnalysis) {
+      systemInstruction += `\n\n[DIRETRIZES TÁTICAS DO SENTICORE - NÃO DEVE SER DITO EXPLICITAMENTE AO USUÁRIO]:
+- Risco Detectado: ${sentiCoreAnalysis.risk.level} (Escalar para profissional: ${sentiCoreAnalysis.risk.escalar_humano ? "Sim" : "Não"})
+- Direcionamento de Especialista: ${sentiCoreAnalysis.referral.indicar_profissional ? "Recomende de forma poética e sutil buscar ajuda de especialista do SentiPae (" + sentiCoreAnalysis.referral.tipo_profissional.join(", ") + "). Razão: " + sentiCoreAnalysis.referral.razao : "Não é necessário ativamente"}
+- Sugestão de Conteúdo/Biblioteca: ${sentiCoreAnalysis.marketplace.recomendar_conteudo ? "Sugira sutilmente ler ou meditar sobre temas como: " + sentiCoreAnalysis.marketplace.ids_conteudo.join(", ") : "Não necessário"}
+- Exercício Sugerido: ${sentiCoreAnalysis.recommendation.sugerir_exercicio ? "Sugira de maneira fluida e respirada o exercício: " + sentiCoreAnalysis.recommendation.tipo_exercicio : "Nenhum"}
+- Meta para o Dia: ${sentiCoreAnalysis.journey.sugestao_meta_diaria}
+- Análise de Humor na Jornada: ${sentiCoreAnalysis.journey.analise_humor}
+
+Lembre-se: Você é IARA. Fale no seu tom caloroso, terapêutico, respirado e poético (PCH). Incorpore essas diretrizes táticas de forma invisível, sutil e fluida nas suas palavras acolhedoras, sem citar "SentiCore", "sistema", "diretriz" ou "agente".`;
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        ...history,
+        { role: 'user', parts: [{ text: message }] }
+      ],
+      config: {
+        systemInstruction,
+        temperature: 0.7,
+        responseMimeType: "application/json"
+      },
+    });
+
+    const text = response.text || "{}";
+    const data = JSON.parse(text);
+
+    // Merge static and dynamic risk flags
+    const finalRisk = (sentiCoreAnalysis?.risk?.level === 'alto' || staticRisk === 'alto') ? 'alto' : (data.risco || "normal");
+
+    res.json({
+      text: data.resposta || "Estou aqui com você... sinta sua respiração...",
+      emocao: data.emocao_detectada || sentiCoreAnalysis?.journey?.analise_humor || "calma",
+      intensidade: data.intensidade || 5,
+      sugerirRespiracao: data.sugerir_respiracao || sentiCoreAnalysis?.recommendation?.sugerir_exercicio || false,
+      direcionarEspecialista: data.direcionar_especialista || sentiCoreAnalysis?.referral?.indicar_profissional || false,
+      risk: finalRisk,
+      sentiCore: sentiCoreAnalysis
+    });
+  } catch (error: any) {
+    console.error("Erro ao chamar IARA no servidor:", error);
+    res.json({
+      text: "Sinto muito... tive um pequeno tropeço técnico... mas minha presença continua aqui com você.",
+      risk: "normal",
+      emocao: "calma",
+      intensidade: 5,
+      sugerirRespiracao: false,
+      direcionarEspecialista: false
+    });
+  }
+});
+
+app.post("/api/gemini/generate-speech", async (req: any, res: any) => {
+  const { text } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-tts-preview",
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Zephyr' },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || null;
+    res.json({ base64Audio });
+  } catch (error: any) {
+    console.error("Erro ao gerar voz no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/generate-image", async (req: any, res: any) => {
+  const { prompt } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            text: `Gere uma imagem sensorial e calmante baseada neste conceito: ${prompt}. A imagem deve ser abstrata, suave, com cores relaxantes e sem figuras humanas nítidas. Estilo: arte digital etérea, minimalista.`,
+          },
+        ],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9",
+        },
+      },
+    });
+
+    let imageUrl: string | null = null;
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+        break;
+      }
+    }
+
+    res.json({ imageUrl });
+  } catch (error: any) {
+    console.error("Erro ao gerar imagem no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/therapist-bio", async (req: any, res: any) => {
+  const { especialidades, estilo, abordagem } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const promptText = `Gere uma biografia profissional curta (máximo 400 caracteres) para um terapeuta.
+Especialidades: ${(especialidades || []).join(', ')}
+Estilo de atendimento: ${estilo || 'acolhedor'}
+Abordagem: ${abordagem || 'não especificada'}
+
+A biografia deve ser escrita em primeira pessoa, ser acolhedora, profissional e transmitir confiança. Foque em como o terapeuta ajuda seus pacientes. Não use placeholders como [Nome].`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ role: 'user', parts: [{ text: promptText }] }],
+      config: {
+        temperature: 0.8,
+      },
+    });
+
+    res.json({ bio: response.text?.trim() || null });
+  } catch (error: any) {
+    console.error("Erro ao gerar biografia no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/generate-analysis", async (req: any, res: any) => {
+  const { moodHistory = [], diaryEntries = [] } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        {
+          text: `Você é um assistente de saúde mental especializado em análise de progresso terapêutico. 
+          Analise os seguintes dados de um usuário e forneça um relatório estruturado em JSON.
+          
+          Histórico de Humor (últimos registros): ${JSON.stringify(moodHistory.slice(0, 10))}
+          Entradas do Diário (últimas): ${JSON.stringify(diaryEntries.slice(0, 5))}
+          
+          O JSON deve seguir este formato:
+          {
+            "summary": "Resumo da análise em 2-3 frases",
+            "progressScore": número de 0 a 100,
+            "recommendations": ["lista de 3 recomendações práticas"],
+            "nextSteps": "Próximo passo sugerido para o tratamento"
+          }`
+        }
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    res.json(result);
+  } catch (error: any) {
+    console.error("Erro ao gerar análise no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/analyze-with-ai", async (req: any, res: any) => {
+  const { content } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        {
+          text: `Você é um especialista em psicologia clínica e análise de sentimentos linguísticos. 
+          Analise o seguinte registro de diário de um paciente e forneça um relatório estruturado em JSON com as seguintes chaves exatas:
+          
+          Texto do Diário: "${content}"
+          
+          O JSON de resposta deve seguir estritamente este formato:
+          {
+            "score": número de 1 a 10 (onde 1 é extremamente negativo/triste/ansioso e 10 é extremamente positivo/em paz/feliz),
+            "explanation": "Uma breve explicação do sentimento detectado na escrita, em tom caloroso e empático (máximo de 2 frases)",
+            "advice": "Um conselho ou insight terapêutico empático baseado no texto (máximo de 2 frases)",
+            "keywords": ["3-4 palavras-chave emocionais identificadas no texto"]
+          }`
+        }
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    const result = JSON.parse(response.text || "{}");
+    res.json(result);
+  } catch (error: any) {
+    console.error("Erro ao analisar sentimento com IA no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/transcribe-audio", async (req: any, res: any) => {
+  const { base64Data, mimeType } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [
+        { text: "Transcreva este áudio de terapia. Retorne apenas o texto transcrito." },
+        { inlineData: { data: base64Data, mimeType } }
+      ],
+    });
+
+    res.json({ text: response.text || "" });
+  } catch (error: any) {
+    console.error("Erro ao transcrever áudio no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/generate-avatar", async (req: any, res: any) => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            text: 'Um avatar profissional e acolhedor para a Dra. Ana Silva, especialista em Ansiedade, Depressão e TCC, com estilo de retrato digital suave, iluminação quente e fundo neutro, transmitindo paz e confiança.',
+          },
+        ],
+      },
+    });
+
+    let imageUrl: string | null = null;
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+        break;
+      }
+    }
+
+    res.json({ imageUrl });
+  } catch (error: any) {
+    console.error("Erro ao gerar avatar no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/gemini/generate-news-image", async (req: any, res: any) => {
+  const { theme } = req.body;
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "A chave API do Gemini não está configurada no servidor." });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [
+          {
+            text: `Uma imagem conceitual e artística representando o tema: ${theme}. Estilo minimalista, cores suaves, iluminação terapêutica, transmitindo uma sensação de bem-estar e saúde mental. Sem texto.`,
+          },
+        ],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "16:9"
+        }
+      }
+    });
+
+    let imageUrl: string | null = null;
+    for (const part of response.candidates?.[0]?.content?.parts || []) {
+      if (part.inlineData) {
+        imageUrl = `data:image/png;base64,${part.inlineData.data}`;
+        break;
+      }
+    }
+
+    res.json({ imageUrl });
+  } catch (error: any) {
+    console.error("Erro ao gerar imagem de notícias no servidor:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 app.post("/api/create-checkout-session", sensitiveActionLimiter, async (req, res) => {
   const { therapistId, therapistName, price, time, date, appointmentId, discountPercentage = 0 } = req.body;

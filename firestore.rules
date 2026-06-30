@@ -13,221 +13,374 @@ service cloud.firestore {
     }
     
     function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function incoming() {
-      return request.resource.data;
-    }
-    
-    function existing() {
-      return resource.data;
+      return request.auth != null && request.auth.uid == userId;
     }
 
-    function getUserTenantId() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tenantId', null) : 
-        null;
+    function isSystemAdmin(database) {
+      return request.auth != null && (
+        (request.auth.token.email == 'mentefelizterapias@gmail.com' && request.auth.token.email_verified == true) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+         ))
+      );
     }
 
-    function getUserType() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('tipo', null) : 
-        null;
-    }
-
-    function isSystemAdmin() {
-      return isSignedIn() && (getUserType() == 'admin' || getUserType() == 'super_admin');
-    }
-
-    function isSameTenant(data) {
-      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) || 
-             (data != null && data.get('tenantId', null) == getUserTenantId());
+    function isSameTenant(database, data) {
+      return request.auth == null || 
+             !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+             !('tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) || 
+             (data != null && 'tenantId' in data && data.tenantId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId);
     }
 
     // --- Users Collection Rules ---
     match /users/{userId} {
-      // If the logged-in user is the owner, allow get/create/update immediately.
-      // This breaks any circular helper function dependency for standard self-access.
-      allow get, create: if isSignedIn() && request.auth.uid == userId;
+      // 1. Unified Get Rule: Independent paths that avoid crashed lookups
+      allow get: if isSignedIn() && request.auth.uid == userId;
+      allow get: if isSignedIn() && resource != null && 'tipo' in resource.data && resource.data.tipo == 'terapeuta';
+      allow get: if isSignedIn() && request.auth.uid != userId && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          ('tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+          )) ||
+          (resource != null && 
+           'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && 
+           'tenantId' in resource.data && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == resource.data.tenantId)
+        );
+
+      // 2. Unified Create Rule: Prevent crashes on self-creation
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn() && request.auth.uid != userId && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+        );
+
+       // 3. Unified Update Rule: Prevent crashes on self-update
       allow update: if isSignedIn() && request.auth.uid == userId && (
-        !incoming().keys().hasAny(['tipo']) || 
-        incoming().get('tipo', null) == existing().get('tipo', null)
+        !('tipo' in request.resource.data) || 
+        ('tipo' in resource.data && request.resource.data.tipo == resource.data.tipo) ||
+        (request.auth.token.email == 'mentefelizterapias@gmail.com' && request.auth.token.email_verified == true && request.resource.data.tipo == 'admin')
       );
-
-      // If the logged-in user is NOT the owner, evaluate admin and relationship-based access.
-      allow get: if isSignedIn() && request.auth.uid != userId && (
-        isSystemAdmin() || (
-          resource != null && (
-            resource.data.get('tipo', null) == 'terapeuta' || (
-              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-              getUserTenantId() == resource.data.get('tenantId', null)
-            )
+      allow update: if isSignedIn() && request.auth.uid != userId && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          ('tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+          )) || (
+            'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin_institucional' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'prefeitura' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'empresa' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'clinica' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'hospital'
+            ) &&
+            resource != null && 
+            'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+            'tenantId' in resource.data &&
+            'tenantId' in request.resource.data &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == resource.data.tenantId && 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == request.resource.data.tenantId
           )
-        )
-      );
+        );
 
-      allow list: if isSignedIn() && (
-        isSystemAdmin() || (
-          resource != null && (
-            resource.data.get('tipo', null) == 'terapeuta' || (
-              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-              getUserTenantId() == resource.data.get('tenantId', null) && 
-              (getUserType() == 'admin' || 
-               getUserType() == 'super_admin' || 
-               getUserType() == 'admin_institucional' || 
-               getUserType() == 'prefeitura' || 
-               getUserType() == 'empresa' || 
-               getUserType() == 'clinica' || 
-               getUserType() == 'hospital')
-            )
+      // 4. Unified List Rule: Prevent crashes on collection queries
+      allow list: if isSignedIn() && (resource != null && resource.id == request.auth.uid);
+      allow list: if isSignedIn() && (resource != null && 'tipo' in resource.data && resource.data.tipo == 'terapeuta');
+      allow list: if isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          ('tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+          )) || (
+            'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin_institucional' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'prefeitura' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'empresa' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'clinica' || 
+              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'hospital'
+            ) &&
+            resource != null && 
+            'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+            'tenantId' in resource.data &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == resource.data.tenantId
           )
-        )
+        );
+
+      // 5. Unified Delete Rule: Restricts to administrative deletion
+      allow delete: if isSignedIn() && request.auth.uid != userId && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'super_admin'
+        );
+
+      // 6. User Sessions Subcollection Rules
+      match /sessions/{sessionId} {
+        allow read, write: if isSignedIn() && (request.auth.uid == userId || isSystemAdmin(database));
+      }
+
+      // 7. Consent Logs Subcollection Rules
+      match /consent_logs/{logId} {
+        allow read, write: if isSignedIn() && (request.auth.uid == userId || isSystemAdmin(database));
+      }
+    }
+
+    // --- Journeys Collection Rules ---
+    match /journeys/{journeyId} {
+      allow read, write: if isSystemAdmin(database);
+      allow get, list: if isSignedIn() && resource != null && (
+        resource.data.userId == request.auth.uid ||
+        isSystemAdmin(database)
       );
-
-      allow create: if isSignedIn() && request.auth.uid != userId && isSystemAdmin();
-
-      allow update: if isSignedIn() && request.auth.uid != userId && (
-        isSystemAdmin() || (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          (getUserType() == 'admin' || 
-               getUserType() == 'super_admin' || 
-               getUserType() == 'admin_institucional' || 
-               getUserType() == 'prefeitura' || 
-               getUserType() == 'empresa' || 
-               getUserType() == 'clinica' || 
-               getUserType() == 'hospital') &&
-          (resource != null && isSameTenant(resource.data)) && 
-          isSameTenant(incoming())
-        )
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource != null && (
+        resource.data.userId == request.auth.uid ||
+        isSystemAdmin(database)
       );
+    }
 
-      allow delete: if isSignedIn() && request.auth.uid != userId && isSystemAdmin();
+    // --- Professionals Collection Rules ---
+    match /professionals/{professionalId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isSystemAdmin(database));
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isSystemAdmin(database));
+      allow delete: if isSystemAdmin(database);
+    }
+
+    // --- Programs Collection Rules ---
+    match /programs/{programId} {
+      allow read: if isSignedIn();
+      allow write: if isSystemAdmin(database);
+    }
+
+    // --- Library Collection Rules ---
+    match /library/{libraryId} {
+      allow read: if isSignedIn();
+      allow write: if isSystemAdmin(database);
+    }
+
+    // --- Marketplace Collection Rules ---
+    match /marketplace/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isSystemAdmin(database) || (isSignedIn() && (
+        (request.resource != null && request.resource.data.sellerId == request.auth.uid) ||
+        (resource != null && resource.data.sellerId == request.auth.uid)
+      ));
+    }
+
+    // --- Subscriptions Collection Rules ---
+    match /subscriptions/{subId} {
+      allow get, list: if isSignedIn() && resource != null && (resource.data.userId == request.auth.uid || isSystemAdmin(database));
+      allow create, update, delete: if isSystemAdmin(database);
+    }
+
+    // --- Notifications Collection Rules ---
+    match /notifications/{notificationId} {
+      allow get, list: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isSystemAdmin(database));
+      allow update: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Consents Collection Rules ---
+    match /consents/{consentId} {
+      allow get, list: if isSignedIn() && resource != null && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.therapistId == request.auth.uid || 
+        resource.data.organizationId == request.auth.uid ||
+        isSystemAdmin(database)
+      );
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource != null && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource != null && (resource.data.userId == request.auth.uid || isSystemAdmin(database));
     }
 
     // --- Appointments Collection Rules ---
     match /appointments/{appointmentId} {
-      allow read, write: if isSystemAdmin();
+      allow read, write: if isSystemAdmin(database);
       allow get, list: if isSignedIn() && resource != null && (
-        (resource.data.get('patientId', null) == request.auth.uid ||
-         resource.data.get('therapistId', null) == request.auth.uid) &&
-        isSameTenant(resource.data)
+        (('patientId' in resource.data && resource.data.patientId == request.auth.uid) ||
+         ('therapistId' in resource.data && resource.data.therapistId == request.auth.uid)) &&
+        isSameTenant(database, resource.data)
       );
       allow create: if isSignedIn() && (
-        (incoming().get('patientId', null) == request.auth.uid ||
-         incoming().get('therapistId', null) == request.auth.uid) &&
-        isSameTenant(incoming())
+        (('patientId' in request.resource.data && request.resource.data.patientId == request.auth.uid) ||
+         ('therapistId' in request.resource.data && request.resource.data.therapistId == request.auth.uid)) &&
+        isSameTenant(database, request.resource.data)
       );
       allow update: if isSignedIn() && resource != null && (
-        (resource.data.get('patientId', null) == request.auth.uid ||
-         resource.data.get('therapistId', null) == request.auth.uid) &&
-        isSameTenant(resource.data) &&
-        isSameTenant(incoming())
+        (('patientId' in resource.data && resource.data.patientId == request.auth.uid) ||
+         ('therapistId' in resource.data && resource.data.therapistId == request.auth.uid)) &&
+        isSameTenant(database, resource.data) &&
+        isSameTenant(database, request.resource.data)
       );
     }
 
     // --- Messages Collection Rules ---
     match /messages/{messageId} {
-      allow read, write: if isSystemAdmin();
+      allow read, write: if isSystemAdmin(database);
       allow get, list: if isSignedIn() && resource != null && (
-        resource.data.get('senderId', null) == request.auth.uid ||
-        resource.data.get('receiverId', null) == request.auth.uid
+        ('senderId' in resource.data && resource.data.senderId == request.auth.uid) ||
+        ('receiverId' in resource.data && resource.data.receiverId == request.auth.uid)
       );
       allow create: if isSignedIn() && (
-        incoming().get('senderId', null) == request.auth.uid
+        'senderId' in request.resource.data && request.resource.data.senderId == request.auth.uid
       );
     }
 
     // --- Emotion Logs Collection Rules ---
     match /emotion_logs/{logId} {
-      allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
-      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
+      allow read, write: if isSystemAdmin(database);
+      allow get, list: if isSignedIn() && (resource == null || ('userId' in resource.data && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && 'userId' in request.resource.data && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid;
     }
 
     // --- Breathing Logs Collection Rules ---
     match /breathing_logs/{logId} {
-      allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
-      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
+      allow read, write: if isSystemAdmin(database);
+      allow get, list: if isSignedIn() && (resource == null || ('userId' in resource.data && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && 'userId' in request.resource.data && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid;
     }
 
     // --- IARA AI Memory Collection Rules ---
     match /memoria_iara/{userId} {
-      allow read, write: if isSystemAdmin();
+      allow read, write: if isSystemAdmin(database);
       allow read, write: if isOwner(userId);
     }
 
     // --- IARA Conversations Collection Rules ---
     match /iara_conversations/{conversationId} {
-      allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
-      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
+      allow read, write: if isSystemAdmin(database);
+      allow get, list: if isSignedIn() && (resource == null || ('userId' in resource.data && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && 'userId' in request.resource.data && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid;
     }
 
     // --- Diary Entries Collection Rules ---
     match /diary_entries/{entryId} {
-      allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
-      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.get('userId', null) == request.auth.uid;
+      allow read, write: if isSystemAdmin(database);
+      allow get, list: if isSignedIn() && (resource == null || ('userId' in resource.data && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && 'userId' in request.resource.data && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && 'userId' in resource.data && resource.data.userId == request.auth.uid;
     }
 
     // --- Feedbacks Collection Rules ---
     match /feedbacks/{feedbackId} {
-      allow read, write: if isSystemAdmin();
-      allow get, list: if isSignedIn() && (resource == null || resource.data.get('userId', null) == request.auth.uid);
-      allow create: if isSignedIn() && incoming().get('userId', null) == request.auth.uid;
+      allow read, write: if isSystemAdmin(database);
+      allow get, list: if isSignedIn() && (resource == null || ('userId' in resource.data && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && 'userId' in request.resource.data && request.resource.data.userId == request.auth.uid;
     }
 
     // --- Private Clinical Notes Collection Rules ---
     match /private_notes/{noteId} {
-      allow read, write: if isSystemAdmin();
+      allow read, write: if isSystemAdmin(database);
       allow get, list: if isSignedIn() && resource != null && (
-        (resource.data.get('patientId', null) == request.auth.uid ||
-         resource.data.get('therapistId', null) == request.auth.uid) &&
-        isSameTenant(resource.data)
+        (('patientId' in resource.data && resource.data.patientId == request.auth.uid) ||
+         ('therapistId' in resource.data && resource.data.therapistId == request.auth.uid)) &&
+        isSameTenant(database, resource.data)
       );
       allow create: if isSignedIn() && (
-        incoming().get('therapistId', null) == request.auth.uid &&
-        isSameTenant(incoming())
+        'therapistId' in request.resource.data && request.resource.data.therapistId == request.auth.uid &&
+        isSameTenant(database, request.resource.data)
       );
       allow update, delete: if isSignedIn() && resource != null && (
-        resource.data.get('therapistId', null) == request.auth.uid &&
-        isSameTenant(resource.data) &&
-        isSameTenant(incoming())
+        'therapistId' in resource.data && resource.data.therapistId == request.auth.uid &&
+        isSameTenant(database, resource.data) &&
+        isSameTenant(database, request.resource.data)
       );
     }
 
     // --- Security Audit Logs Collection Rules ---
     match /audit_logs/{logId} {
-      allow read, write: if isSystemAdmin();
+      allow read, write: if isSystemAdmin(database);
       allow create: if true;
-      allow get, list: if isSignedIn() && resource != null && resource.data.get('userId', null) == request.auth.uid;
+      allow get, list: if isSignedIn() && resource != null && 'userId' in resource.data && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Exit Surveys Collection Rules ---
+    match /exit_surveys/{surveyId} {
+      allow create: if true;
+      allow read, update, delete: if isSystemAdmin(database);
     }
 
     // --- Organizations Collection Rules ---
     match /organizations/{orgId} {
       allow read: if isSignedIn() && (
-        isSystemAdmin() ||
+        isSystemAdmin(database) ||
         !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
-        getUserTenantId() == orgId
+        !('tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == orgId
       );
-      allow create, delete: if isSystemAdmin();
+      allow create, delete: if isSystemAdmin(database);
       allow update: if isSignedIn() && (
-        isSystemAdmin() || (
+        isSystemAdmin(database) || (
           exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          getUserTenantId() == orgId && 
-          (getUserType() == 'admin_institucional' || 
-           getUserType() == 'empresa' || 
-           getUserType() == 'prefeitura' || 
-           getUserType() == 'clinica' || 
-           getUserType() == 'hospital')
+          'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == orgId && 
+          'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin_institucional' || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'empresa' || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'prefeitura' || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'clinica' || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'hospital'
+          )
         )
       );
+    }
+
+    // --- Plans Collection Rules ---
+    match /plans/{planId} {
+      allow read: if isSignedIn();
+      allow write: if isSystemAdmin(database);
+    }
+
+    // --- Payments Collection Rules ---
+    match /payments/{paymentId} {
+      allow get, list: if isSignedIn() && (resource != null && (resource.data.userId == request.auth.uid || isSystemAdmin(database)));
+      allow create, update, delete: if isSystemAdmin(database);
+    }
+
+    // --- Transactions Collection Rules ---
+    match /transactions/{transactionId} {
+      allow get, list: if isSignedIn() && (resource != null && (resource.data.userId == request.auth.uid || isSystemAdmin(database)));
+      allow create, update, delete: if isSystemAdmin(database);
+    }
+
+    // --- Invoices Collection Rules ---
+    match /invoices/{invoiceId} {
+      allow get, list: if isSignedIn() && (resource != null && (resource.data.userId == request.auth.uid || isSystemAdmin(database)));
+      allow create, update, delete: if isSystemAdmin(database);
+    }
+
+    // --- Commissions Collection Rules ---
+    match /commissions/{commissionId} {
+      allow get, list: if isSignedIn() && (resource != null && (resource.data.therapistId == request.auth.uid || isSystemAdmin(database)));
+      allow create, update, delete: if isSystemAdmin(database);
+    }
+
+    // --- Payouts Collection Rules ---
+    match /payouts/{payoutId} {
+      allow get, list: if isSignedIn() && (resource != null && (resource.data.therapistId == request.auth.uid || isSystemAdmin(database)));
+      allow create, update, delete: if isSystemAdmin(database);
+    }
+
+    // --- Coupons Collection Rules ---
+    match /coupons/{couponId} {
+      allow read: if isSignedIn();
+      allow write: if isSystemAdmin(database);
+    }
+
+    // --- Billing Events Collection Rules ---
+    match /billingEvents/{eventId} {
+      allow get, list: if isSignedIn() && (resource != null && (resource.data.userId == request.auth.uid || isSystemAdmin(database)));
+      allow create, update, delete: if isSystemAdmin(database);
     }
   }
 }

@@ -65,8 +65,44 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Initialize OneSignal clientside dynamically
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    let active = true;
+
     if (typeof window !== 'undefined') {
+      if ((window as any).__onesignal_initialized__) {
+        console.log("OneSignal: Já inicializado anteriormente (global flag).");
+        import('react-onesignal').then(({ default: OneSignal }) => {
+          if (!active) return;
+          unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user) {
+              OneSignal.login(user.uid).catch(e => 
+                console.warn("OneSignal: Erro ao registrar login:", e)
+              );
+            }
+          });
+        });
+        return () => {
+          active = false;
+          if (unsubscribe) unsubscribe();
+        };
+      }
+
       import('react-onesignal').then(({ default: OneSignal }) => {
+        if (!active) return;
+        if ((OneSignal as any).isInitialized && (OneSignal as any).isInitialized()) {
+          (window as any).__onesignal_initialized__ = true;
+          console.log("OneSignal: Já inicializado anteriormente (SDK check).");
+          unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user) {
+              OneSignal.login(user.uid).catch(e => 
+                console.warn("OneSignal: Erro ao registrar login:", e)
+              );
+            }
+          });
+          return;
+        }
+
+        (window as any).__onesignal_initialized__ = true;
         OneSignal.init({
           appId: import.meta.env.VITE_ONESIGNAL_APP_ID || "3cd9c394-b258-40a2-afc4-e69acbe52ef0",
           allowLocalhostAsSecureOrigin: true,
@@ -76,20 +112,27 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             message: "Notificações push devidamente sincronizadas."
           }
         }).then(() => {
+          if (!active) return;
           console.log("OneSignal: Inicializado com sucesso!");
-          const unsubscribe = auth.onAuthStateChanged((user) => {
+          unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
               OneSignal.login(user.uid).catch(e => 
                 console.warn("OneSignal: Erro ao registrar login:", e)
               );
             }
           });
-          return () => unsubscribe();
         }).catch(err => {
           console.warn("OneSignal: Falha ao inicializar SDK:", err);
         });
       });
     }
+
+    return () => {
+      active = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   // Sincroniza dados offline quando o navegador volta a ficar online

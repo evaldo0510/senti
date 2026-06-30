@@ -68,7 +68,6 @@ function App() {
             <Router>
               <Routes>
                 <Route path="/" element={<LandingPro />} />
-                <Route path="/assinatura" element={<Subscription />} />
                 <Route path="/checkout/simulated" element={<ProtectedRoute><SimulatedCheckout /></ProtectedRoute>} />
                 <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/reset21" element={<Reset21 />} />
@@ -102,6 +101,7 @@ function App() {
                 {/* Layout Route with Persistent Mobile Shell for Beautiful Page Transitions */}
                 <Route element={<ProtectedRoute><MobileDeviceWrapper /></ProtectedRoute>}>
                   <Route path="/home" element={<PremiumProtectedRoute><DashboardPaciente /></PremiumProtectedRoute>} />
+                  <Route path="/assinatura" element={<Subscription />} />
                   <Route path="/reset" element={<Reset />} />
                   <Route path="/sobre" element={<Sobre />} />
                   <Route path="/triagem" element={<Triagem />} />

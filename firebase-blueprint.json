@@ -32,6 +32,25 @@
       },
       "required": ["uid", "email", "tipo"]
     },
+    "Journey": {
+      "title": "Journey",
+      "description": "Active therapeutic journey and context for care coordination",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Journey ID" },
+        "userId": { "type": "string", "description": "Patient's Auth UID" },
+        "objective": { "type": "string", "description": "Active care coordination objective" },
+        "programs": { "type": "array", "description": "Active enrolled programs" },
+        "professionals": { "type": "array", "description": "Linked care specialists (UIDs)" },
+        "status": { "type": "string", "enum": ["active", "paused", "completed"], "description": "Journey status" },
+        "streak": { "type": "number", "description": "Active check-in streak count" },
+        "xp": { "type": "number", "description": "Total earned engagement XP" },
+        "dailyGoal": { "type": "string", "description": "Active custom daily goal" },
+        "currentPhase": { "type": "string", "enum": ["inicio", "desenvolvimento", "consolidacao"], "description": "Visual phase under Meu Jardim metaphor" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last progress update timestamp" }
+      },
+      "required": ["userId", "objective", "status"]
+    },
     "Appointment": {
       "title": "Appointment",
       "description": "Scheduled session between a patient and a therapist",
@@ -46,6 +65,115 @@
         "tenantId": { "type": "string", "description": "ID of the linked organization (multitenant)" }
       },
       "required": ["patientId", "therapistId", "date", "status"]
+    },
+    "Professional": {
+      "title": "Professional",
+      "description": "Clinical therapist metadata and details",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Auth UID of the professional" },
+        "crp": { "type": "string", "description": "Professional registration number" },
+        "specialties": { "type": "array", "description": "Specialties offered" },
+        "languages": { "type": "array", "description": "Languages spoken" },
+        "availability": { "type": "object", "description": "Weekly calendar slots availability" },
+        "address": { "type": "string", "description": "Physical clinical office address" },
+        "tenantId": { "type": "string", "description": "Linked organization ID" },
+        "verified": { "type": "boolean", "description": "Whether CRP is officially validated" }
+      },
+      "required": ["userId", "crp", "specialties"]
+    },
+    "Program": {
+      "title": "Program",
+      "description": "Therapeutic care program designed for specific mental conditions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Program ID" },
+        "title": { "type": "string", "description": "Program name" },
+        "category": { "type": "string", "enum": ["ansiedade", "sono", "luto", "casal", "adolescente", "geral"], "description": "Program category matching care journeys" },
+        "description": { "type": "string", "description": "Overview description" },
+        "steps": { "type": "array", "description": "Sequential milestones or tasks" },
+        "estimatedDays": { "type": "number", "description": "Average duration to complete" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation date" }
+      },
+      "required": ["id", "title", "category", "steps"]
+    },
+    "LibraryItem": {
+      "title": "LibraryItem",
+      "description": "Educational reading, meditation guides or PCH tracks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Item ID" },
+        "title": { "type": "string", "description": "Title" },
+        "type": { "type": "string", "enum": ["meditacao", "leitura", "audio", "pch", "video"], "description": "Content type" },
+        "content": { "type": "string", "description": "Full text or markdown description" },
+        "mediaUrl": { "type": "string", "description": "URL of the audio/video file if applicable" },
+        "category": { "type": "string", "description": "Target condition or topic" },
+        "durationSeconds": { "type": "number", "description": "Content play duration" }
+      },
+      "required": ["id", "title", "type"]
+    },
+    "MarketplaceProduct": {
+      "title": "MarketplaceProduct",
+      "description": "Products, wellness courses or events on the SentiPae market",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Product ID" },
+        "title": { "type": "string", "description": "Product or course title" },
+        "description": { "type": "string", "description": "Meticulous description" },
+        "price": { "type": "number", "description": "Item cost" },
+        "category": { "type": "string", "enum": ["curso", "evento", "livro", "equipamento"], "description": "Product type" },
+        "sellerId": { "type": "string", "description": "Therapist or org UID selling the item" },
+        "imageUrl": { "type": "string", "description": "URL of product cover" },
+        "rating": { "type": "number", "description": "Product reviews rating" }
+      },
+      "required": ["id", "title", "price", "category"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "SentiPae financial subscription tracking layer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Subscription ID" },
+        "userId": { "type": "string", "description": "User UID" },
+        "plan": { "type": "string", "enum": ["trial", "premium", "professional", "enterprise"], "description": "Tier" },
+        "status": { "type": "string", "enum": ["active", "cancelled", "expired", "paused"], "description": "Gateway status" },
+        "amount": { "type": "number", "description": "Recurring price paid" },
+        "period": { "type": "string", "enum": ["monthly", "annual"], "description": "Billing cadence" },
+        "currentPeriodEnd": { "type": "string", "format": "date-time", "description": "Next billing date" },
+        "gatewayId": { "type": "string", "description": "Stripe/MercadoPago reference" }
+      },
+      "required": ["userId", "plan", "status", "currentPeriodEnd"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Push notification or in-app alarm tracking layer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Notification ID" },
+        "userId": { "type": "string", "description": "Target User UID" },
+        "title": { "type": "string", "description": "Message Title" },
+        "body": { "type": "string", "description": "Body message text" },
+        "type": { "type": "string", "enum": ["alert", "info", "appointment", "chat"], "description": "Type classification" },
+        "read": { "type": "boolean", "description": "Whether it was opened/read" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["userId", "title", "body", "read", "createdAt"]
+    },
+    "Consent": {
+      "title": "Consent",
+      "description": "Patient compliance consent and info-sharing authorization under LGPD rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Consent record ID" },
+        "userId": { "type": "string", "description": "Auth UID of the patient" },
+        "therapistId": { "type": "string", "description": "Auth UID of authorized professional" },
+        "organizationId": { "type": "string", "description": "Auth ID of authorized company/prefeitura/clinic" },
+        "granted": { "type": "boolean", "description": "Consent status" },
+        "allowedData": { "type": "array", "description": "List of data permissions (mood, journals, care plan)" },
+        "grantedAt": { "type": "string", "format": "date-time", "description": "Consent creation timestamp" },
+        "revokedAt": { "type": "string", "format": "date-time", "description": "Consent revocation timestamp" }
+      },
+      "required": ["userId", "granted", "allowedData", "grantedAt"]
     },
     "Message": {
       "title": "Message",
@@ -169,6 +297,139 @@
         }
       },
       "required": ["id", "name", "tipo", "active", "createdAt"]
+    },
+    "FinancialPlan": {
+      "title": "FinancialPlan",
+      "description": "Plan configuration details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "period": { "type": "string" },
+        "features": { "type": "array" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "period"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Payment record for subscription or booking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "provider": { "type": "string" },
+        "subId": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "amount", "status", "type", "createdAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Ledger entry for auditing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "referenceId": { "type": "string" },
+        "referenceType": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "type", "amount", "status", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Invoice for customer billing records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "subscriptionId": { "type": "string" },
+        "paymentId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "paidAt": { "type": "string" },
+        "pdfUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "paymentId", "amount", "status", "invoiceNumber", "dueDate", "createdAt"]
+    },
+    "Commission": {
+      "title": "Commission",
+      "description": "Platform cuts and professional split metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "productId": { "type": "string" },
+        "therapistId": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "commissionPercentage": { "type": "number" },
+        "commissionAmount": { "type": "number" },
+        "therapistAmount": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "therapistId", "totalAmount", "commissionPercentage", "commissionAmount", "therapistAmount", "status", "createdAt"]
+    },
+    "Payout": {
+      "title": "Payout",
+      "description": "Earnings distributions sent to professionals",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "therapistId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string" },
+        "bankName": { "type": "string" },
+        "bankAgency": { "type": "string" },
+        "bankAccount": { "type": "string" },
+        "pixKeyType": { "type": "string" },
+        "pixKey": { "type": "string" },
+        "paidAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "therapistId", "amount", "status", "createdAt"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Promotional discounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "discountPercentage": { "type": "number" },
+        "active": { "type": "boolean" },
+        "maxUses": { "type": "number" },
+        "currentUses": { "type": "number" },
+        "validUntil": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "code", "discountPercentage", "active", "maxUses", "currentUses", "validUntil", "createdAt"]
+    },
+    "BillingEvent": {
+      "title": "BillingEvent",
+      "description": "Billing events logged for audit trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "eventType": { "type": "string" },
+        "payload": { "type": "object" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "eventType", "createdAt"]
     }
   },
   "firestore": {
@@ -176,9 +437,17 @@
       "schema": "User",
       "description": "Collection of user profiles"
     },
+    "journeys": {
+      "schema": "Journey",
+      "description": "Collection of active client care journeys and continuous profiles"
+    },
     "appointments": {
       "schema": "Appointment",
       "description": "Collection of scheduled sessions"
+    },
+    "professionals": {
+      "schema": "Professional",
+      "description": "Collection of professional therapist details, CRP credentials and calendar config"
     },
     "messages": {
       "schema": "Message",
@@ -207,6 +476,62 @@
     "organizations": {
       "schema": "Organization",
       "description": "Collection of multitenant tenants"
+    },
+    "programs": {
+      "schema": "Program",
+      "description": "Collection of available care pathways and therapeutic modules"
+    },
+    "library": {
+      "schema": "LibraryItem",
+      "description": "Collection of available readings, exercises, meditations and hipnotic poesies"
+    },
+    "marketplace": {
+      "schema": "MarketplaceProduct",
+      "description": "Collection of products, courses and wellness items on marketplace"
+    },
+    "subscriptions": {
+      "schema": "Subscription",
+      "description": "Collection of financial plans and billing subscriptions"
+    },
+    "notifications": {
+      "schema": "Notification",
+      "description": "Collection of user push and in-app alert history notifications"
+    },
+    "consents": {
+      "schema": "Consent",
+      "description": "Collection of explicit patient consent locks for therapist and tenant data sharing under LGPD"
+    },
+    "plans": {
+      "schema": "FinancialPlan",
+      "description": "Collection of available subscription and licensing plans"
+    },
+    "payments": {
+      "schema": "Payment",
+      "description": "Collection of subscription, appointment, and product payment logs"
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Collection of ledger transaction records for accounting and audit trail"
+    },
+    "invoices": {
+      "schema": "Invoice",
+      "description": "Collection of billing invoices for subscriptions and individual charges"
+    },
+    "commissions": {
+      "schema": "Commission",
+      "description": "Collection of financial split commission records for professional sales"
+    },
+    "payouts": {
+      "schema": "Payout",
+      "description": "Collection of payout history records for professional therapists"
+    },
+    "coupons": {
+      "schema": "Coupon",
+      "description": "Collection of promotional and discount coupons"
+    },
+    "billingEvents": {
+      "schema": "BillingEvent",
+      "description": "Collection of logged events related to financial and billing updates"
     }
   }
 }

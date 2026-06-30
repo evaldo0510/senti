@@ -41,12 +41,6 @@ export default function MobileDeviceWrapper({ children }: MobileDeviceWrapperPro
   const { isInstallable, handleInstall } = usePWA();
   const { hasPremiumAccess, loading: authLoading } = useAuth();
 
-  useEffect(() => {
-    if (!authLoading && !hasPremiumAccess() && location.pathname !== "/assinatura" && location.pathname !== "/onboarding") {
-      navigate("/assinatura", { replace: true });
-    }
-  }, [hasPremiumAccess, authLoading, location.pathname, navigate]);
-
   const [time, setTime] = useState("");
   const [showTools, setShowTools] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

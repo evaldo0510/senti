@@ -8,6 +8,8 @@ Este documento serve como diretriz estratégica de desenvolvimento para os assis
 ### VISÃO
 O SentiPae é uma **Plataforma Inteligente de Coordenação do Cuidado Humano**. Sua missão é acolher, organizar a jornada do usuário e conectar cada pessoa ao profissional mais adequado no momento certo. A Inteligência Artificial atua como facilitadora; o cuidado permanece humano.
 
+> **"O SentiPae não substitui profissionais. Ele organiza, integra e fortalece a jornada de cuidado entre pessoas, inteligência artificial e especialistas."**
+
 ---
 
 ### PILARES DO SISTEMA

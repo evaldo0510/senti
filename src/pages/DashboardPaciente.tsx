@@ -65,6 +65,8 @@ import { AchievementsWidget } from "../components/AchievementsWidget";
 import MoodTrend7Days from "../components/MoodTrend7Days";
 import JornadaGuiada from "../components/JornadaGuiada";
 import MeuJardim from "../components/MeuJardim";
+import ProntuarioInteligenteUnificado from "../components/ProntuarioInteligenteUnificado";
+import LinhaTempoJornada from "../components/LinhaTempoJornada";
 import { Dumbbell, Download, ToggleLeft, ToggleRight, FileText, Flame, Award, Compass, Lock, Unlock, Medal } from "lucide-react";
 
 export default function DashboardPaciente() {
@@ -1634,6 +1636,12 @@ export default function DashboardPaciente() {
             )}
           </AnimatePresence>
         </section>
+
+        {/* Linha do Tempo da Jornada Terapêutica (SDS) */}
+        <LinhaTempoJornada />
+
+        {/* Prontuário Inteligente Unificado (PIU) & ICC */}
+        <ProntuarioInteligenteUnificado userType="paciente" defaultTab="usuario" />
 
         {/* Recharts Emotional Trend Card */}
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/40 dark:shadow-none space-y-4">

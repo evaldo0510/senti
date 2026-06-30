@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { auth } from "./firebase";
 
 export interface SentimentAnalysisResult {
@@ -14,6 +13,18 @@ export interface AISentimentReport {
   explanation: string;
   advice: string;
   keywords: string[];
+}
+
+async function getHeaders(): Promise<HeadersInit> {
+  const user = auth.currentUser;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (user) {
+    const token = await user.getIdToken();
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 export const sentimentService = {
@@ -172,59 +183,27 @@ export const sentimentService = {
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated");
 
-    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      // Fallback if no API key is set
+    try {
+      const headers = await getHeaders();
+      const response = await fetch("/api/gemini/analyze-with-ai", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na análise de sentimento do servidor: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Erro ao analisar sentimento com IA via servidor, usando fallback:", error);
       const localResult = sentimentService.analyzeDiarySentiment(content);
       return {
         score: localResult.score,
         explanation: `Sua escrita reflete sentimentos relacionados a ${localResult.dominantEmotion.toLowerCase()}. O tom geral é classificado como ${localResult.label.toLowerCase()}.`,
         advice: "Escrever ajuda a reorganizar as conexões mentais. Continue esse hábito acolhedor.",
         keywords: [localResult.dominantEmotion, "Diário"]
-      };
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const model = ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [
-        {
-          text: `Você é um especialista em psicologia clínica e análise de sentimentos linguísticos. 
-          Analise o seguinte registro de diário de um paciente e forneça um relatório estruturado em JSON com as seguintes chaves exatas:
-          
-          Texto do Diário: "${content}"
-          
-          O JSON de resposta deve seguir estritamente este formato:
-          {
-            "score": número de 1 a 10 (onde 1 é extremamente negativo/triste/ansioso e 10 é extremamente positivo/em paz/feliz),
-            "explanation": "Uma breve explicação do sentimento detectado na escrita, em tom caloroso e empático (máximo de 2 frases)",
-            "advice": "Um conselho ou insight terapêutico empático baseado no texto (máximo de 2 frases)",
-            "keywords": ["3-4 palavras-chave emocionais identificadas no texto"]
-          }`
-        }
-      ],
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    try {
-      const response = await model;
-      const result = JSON.parse(response.text || "{}");
-      return {
-        score: typeof result.score === 'number' ? result.score : 5.0,
-        explanation: result.explanation || "Não foi possível analisar detalhadamente.",
-        advice: result.advice || "Continue registrando seus sentimentos.",
-        keywords: Array.isArray(result.keywords) ? result.keywords : []
-      };
-    } catch (error) {
-      console.error("Error generating AI sentiment report:", error);
-      const localResult = sentimentService.analyzeDiarySentiment(content);
-      return {
-        score: localResult.score,
-        explanation: `Sentimentos de ${localResult.dominantEmotion.toLowerCase()} detectados localmente.`,
-        advice: "Focar em respiração consciente e autocompaixão.",
-        keywords: [localResult.dominantEmotion]
       };
     }
   }

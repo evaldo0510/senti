@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../services/firebase';
 import { userService } from '../services/userService';
+import { sessionService } from '../services/sessionService';
 import { UserProfile } from '../types';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { LoadingScreen } from './LoadingScreen';
@@ -33,6 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
+    let unsubscribeSession: (() => void) | null = null;
 
     const simUserStr = localStorage.getItem("simulatedUser");
     const simProfileStr = localStorage.getItem("simulatedProfile");
@@ -58,6 +60,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         unsubscribeProfile();
         unsubscribeProfile = null;
       }
+      if (unsubscribeSession) {
+        unsubscribeSession();
+        unsubscribeSession = null;
+      }
 
       if (currentUser) {
         try {
@@ -76,6 +82,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.setItem("tipo", updatedProfile.tipo);
             }
           });
+
+          // Register session and listen to revocation
+          try {
+            await sessionService.registerSession(currentUser.uid);
+            unsubscribeSession = sessionService.listenToCurrentSession(currentUser.uid, () => {
+              auth.signOut();
+            });
+          } catch (sessionErr) {
+            console.error("Failed to establish session monitoring:", sessionErr);
+          }
         } catch (error) {
           console.error("Error fetching user profile:", error);
         }
@@ -94,6 +110,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubscribe();
       if (unsubscribeProfile) {
         unsubscribeProfile();
+      }
+      if (unsubscribeSession) {
+        unsubscribeSession();
       }
     };
   }, []);

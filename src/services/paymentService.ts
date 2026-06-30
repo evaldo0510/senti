@@ -3,69 +3,128 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { UserProfile } from "../types";
 
 export interface Plan {
-  id: "trial" | "premium" | "professional" | "enterprise";
+  id: string;
   name: string;
   price: number;
-  period: "7_days" | "15_days" | "monthly";
+  period: string;
   features: string[];
 }
 
 export const PLANS: Record<string, Plan> = {
-  trial: {
-    id: "trial",
-    name: "Período Gratuito (7 Dias de Teste)",
+  free: {
+    id: "free",
+    name: "SentiPae Gratuito",
     price: 0,
-    period: "7_days",
+    period: "monthly",
     features: [
-      "Período de 7 dias de experimentação",
-      "Até 20 conversas com a IA (IARA) no total",
-      "Diário emocional totalmente liberado",
-      "Acesso completo a conteúdos básicos",
-      "Busca e contato com terapeutas autorizados",
-      "Agendamento de consultas permitido"
+      "Cadastro e perfil completo na plataforma",
+      "Acolhimento com a IARA (Texto com limite diário)",
+      "Diário emocional básico de sentimentos",
+      "Conteúdos e pílulas de bem-estar gratuitos",
+      "Jornada inicial de acolhimento tático"
     ]
   },
   premium: {
     id: "premium",
-    name: "Plano Premium",
+    name: "SentiPae Premium",
     price: 39.90,
     period: "monthly",
     features: [
-      "IA (IARA) totalmente ilimitada e de alta velocidade",
-      "Diário completo de humor com gráficos de evolução",
-      "Conteúdos avançados e pílulas exclusivas",
-      "Exercícios respiratórios guiados ilimitados",
-      "Histórico completo sem limitação de tempo",
-      "Relatórios de inteligência de humor prontos para exportar"
+      "Conversas ilimitadas com a IARA AI via texto",
+      "IARA de Voz em Tempo Real (Google Live)",
+      "Programas terapêuticos completos",
+      "Biblioteca Premium e pílulas de PCH ilimitadas",
+      "Meu Jardim completo com evolução gamificada",
+      "Relatórios de evolução profundos com gráficos de humor"
+    ]
+  },
+  plus_familia: {
+    id: "plus_familia",
+    name: "SentiPae Plus Família",
+    price: 79.90,
+    period: "monthly",
+    features: [
+      "Até 4 perfis familiares independentes",
+      "Todas as funcionalidades do plano Premium para cada perfil",
+      "Acompanhamento e evolução familiar agregada",
+      "Jornadas de cuidado compartilhadas",
+      "Conteúdos exclusivos voltados para dinâmica familiar"
+    ]
+  },
+  professional_inicial: {
+    id: "professional_inicial",
+    name: "Profissional Inicial",
+    price: 0,
+    period: "monthly",
+    features: [
+      "Perfil público profissional na rede SentiPae",
+      "Agenda de atendimentos básica",
+      "Presença de destaque na busca por especialistas",
+      "Gestão básica de consultas e pacientes"
     ]
   },
   professional: {
     id: "professional",
-    name: "Plano Profissional (Terapeuta)",
+    name: "Profissional Pro",
     price: 99.90,
     period: "monthly",
     features: [
-      "Destaque profissional nas buscas",
-      "Agenda de consultas automatizada",
-      "Acompanhamento clínico de múltiplos pacientes",
-      "Sala de videoconferência integrada e criptografada",
-      "Perfil público profissional otimizado",
-      "Dashboard de faturamento e produtividade"
+      "Agenda avançada com sincronização automática do Google Calendar",
+      "Teleatendimento por videoconferência encriptada de ponta a ponta",
+      "Ferramentas completas de acompanhamento clínico",
+      "Evolução e prontuário encriptado de pacientes",
+      "Relatórios administrativos automatizados",
+      "IA de apoio administrativo e resumos clínicos"
     ]
   },
-  enterprise: {
-    id: "enterprise",
-    name: "Plano Institucional (Órgãos Públicos & Empresas)",
-    price: 499.90,
+  clinica: {
+    id: "clinica",
+    name: "Clínica",
+    price: 299.90,
     period: "monthly",
     features: [
-      "Para Prefeituras, Secretarias de Saúde/Educação, Clínicas e Empresas",
-      "Painel administrativo institucional exclusivo (Multitenant)",
-      "Gestão e credenciamento de profissionais e usuários vinculados",
-      "Dashboard institucional com indicadores agregados (100% anônimos)",
-      "Gestão ativa de campanhas de bem-estar emocional",
-      "Biblioteca de conteúdos exclusiva e suporte técnico prioritário",
-      "Precificação escalável por lotes: Até 100, 500 ou 1000 usuários"
+      "Gestão de múltiplos profissionais credenciados",
+      "Painel administrativo integrado para a clínica",
+      "Agenda centralizada da equipe multidisciplinar",
+      "Indicadores de produtividade e faturamento centralizados",
+      "Relatórios clínicos unificados"
+    ]
+  },
+  empresa: {
+    id: "empresa",
+    name: "Empresas",
+    price: 15.00,
+    period: "colaborador",
+    features: [
+      "Preço sob medida por colaborador ativo",
+      "Programas personalizados de saúde e bem-estar",
+      "Dashboard institucional exclusivo (Multitenant)",
+      "Indicadores agregados 100% anônimos (LGPD)",
+      "Campanhas customizadas de bem-estar emocional"
+    ]
+  },
+  universidade: {
+    id: "universidade",
+    name: "Universidades",
+    price: 10.00,
+    period: "estudante",
+    features: [
+      "Acolhimento especial para estudantes e professores",
+      "Programas focados em prevenção acadêmica e burnout",
+      "Dashboard institucional com monitoramento de clima",
+      "Relatórios de satisfação e engajamento anônimos"
+    ]
+  },
+  prefeitura: {
+    id: "prefeitura",
+    name: "Prefeituras",
+    price: 0, // Contrato público
+    period: "contrato",
+    features: [
+      "Contrato institucional de saúde pública",
+      "Acolhimento da população de saúde, educação e social",
+      "Relatórios demográficos detalhados de saúde mental",
+      "Programas de prevenção e triagem preventiva integrada"
     ]
   }
 };
@@ -73,9 +132,9 @@ export const PLANS: Record<string, Plan> = {
 export interface PaymentService {
   getPublicKeys: () => { stripe: string; mercadoPago: string };
   hasPremiumAccess: (profile: UserProfile | null) => boolean;
-  checkoutStripe: (userId: string, planId: "premium" | "professional" | "enterprise", isDemo?: boolean) => Promise<{ url: string; isSimulated: boolean }>;
-  checkoutMercadoPago: (userId: string, planId: "premium" | "professional" | "enterprise", isDemo?: boolean) => Promise<{ url: string; isSimulated: boolean }>;
-  activateSubscription: (userId: string, planId: "premium" | "professional" | "enterprise", provider: "stripe" | "mercadopago", subId?: string) => Promise<any>;
+  checkoutStripe: (userId: string, planId: string, isDemo?: boolean) => Promise<{ url: string; isSimulated: boolean }>;
+  checkoutMercadoPago: (userId: string, planId: string, isDemo?: boolean) => Promise<{ url: string; isSimulated: boolean }>;
+  activateSubscription: (userId: string, planId: string, provider: "stripe" | "mercadopago", subId?: string) => Promise<any>;
   cancelSubscription: (userId: string) => Promise<any>;
   createCheckoutSession: (
     appointmentId: string,

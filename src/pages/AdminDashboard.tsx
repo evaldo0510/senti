@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../components/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { db } from "../services/firebase";
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, setDoc } from "firebase/firestore";
 import { UserProfile, UserType, Organization } from "../types";
 import { organizationService } from "../services/organizationService";
+import { userService } from "../services/userService";
 import { PLANS } from "../services/paymentService";
+import SentiCoreCommandCenter from "../components/SentiCoreCommandCenter";
 import { 
   Users, 
   ShieldAlert, 
@@ -24,14 +26,15 @@ import {
   Activity,
   UserX,
   CreditCard,
-  FileText
+  FileText,
+  Bot
 } from "lucide-react";
 
 export default function AdminDashboard() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<"geral" | "usuarios" | "organizations" | "assinaturas" | "terapeutas" | "agendamentos" | "config">("geral");
+  const [activeTab, setActiveTab] = useState<"geral" | "usuarios" | "organizations" | "assinaturas" | "terapeutas" | "agendamentos" | "config" | "senticore" | "financeiro">("senticore");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
   const [organizationsList, setOrganizationsList] = useState<Organization[]>([]);
@@ -39,6 +42,18 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
+
+  // Estados Financeiros para a SPRINT 17
+  const [paymentsList, setPaymentsList] = useState<any[]>([]);
+  const [commissionsList, setCommissionsList] = useState<any[]>([]);
+  const [payoutsList, setPayoutsList] = useState<any[]>([]);
+  const [couponsList, setCouponsList] = useState<any[]>([]);
+
+  // Estados de criação de cupom de desconto
+  const [newCouponCode, setNewCouponCode] = useState("");
+  const [newCouponDiscount, setNewCouponDiscount] = useState<number>(15);
+  const [newCouponMaxUses, setNewCouponMaxUses] = useState<number>(100);
+  const [newCouponValidUntil, setNewCouponValidUntil] = useState("2026-12-31");
 
   // Estado do Modal de Edição de Usuário
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
@@ -89,10 +104,176 @@ export default function AdminDashboard() {
       const orgs = await organizationService.listOrganizations();
       setOrganizationsList(orgs);
 
+      // Carrega Pagamentos
+      try {
+        const paySnap = await getDocs(collection(db, "payments"));
+        const payData = paySnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setPaymentsList(payData);
+      } catch (e) {
+        console.warn("Payments collection not loaded yet:", e);
+      }
+
+      // Carrega Comissões
+      try {
+        const commSnap = await getDocs(collection(db, "commissions"));
+        const commData = commSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setCommissionsList(commData);
+      } catch (e) {
+        console.warn("Commissions collection not loaded yet:", e);
+      }
+
+      // Carrega Repasses (Payouts)
+      try {
+        const paySnap = await getDocs(collection(db, "payouts"));
+        const payData = paySnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setPayoutsList(payData);
+      } catch (e) {
+        console.warn("Payouts collection not loaded yet:", e);
+      }
+
+      // Carrega Cupons
+      try {
+        const coupSnap = await getDocs(collection(db, "coupons"));
+        const coupData = coupSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+        setCouponsList(coupData);
+      } catch (e) {
+        console.warn("Coupons collection not loaded yet:", e);
+      }
+
     } catch (error) {
       console.error("Erro ao carregar dados administrativos:", error);
     } finally {
       setLoadingData(false);
+    }
+  };
+
+  // Criação de novos cupons no Firestore
+  const handleCreateCoupon = async () => {
+    if (!newCouponCode.trim()) {
+      alert("Por favor, digite um código para o cupom.");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const now = new Date();
+      const couponId = newCouponCode.trim().toUpperCase();
+      const newCoupon = {
+        id: couponId,
+        code: couponId,
+        discountPercentage: Number(newCouponDiscount),
+        active: true,
+        maxUses: Number(newCouponMaxUses),
+        currentUses: 0,
+        validUntil: newCouponValidUntil,
+        createdAt: now.toISOString()
+      };
+
+      await setDoc(doc(db, "coupons", couponId), newCoupon);
+      alert(`Cupom ${couponId} criado com sucesso!`);
+      setNewCouponCode("");
+      
+      // Recarrega dados
+      const coupSnap = await getDocs(collection(db, "coupons"));
+      setCouponsList(coupSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } catch (err: any) {
+      console.error("Erro ao criar cupom:", err);
+      alert("Erro ao salvar cupom: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Deleta cupom do Firestore
+  const handleDeleteCoupon = async (id: string) => {
+    if (!confirm("Tem certeza de que deseja remover este cupom?")) return;
+    setActionLoading(true);
+    try {
+      await deleteDoc(doc(db, "coupons", id));
+      alert("Cupom removido com sucesso.");
+      setCouponsList(prev => prev.filter(c => c.id !== id));
+    } catch (err: any) {
+      console.error("Erro ao remover cupom:", err);
+      alert("Erro ao excluir: " + err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Popula dados de simulação
+  const handlePopulateFinancialDemoData = async () => {
+    setActionLoading(true);
+    try {
+      const now = new Date();
+      const mockCoupons = [
+        { id: "CUPOM10", code: "Senti10", discountPercentage: 10, active: true, maxUses: 100, currentUses: 12, validUntil: "2026-12-31", createdAt: now.toISOString() },
+        { id: "FOUNDER100", code: "FOUNDER100", discountPercentage: 100, active: true, maxUses: 50, currentUses: 4, validUntil: "2026-12-31", createdAt: now.toISOString() },
+        { id: "VIVERBEM20", code: "VIVERBEM20", discountPercentage: 20, active: true, maxUses: 200, currentUses: 35, validUntil: "2026-08-31", createdAt: now.toISOString() }
+      ];
+
+      for (const coupon of mockCoupons) {
+        await setDoc(doc(db, "coupons", coupon.id), coupon);
+      }
+
+      const therapists = usersList.filter(u => u.tipo === "terapeuta");
+      const regularUsers = usersList.filter(u => u.tipo === "usuario");
+
+      if (regularUsers.length > 0) {
+        for (let i = 0; i < Math.min(regularUsers.length, 5); i++) {
+          const user = regularUsers[i];
+          const payId = `PAY-DEMO-${i}`;
+          await setDoc(doc(db, "payments", payId), {
+            id: payId,
+            userId: user.uid,
+            amount: 39.90,
+            status: "success",
+            provider: "stripe",
+            type: "subscription",
+            createdAt: new Date(now.getTime() - i * 5 * 24 * 60 * 60 * 1000).toISOString()
+          });
+        }
+      }
+
+      if (therapists.length > 0) {
+        for (let i = 0; i < Math.min(therapists.length, 3); i++) {
+          const therapist = therapists[i];
+          const commissionId = `COMM-DEMO-${i}`;
+          const payoutId = `PAYOUT-DEMO-${i}`;
+
+          await setDoc(doc(db, "commissions", commissionId), {
+            id: commissionId,
+            appointmentId: `APP-DEMO-${i}`,
+            therapistId: therapist.uid,
+            totalAmount: 150.00,
+            commissionPercentage: 15,
+            commissionAmount: 22.50,
+            therapistAmount: 127.50,
+            status: "pending",
+            createdAt: now.toISOString()
+          });
+
+          await setDoc(doc(db, "payouts", payoutId), {
+            id: payoutId,
+            therapistId: therapist.uid,
+            amount: 255.00,
+            status: i % 2 === 0 ? "paid" : "pending",
+            bankName: "Banco Central",
+            bankAgency: "0001",
+            bankAccount: "987654-3",
+            pixKeyType: "email",
+            pixKey: therapist.email || "pix@senti.com",
+            paidAt: i % 2 === 0 ? now.toISOString() : "",
+            createdAt: now.toISOString()
+          });
+        }
+      }
+
+      alert("Dados de simulação financeira criados com sucesso!");
+      await loadAdminData();
+    } catch (err: any) {
+      console.error("Erro ao popular dados de simulação financeira:", err);
+      alert("Erro ao criar dados no Firestore: " + err.message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -277,6 +458,15 @@ export default function AdminDashboard() {
             </button>
 
             <button
+              onClick={() => setActiveTab("senticore")}
+              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "senticore" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Bot className="w-4 h-4" /> SentiCore OS Hub
+            </button>
+
+            <button
               onClick={() => setActiveTab("usuarios")}
               className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
                 activeTab === "usuarios" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
@@ -301,6 +491,16 @@ export default function AdminDashboard() {
               }`}
             >
               <CreditCard className="w-4 h-4" /> Assinaturas & Planos
+            </button>
+
+            <button
+              onClick={() => setActiveTab("financeiro")}
+              className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold transition ${
+                activeTab === "financeiro" ? "bg-emerald-500 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"
+              }`}
+              id="admin-tab-financeiro"
+            >
+              <Coins className="w-4 h-4" /> Painel Financeiro
             </button>
 
             <button
@@ -815,6 +1015,278 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* TAB 3.5: PAINEL FINANCEIRO */}
+            {activeTab === "financeiro" && (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-black/5 shadow-sm">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                      <Coins className="w-5 h-5 text-emerald-500" /> Painel Financeiro SentiPae
+                    </h3>
+                    <p className="text-xs text-slate-500">Monitoramento em tempo real de receitas, splits, repasses e cupons de desconto do ecossistema.</p>
+                  </div>
+                  <button
+                    onClick={handlePopulateFinancialDemoData}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5"
+                    id="populate-financial-demo-btn"
+                  >
+                    <Coins className="w-3.5 h-3.5 text-emerald-400" /> Carregar Dados de Demonstração
+                  </button>
+                </div>
+
+                {/* Bento Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  {/* MRR Estimado */}
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">MRR Estimado (Planos)</span>
+                      <div className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg"><Coins className="w-4 h-4" /></div>
+                    </div>
+                    <div className="mt-4">
+                      <span className="text-2xl font-black text-slate-900">R$ {estimatedMRR.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                      <span className="text-[10px] text-slate-400 block mt-1">Baseado em assinantes ativos</span>
+                    </div>
+                  </div>
+
+                  {/* Receita Realizada */}
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Receita Realizada (Ledger)</span>
+                      <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><CreditCard className="w-4 h-4" /></div>
+                    </div>
+                    <div className="mt-4">
+                      <span className="text-2xl font-black text-slate-900">
+                        R$ {paymentsList.filter(p => p.status === "success").reduce((acc, p) => acc + (p.amount || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block mt-1">{paymentsList.filter(p => p.status === "success").length} pagamentos confirmados</span>
+                    </div>
+                  </div>
+
+                  {/* Comissões SentiPae */}
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Comissão SentiPae (15%)</span>
+                      <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><Activity className="w-4 h-4" /></div>
+                    </div>
+                    <div className="mt-4">
+                      <span className="text-2xl font-black text-slate-900">
+                        R$ {commissionsList.reduce((acc, c) => acc + (c.commissionAmount || 0), 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block mt-1">Split de agendamentos retido</span>
+                    </div>
+                  </div>
+
+                  {/* Custos Operacionais */}
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm flex flex-col justify-between">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Custos Operacionais Est.</span>
+                      <div className="p-1.5 bg-red-50 text-red-600 rounded-lg"><ShieldAlert className="w-4 h-4" /></div>
+                    </div>
+                    <div className="mt-4">
+                      <span className="text-2xl font-black text-red-600">
+                        R$ {((usersList.length * 0.15) + (paymentsList.length * 1.5)).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block mt-1">API Gemini e servidores sandbox</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-grid: Histórico de Transações e Administração de Cupons */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Histórico Ledger */}
+                  <div className="lg:col-span-2 bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden flex flex-col">
+                    <div className="p-6 border-b border-black/5">
+                      <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Histórico de Transações Sandbox / Reais</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Fluxo real e sandbox processados via Stripe e Mercado Pago.</p>
+                    </div>
+                    <div className="overflow-x-auto flex-1">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-black/5 text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">
+                            <th className="p-4">Identificador</th>
+                            <th className="p-4">Método</th>
+                            <th className="p-4">Tipo</th>
+                            <th className="p-4">Data</th>
+                            <th className="p-4 text-right">Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-black/5 text-xs">
+                          {paymentsList.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-xs text-slate-400 font-bold">Nenhum pagamento registrado no Firestore. Clique em "Carregar Dados de Demonstração".</td>
+                            </tr>
+                          ) : (
+                            paymentsList.map((pay) => (
+                              <tr key={pay.id} className="hover:bg-slate-50">
+                                <td className="p-4 font-mono text-[10px] text-slate-500">{pay.id}</td>
+                                <td className="p-4 uppercase font-bold text-slate-600">{pay.provider}</td>
+                                <td className="p-4 font-medium text-slate-500">{pay.type === 'subscription' ? 'Assinatura' : 'Consulta'}</td>
+                                <td className="p-4 text-slate-400">{pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("pt-BR") : "N/A"}</td>
+                                <td className="p-4 text-right font-black text-slate-800">R$ {pay.amount?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Gerenciamento de Cupons */}
+                  <div className="bg-white rounded-3xl border border-black/5 shadow-sm p-6 space-y-6 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Gestão de Cupons Promocionais</h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Crie e ative cupons de desconto para alavancar conversão de assinantes.</p>
+
+                      <div className="mt-4 space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <div>
+                          <label className="block text-[9px] font-extrabold text-slate-500 uppercase mb-1">Código do Cupom</label>
+                          <input
+                            type="text"
+                            placeholder="Ex: SENTI15"
+                            value={newCouponCode}
+                            onChange={(e) => setNewCouponCode(e.target.value)}
+                            className="w-full px-3 py-2 border border-black/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-bold placeholder-slate-300"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[9px] font-extrabold text-slate-500 uppercase mb-1">Desconto (%)</label>
+                            <input
+                              type="number"
+                              value={newCouponDiscount}
+                              onChange={(e) => setNewCouponDiscount(Number(e.target.value))}
+                              className="w-full px-3 py-2 border border-black/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-semibold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-extrabold text-slate-500 uppercase mb-1">Limite Usos</label>
+                            <input
+                              type="number"
+                              value={newCouponMaxUses}
+                              onChange={(e) => setNewCouponMaxUses(Number(e.target.value))}
+                              className="w-full px-3 py-2 border border-black/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-semibold"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-extrabold text-slate-500 uppercase mb-1">Validade</label>
+                          <input
+                            type="date"
+                            value={newCouponValidUntil}
+                            onChange={(e) => setNewCouponValidUntil(e.target.value)}
+                            className="w-full px-3 py-2 border border-black/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-semibold"
+                          />
+                        </div>
+                        <button
+                          onClick={handleCreateCoupon}
+                          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition shadow-md shadow-emerald-500/10"
+                        >
+                          Ativar Novo Cupom
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-black/5 pt-4">
+                      <h5 className="font-bold text-[10px] text-slate-400 uppercase tracking-wider mb-2">Cupons Ativos</h5>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {couponsList.length === 0 ? (
+                          <p className="text-[11px] text-slate-400 italic font-semibold">Nenhum cupom ativo cadastrado.</p>
+                        ) : (
+                          couponsList.map((cupom) => (
+                            <div key={cupom.id} className="flex justify-between items-center bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-xs">
+                              <div>
+                                <span className="font-extrabold text-slate-800">{cupom.code}</span>
+                                <span className="text-[10px] text-emerald-600 font-black ml-2 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">-{cupom.discountPercentage}%</span>
+                                <div className="text-[9px] text-slate-400 mt-0.5">Validade: {new Date(cupom.validUntil).toLocaleDateString("pt-BR")}</div>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteCoupon(cupom.id)}
+                                className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Splits & Repasses */}
+                <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-black/5">
+                    <h4 className="font-extrabold text-xs text-slate-800 uppercase tracking-wider">Histórico de Splits de Marketplace & Repasses a Profissionais</h4>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Retenção automática de 15% do SentiPae com repasse seguro aos profissionais credenciados.</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-black/5 text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">
+                          <th className="p-4">Profissional</th>
+                          <th className="p-4">Banco / Pix de Destino</th>
+                          <th className="p-4">Valor Bruto</th>
+                          <th className="p-4">Taxa SentiPae (15%)</th>
+                          <th className="p-4 font-black">Repasse Líquido</th>
+                          <th className="p-4">Status</th>
+                          <th className="p-4 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-black/5 text-xs">
+                        {payoutsList.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="p-8 text-center text-xs text-slate-400 font-bold">Nenhum repasse registrado no ledger.</td>
+                          </tr>
+                        ) : (
+                          payoutsList.map((payout) => {
+                            const therapist = usersList.find(u => u.uid === payout.therapistId);
+                            return (
+                              <tr key={payout.id} className="hover:bg-slate-50">
+                                <td className="p-4">
+                                  <div className="font-bold text-slate-800">{therapist?.nome || "Terapeuta Credenciado"}</div>
+                                  <div className="text-[9px] text-slate-400">{therapist?.email || payout.therapistId}</div>
+                                </td>
+                                <td className="p-4 font-mono text-[10px] text-slate-500">
+                                  <div>{payout.bankName} (Ag: {payout.bankAgency} C/C: {payout.bankAccount})</div>
+                                  <div className="text-emerald-600 font-bold mt-0.5">Pix: {payout.pixKey}</div>
+                                </td>
+                                <td className="p-4 text-slate-600">R$ {(payout.amount / 0.85).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                                <td className="p-4 text-amber-600 font-semibold">R$ {((payout.amount / 0.85) * 0.15).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                                <td className="p-4 font-black text-slate-900">R$ {payout.amount?.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</td>
+                                <td className="p-4">
+                                  <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider ${
+                                    payout.status === 'paid'
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                      : "bg-amber-50 text-amber-700 border-amber-100"
+                                  }`}>
+                                    {payout.status === 'paid' ? "Pago" : "Pendente"}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-right">
+                                  {payout.status !== "paid" && (
+                                    <button
+                                      onClick={async () => {
+                                        await updateDoc(doc(db, "payouts", payout.id), { status: "paid", paidAt: new Date().toISOString() });
+                                        alert("Repasse liquidado com sucesso!");
+                                        await loadAdminData();
+                                      }}
+                                      className="px-2.5 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-extrabold rounded-lg transition"
+                                    >
+                                      Liquidar Repasse
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* TAB 4: TERAPEUTAS */}
             {activeTab === "terapeutas" && (
               <div className="bg-white rounded-3xl border border-black/5 shadow-sm overflow-hidden">
@@ -830,13 +1302,14 @@ export default function AdminDashboard() {
                         <th className="p-4">Especialidade</th>
                         <th className="p-4">Valor Consulta</th>
                         <th className="p-4">Biografia</th>
-                        <th className="p-4 text-right">Avaliações</th>
+                        <th className="p-4">Status de Validação</th>
+                        <th className="p-4 text-right">Avaliações / Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black/5">
                       {usersList.filter(u => u.tipo === "terapeuta").length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-8 text-center text-xs text-slate-400 font-bold">Nenhum terapeuta credenciado encontrado no momento.</td>
+                          <td colSpan={6} className="p-8 text-center text-xs text-slate-400 font-bold">Nenhum terapeuta credenciado encontrado no momento.</td>
                         </tr>
                       ) : (
                         usersList.filter(u => u.tipo === "terapeuta").map((user) => (
@@ -852,9 +1325,46 @@ export default function AdminDashboard() {
                               R$ {user.preco ? user.preco.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "Grátis"}
                             </td>
                             <td className="p-4 text-slate-500 max-w-xs truncate">{user.biografia || "Sem biografia cadastrada."}</td>
+                            <td className="p-4">
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider ${
+                                user.validationStatus === 'active' || user.validationStatus === 'approved' || !user.validationStatus
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : user.validationStatus === 'pending_approval'
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : user.validationStatus === 'under_review'
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-red-50 text-red-700 border-red-200"
+                              }`}>
+                                {user.validationStatus === 'pending_approval' ? "Pendente" :
+                                 user.validationStatus === 'under_review' ? "Em Análise" :
+                                 user.validationStatus === 'approved' ? "Aprovado" :
+                                 user.validationStatus === 'active' ? "Ativo" :
+                                 user.validationStatus === 'suspended' ? "Suspenso" : "Ativo (Legado)"}
+                              </span>
+                            </td>
                             <td className="p-4 text-right">
-                              <span className="font-bold text-amber-500">★ {user.rating || "5.0"}</span>
-                              <span className="text-slate-400 text-[10px] block">({user.reviewCount || 0} reviews)</span>
+                              <div className="mb-2">
+                                <span className="font-bold text-amber-500">★ {user.rating || "5.0"}</span>
+                                <span className="text-slate-400 text-[10px] block">({user.reviewCount || 0} reviews)</span>
+                              </div>
+                              <div className="flex justify-end">
+                                <select 
+                                  value={user.validationStatus || 'active'}
+                                  onChange={async (e) => {
+                                    const newStatus = e.target.value as any;
+                                    await userService.updateProfile(user.uid, { validationStatus: newStatus });
+                                    const updatedList = usersList.map(u => u.uid === user.uid ? { ...u, validationStatus: newStatus } : u);
+                                    setUsersList(updatedList);
+                                  }}
+                                  className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-1 font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                >
+                                  <option value="pending_approval">Pendente</option>
+                                  <option value="under_review">Em Análise</option>
+                                  <option value="approved">Aprovado</option>
+                                  <option value="active">Ativo na Rede</option>
+                                  <option value="suspended">Suspenso</option>
+                                </select>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -955,6 +1465,10 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === "senticore" && (
+              <SentiCoreCommandCenter />
             )}
           </>
         )}

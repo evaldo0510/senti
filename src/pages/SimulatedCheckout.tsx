@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { PLANS, paymentService } from "../services/paymentService";
+import { subscriptionService } from "../services/subscriptionService";
 import { motion } from "motion/react";
 import { 
   ShieldCheck, 
@@ -21,7 +22,7 @@ export default function SimulatedCheckout() {
 
   const provider = searchParams.get("provider") as "stripe" | "mercadopago" || "stripe";
   const userId = searchParams.get("userId") || "";
-  const planId = searchParams.get("planId") as "premium" | "professional" | "enterprise" || "premium";
+  const planId = searchParams.get("planId") || "premium";
   const price = searchParams.get("price") || "39.90";
 
   const plan = PLANS[planId];
@@ -49,8 +50,10 @@ export default function SimulatedCheckout() {
       // Simula pequeno delay de rede do gateway de pagamento
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Ativa no Firestore real usando o serviço de pagamentos!
-      await paymentService.activateSubscription(userId, planId, provider);
+      // Ativa no Firestore real usando o serviço de assinaturas completo!
+      const planPrice = plan?.price || parseFloat(price) || 0;
+      const planPeriod = (plan?.period === "annual" ? "annual" : "monthly") as any;
+      await subscriptionService.createSubscription(userId, planId, planPrice, planPeriod, provider === "stripe" ? "stripe" : "mercadopago");
       
       setStep("success");
     } catch (err: any) {

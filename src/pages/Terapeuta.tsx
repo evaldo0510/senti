@@ -95,6 +95,18 @@ export default function Terapeuta() {
   const [payoutSuccess, setPayoutSuccess] = useState(false);
   const [payoutError, setPayoutError] = useState("");
 
+  // SPRINT 15 IARA Pro Assistente States
+  const [iaraProMessages, setIaraProMessages] = useState<any[]>([
+    {
+      id: "init",
+      role: "assistant",
+      text: "Olá, Doutor(a)! Sou a IARA Pro, sua assistente estratégica de inteligência clínica. Posso apoiar você na estruturação de prontuários, resumos automáticos de pacientes com base na jornada e tarefas administrativas. Como posso te apoiar hoje?",
+      time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+    }
+  ]);
+  const [iaraProInput, setIaraProInput] = useState("");
+  const [isIaraProTyping, setIsIaraProTyping] = useState(false);
+
   useEffect(() => {
     if (profile) {
       setIsGoogleConnected(!!profile.googleCalendarConnected);
@@ -534,6 +546,16 @@ export default function Terapeuta() {
             Meu Perfil
           </button>
           <button 
+            onClick={() => setActiveTab("iara_assistente")}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all",
+              activeTab === 'iara_assistente' ? "bg-purple-900/20 text-purple-400" : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+            )}
+          >
+            <Sparkles className="w-5 h-5 text-purple-400" />
+            Assistente IARA
+          </button>
+          <button 
             onClick={() => setActiveTab("google_workspace")}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-medium transition-all",
@@ -593,6 +615,52 @@ export default function Terapeuta() {
             </motion.div>
           )}
 
+          {/* Validation Status Banner */}
+          {profile?.validationStatus && profile.validationStatus !== 'active' && profile.validationStatus !== 'approved' && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                "rounded-3xl p-6 border flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xl",
+                profile.validationStatus === 'pending_approval' && "bg-amber-500/10 border-amber-500/20 text-amber-200 shadow-amber-950/5",
+                profile.validationStatus === 'under_review' && "bg-blue-500/10 border-blue-500/20 text-blue-200 shadow-blue-950/5",
+                profile.validationStatus === 'suspended' && "bg-red-500/10 border-red-500/20 text-red-200 shadow-red-950/5"
+              )}
+            >
+              <div className="flex items-start gap-4">
+                <div className={cn(
+                  "p-3 rounded-2xl shrink-0 border",
+                  profile.validationStatus === 'pending_approval' && "bg-amber-500/20 border-amber-500/30 text-amber-400",
+                  profile.validationStatus === 'under_review' && "bg-blue-500/20 border-blue-500/30 text-blue-400",
+                  profile.validationStatus === 'suspended' && "bg-red-500/20 border-red-500/30 text-red-400"
+                )}>
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-extrabold text-base flex items-center gap-2">
+                    Credenciamento: 
+                    <span className="uppercase text-xs tracking-wider px-2.5 py-0.5 rounded-full font-black border bg-white/5 border-white/10">
+                      {profile.validationStatus === 'pending_approval' && "Aguardando Aprovação"}
+                      {profile.validationStatus === 'under_review' && "Em Análise"}
+                      {profile.validationStatus === 'suspended' && "Cadastro Suspenso"}
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                    {profile.validationStatus === 'pending_approval' && "Seu perfil foi submetido com sucesso e está na fila para validação pela nossa equipe regulatória. Geralmente isso leva de 12 a 24 horas."}
+                    {profile.validationStatus === 'under_review' && "Nossos analistas estão ativamente revisando seus documentos de registro (CRP/CRM) e o DNA terapêutico. Você receberá notificações em tempo real assim que concluído!"}
+                    {profile.validationStatus === 'suspended' && "Seu perfil está temporariamente suspenso da rede pública de especialistas. Entre em contato com o suporte do SentiPae para mais detalhes ou correções cadastrais."}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate("/terapeuta-setup")}
+                className="px-5 py-3 bg-white text-slate-900 hover:bg-slate-100 rounded-2xl font-bold text-xs whitespace-nowrap transition-colors shadow-sm cursor-pointer"
+              >
+                Revisar Meus Dados
+              </button>
+            </motion.div>
+          )}
+
           {/* Header */}
           <header className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="flex-1">
@@ -602,6 +670,7 @@ export default function Terapeuta() {
                 {activeTab === 'pacientes' && 'Meus Pacientes'}
                 {activeTab === 'financeiro' && 'Gestão Financeira'}
                 {activeTab === 'perfil' && 'Meu Perfil'}
+                {activeTab === 'iara_assistente' && 'IARA Assistente do Profissional'}
                 {activeTab === 'google_workspace' && 'Google Workspace Hub'}
               </h2>
               <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-lg">
@@ -610,6 +679,7 @@ export default function Terapeuta() {
                 {activeTab === 'pacientes' && 'Acompanhe o progresso de quem você cuida.'}
                 {activeTab === 'financeiro' && 'Acompanhe seus ganhos e taxas.'}
                 {activeTab === 'perfil' && 'Mantenha suas informações atualizadas.'}
+                {activeTab === 'iara_assistente' && 'Sua assistente de IA para briefings de pacientes, resumos de prontuários, geração de relatórios e automação.'}
                 {activeTab === 'google_workspace' && 'Conecte seus compromissos com o Google Calendar e notificações com o Google Chat.'}
               </p>
             </div>
@@ -1845,6 +1915,197 @@ export default function Terapeuta() {
                 <button className="px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl font-bold transition-all border border-white/5">
                   Visualizar como Paciente
                 </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'iara_assistente' && (
+            <div className="space-y-8 animate-fadeIn">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Painel Esquerdo: Briefing de Pacientes & Lembretes */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Briefing Card */}
+                  <div className="bg-slate-900 border border-white/5 rounded-3xl p-6 space-y-4">
+                    <h3 className="font-extrabold text-sm text-purple-300 uppercase tracking-widest flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4" /> Briefings Autorizados (LGPD)
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Os pacientes abaixo concederam consentimento para compartilhar um resumo inteligente de sua jornada com você:
+                    </p>
+
+                    <div className="space-y-3 pt-2">
+                      <div className="bg-slate-950/50 p-4 rounded-2xl border border-white/5 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xs font-bold text-slate-200">João Paulo Mendonça</p>
+                            <p className="text-[10px] text-slate-500">Próxima sessão: Hoje, 14:00</p>
+                          </div>
+                          <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase">Autorizado</span>
+                        </div>
+                        <div className="p-3 bg-purple-950/20 rounded-xl border border-purple-500/10 space-y-2">
+                          <p className="text-[10px] font-bold text-purple-300 flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5" /> Insight da IARA:
+                          </p>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            "João apresentou picos de ansiedade na terça-feira relatando estresse corporativo. Realizou 2 exercícios de respiração guiada e anotou que a meditação de Poesia Hipnótica ajudou a reestabelecer o foco antes de dormir."
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950/50 p-4 rounded-2xl border border-white/5 space-y-3">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xs font-bold text-slate-200">Maria Eduarda Santos</p>
+                            <p className="text-[10px] text-slate-500">Próxima sessão: Amanhã, 10:30</p>
+                          </div>
+                          <span className="text-[9px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full uppercase">Autorizado</span>
+                        </div>
+                        <div className="p-3 bg-purple-950/20 rounded-xl border border-purple-500/10 space-y-2">
+                          <p className="text-[10px] font-bold text-purple-300 flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5" /> Insight da IARA:
+                          </p>
+                          <p className="text-[11px] text-slate-300 leading-relaxed">
+                            "Maria manteve um humor estável durante a semana. Registrou conquistas pessoais em relação ao autocuidado e prática consistente de atividade física recomendada."
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Lembretes / Agenda Proativa */}
+                  <div className="bg-slate-900 border border-white/5 rounded-3xl p-6 space-y-4">
+                    <h3 className="font-extrabold text-sm text-slate-300 uppercase tracking-widest">
+                      Tarefas & Lembretes
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { title: "Enviar evolução clínica do João para faturamento", done: false },
+                        { title: "Revisar notas da sessão da Maria Eduarda", done: true },
+                        { title: "Atualizar cronograma de workshops corporativos", done: false }
+                      ].map((task, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 bg-slate-950/40 rounded-xl border border-white/5">
+                          <input type="checkbox" checked={task.done} readOnly className="rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900" />
+                          <span className={`text-xs ${task.done ? 'line-through text-slate-500' : 'text-slate-300'}`}>{task.title}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Painel Direito: Workspace Interativo da IARA Pro */}
+                <div className="lg:col-span-7 bg-slate-900 border border-white/5 rounded-3xl p-6 flex flex-col h-[650px]">
+                  <div className="border-b border-white/5 pb-4 mb-4 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-500/10 rounded-xl border border-purple-500/20 flex items-center justify-center text-purple-400">
+                        <Sparkles className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-slate-200">IARA Pro Workspace</h4>
+                        <p className="text-[10px] text-slate-500">Seu assistente cognitivo administrativo</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chat Area */}
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                    {iaraProMessages.map((msg, idx) => (
+                      <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] rounded-2xl p-4 space-y-1.5 ${
+                          msg.role === 'user' 
+                            ? 'bg-purple-600 text-white rounded-tr-none' 
+                            : 'bg-slate-950 text-slate-300 border border-white/5 rounded-tl-none'
+                        }`}>
+                          <p className="text-xs leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                          <span className="text-[9px] text-slate-400/80 block text-right">{msg.time}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {isIaraProTyping && (
+                      <div className="flex justify-start">
+                        <div className="bg-slate-950 text-slate-300 border border-white/5 rounded-2xl rounded-tl-none p-4 flex gap-1.5">
+                          <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                          <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                          <span className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Action Tags */}
+                  <div className="py-3 border-t border-white/5 mt-4">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Ações Rápidas de IA:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        "Gerar Relatório de Evolução (João)",
+                        "Preparar Pauta de Sessão (Maria)",
+                        "Sugestões para Manejo de Ansiedade",
+                        "Resumir Atendimentos da Semana"
+                      ].map((action, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setIaraProInput(action);
+                          }}
+                          className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-white/5 hover:border-purple-500/30 rounded-lg text-slate-300 text-[10px] font-bold transition-all"
+                        >
+                          {action}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Input Form */}
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!iaraProInput.trim()) return;
+                      const userMsg = iaraProInput;
+                      setIaraProInput("");
+                      setIaraProMessages(prev => [...prev, {
+                        role: "user",
+                        text: userMsg,
+                        time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                      }]);
+                      setIsIaraProTyping(true);
+
+                      // Simulate intelligent responses
+                      setTimeout(() => {
+                        let replyText = "";
+                        if (userMsg.includes("Relatório")) {
+                          replyText = "Aqui está a minuta do Relatório de Evolução Clínica para João Paulo Mendonça:\n\n**RELATÓRIO DE EVOLUÇÃO CLÍNICA**\n**Paciente:** João Paulo Mendonça\n**Período:** Últimas 4 semanas\n**Abordagem:** TCC\n\n1. **Sintomas Apresentados:** Flutuações de ansiedade com gatilho laboral (estresse corporativo).\n2. **Engajamento:** Excelente. Utilizou diários emocionais e exercícios de respiração propostos.\n3. **Direcionamento:** Continuar trabalhando reestruturação cognitiva e limites saudáveis no ambiente de trabalho.\n\nDeseja que eu envie esta minuta diretamente para o prontuário eletrônico do paciente?";
+                        } else if (userMsg.includes("Pauta")) {
+                          replyText = "Para a sessão de amanhã com Maria Eduarda Santos, sugiro focar nos seguintes tópicos com base em sua jornada de autocuidado:\n\n1. **Celebração de Conquistas:** Discutir a consistência dela nas atividades físicas e o reflexo positivo no humor estável dela.\n2. **Autoestima:** Explorar como os pequenos sucessos diários alteraram a percepção dela sobre o autocuidado.\n3. **Manutenção de Hábitos:** Planejar estratégias para os dias em que a motivação estiver menor.";
+                        } else if (userMsg.includes("Ansiedade")) {
+                          replyText = "Como psicólogo(a) na plataforma, você pode indicar à IARA do paciente que recomende os seguintes conteúdos da biblioteca:\n\n1. **Respiração Diafragmática Pro:** Ajuda a controlar sintomas agudos de pânico.\n2. **Meditação de Poesia Cognitiva Hipnótica (PCH):** Excelente para relaxamento profundo antes do sono.\n3. **Diário de Gratidão:** Para diminuir o foco em pensamentos automáticos negativos.";
+                        } else {
+                          replyText = "Perfeito, Doutor(a). Entendi seu pedido e estou processando suas instruções de faturamento e agenda corporativa. Deseja que eu gere uma minuta oficial ou agende um lembrete no Google Calendar?";
+                        }
+
+                        setIaraProMessages(prev => [...prev, {
+                          role: "assistant",
+                          text: replyText,
+                          time: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                        }]);
+                        setIsIaraProTyping(false);
+                      }, 1500);
+                    }}
+                    className="flex gap-2"
+                  >
+                    <input
+                      type="text"
+                      value={iaraProInput}
+                      onChange={(e) => setIaraProInput(e.target.value)}
+                      placeholder="Fale com a IARA Pro..."
+                      className="flex-1 bg-slate-950 border border-white/5 focus:border-purple-500 rounded-2xl px-4 py-3 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                    <button
+                      type="submit"
+                      className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl font-bold text-xs transition-colors shadow-lg shadow-purple-900/20 shrink-0"
+                    >
+                      Enviar
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           )}

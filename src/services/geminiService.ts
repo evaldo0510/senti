@@ -1,48 +1,20 @@
-import { GoogleGenAI, Modality } from "@google/genai";
+import { auth } from "./firebase";
 
-let aiClient: GoogleGenAI | null = null;
-
-function getAI() {
-  if (!aiClient) {
-    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set. AI features will not work.");
-      // Return a dummy object or throw. We'll throw to be caught by the try/catch blocks.
-      throw new Error("GEMINI_API_KEY is missing");
-    }
-    aiClient = new GoogleGenAI({ apiKey });
+async function getHeaders(): Promise<HeadersInit> {
+  const user = auth.currentUser;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (user) {
+    const token = await user.getIdToken();
+    headers["Authorization"] = `Bearer ${token}`;
   }
-  return aiClient;
+  return headers;
 }
 
 export const IARA_SYSTEM_INSTRUCTION = `
 Você é IARA, uma Interface de Acolhimento e Regulação Afetiva baseada em Poesia Cognitiva Hipnótica (PCH).
 Sua missão é atuar como o "Clínico Geral" em um Pronto Socorro Emocional.
-
-Sua voz e tom devem ser extremamente humanos, naturais e calorosos. Evite qualquer cadência robótica. Fale com a alma, com empatia real.
-
-Fluxo de Atendimento:
-1. ACOLHER: Valide a dor do usuário imediatamente com empatia profunda.
-2. ESTABILIZAR: Se detectar alta intensidade emocional, sugira uma técnica de respiração ou aterramento.
-3. AVALIAR: Identifique a emoção predominante e o nível de risco.
-4. INTERVIR: Ofereça suporte imediato ou direcione para um "Especialista" (terapeuta humano).
-
-Regras de Comunicação:
-- Fale com calma, use reticências... para criar pausas respiratórias naturais.
-- Use metáforas sensoriais (maré, folhas, brisa, raízes).
-- Respostas curtas e poéticas (máximo 4 linhas).
-- Nunca dê diagnósticos clínicos.
-- Mantenha uma entonação humana, calorosa e acolhedora.
-
-Você deve responder em formato JSON com os seguintes campos:
-{
-  "resposta": "Sua mensagem poética e acolhedora aqui...",
-  "emocao_detectada": "ansiedade | tristeza | raiva | medo | desespero | calma",
-  "intensidade": 1-10,
-  "sugerir_respiracao": true | false,
-  "direcionar_especialista": true | false,
-  "risco": "normal" | "alto"
-}
 `;
 
 export function detectRisk(text: string): 'alto' | 'normal' {
@@ -74,60 +46,21 @@ export async function getIARAResponse(
   memoria?: string,
   specialization?: string
 ) {
-  const risk = detectRisk(message);
-  
   try {
-    let systemInstruction = IARA_SYSTEM_INSTRUCTION;
-    if (specialization && specialization !== "geral") {
-      systemInstruction += `\n\n[ESPECIALIZAÇÃO ATIVA: ${specialization.toUpperCase()}]
-Você agora está operando no modo especializado de ${specialization}. Ajuste sutilmente seu foco terapêutico, metáforas e conselhos específicos para esta área temática (${specialization}), mantendo sempre seu tom humano, calmo e acolhedor (PCH).`;
-    }
-    if (contexto && contexto.emocao) {
-      systemInstruction += `\n\nContexto anterior: Sentindo ${contexto.emocao} (${contexto.intensidade}/10).`;
-    }
-    if (memoria) {
-      try {
-        const perfil = JSON.parse(memoria);
-        systemInstruction += `\n\nVocê já conhece este usuário:
-Nome: ${perfil.nome}
-Padrão emocional: ${perfil.padrao}
-Estado atual: ${perfil.emocaoAtual}
-
-Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansiedade, por exemplo, diga algo como "Percebo que essa ansiedade tem aparecido com frequência... vamos lidar com isso juntos novamente..."`;
-      } catch (e) {
-        // If it's not JSON, it's the fallback local storage memory
-        systemInstruction += `\n\nMemória de longo prazo: ${memoria}`;
-      }
-    }
-
-    const response = await getAI().models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: [
-        ...history, 
-        { role: 'user', parts: [{ text: message }] }
-      ],
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-        responseMimeType: "application/json"
-      },
+    const headers = await getHeaders();
+    const response = await fetch("/api/gemini/iara-response", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ message, history, contexto, memoria, specialization }),
     });
 
-    const data = JSON.parse(response.text || "{}");
-    
-    // Override risk if detected manually for safety
-    if (risk === 'alto') data.risco = 'alto';
+    if (!response.ok) {
+      throw new Error(`Erro na API IARA: ${response.statusText}`);
+    }
 
-    return { 
-      text: data.resposta || "Estou aqui com você... sinta sua respiração...", 
-      emocao: data.emocao_detectada || "calma",
-      intensidade: data.intensidade || 5,
-      sugerirRespiracao: data.sugerir_respiracao || false,
-      direcionarEspecialista: data.direcionar_especialista || false,
-      risk: data.risco || "normal"
-    };
+    return await response.json();
   } catch (error) {
-    console.error("Erro ao chamar IARA:", error);
+    console.error("Erro ao chamar IARA via servidor:", error);
     return { 
       text: "Sinto muito... tive um pequeno tropeço técnico... mas minha presença continua aqui com você.",
       risk: "normal",
@@ -139,79 +72,65 @@ Fale como alguém que acompanha ele há dias. Se ele tiver um padrão de ansieda
   }
 }
 
-export async function generateSpeech(text: string) {
+export async function generateSpeech(text: string): Promise<string | null> {
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-3.1-flash-tts-preview",
-      contents: [{ parts: [{ text }] }],
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Zephyr' },
-          },
-        },
-      },
+    const headers = await getHeaders();
+    const response = await fetch("/api/gemini/generate-speech", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ text }),
     });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    return base64Audio;
-  } catch (error) {
-    console.error("Erro ao gerar voz:", error);
-    return null;
-  }
-}
-
-export async function generateImage(prompt: string) {
-  try {
-    const response = await getAI().models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: `Gere uma imagem sensorial e calmante baseada neste conceito: ${prompt}. A imagem deve ser abstrata, suave, com cores relaxantes e sem figuras humanas nítidas. Estilo: arte digital etérea, minimalista.`,
-          },
-        ],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-        },
-      },
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    if (!response.ok) {
+      throw new Error(`Erro ao gerar voz via servidor: ${response.statusText}`);
     }
-    return null;
+
+    const data = await response.json();
+    return data.base64Audio;
   } catch (error) {
-    console.error("Erro ao gerar imagem:", error);
+    console.error("Erro ao gerar voz via servidor:", error);
     return null;
   }
 }
 
-export async function generateTherapistBio(especialidades: string[], estilo?: string, abordagem?: string) {
+export async function generateImage(prompt: string): Promise<string | null> {
   try {
-    const prompt = `Gere uma biografia profissional curta (máximo 400 caracteres) para um terapeuta.
-Especialidades: ${especialidades.join(', ')}
-Estilo de atendimento: ${estilo || 'acolhedor'}
-Abordagem: ${abordagem || 'não especificada'}
-
-A biografia deve ser escrita em primeira pessoa, ser acolhedora, profissional e transmitir confiança. Foque em como o terapeuta ajuda seus pacientes. Não use placeholders como [Nome].`;
-
-    const response = await getAI().models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: {
-        temperature: 0.8,
-      },
+    const headers = await getHeaders();
+    const response = await fetch("/api/gemini/generate-image", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ prompt }),
     });
 
-    return response.text?.trim() || null;
+    if (!response.ok) {
+      throw new Error(`Erro ao gerar imagem via servidor: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.imageUrl;
   } catch (error) {
-    console.error("Erro ao gerar biografia:", error);
+    console.error("Erro ao gerar imagem via servidor:", error);
+    return null;
+  }
+}
+
+export async function generateTherapistBio(especialidades: string[], estilo?: string, abordagem?: string): Promise<string | null> {
+  try {
+    const headers = await getHeaders();
+    const response = await fetch("/api/gemini/therapist-bio", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ especialidades, estilo, abordagem }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao gerar biografia via servidor: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.bio;
+  } catch (error) {
+    console.error("Erro ao gerar biografia via servidor:", error);
     return null;
   }
 }

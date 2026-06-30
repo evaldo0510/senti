@@ -15,23 +15,9 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { GoogleGenAI } from "@google/genai";
 import { DirectMessage } from "../types";
 import { cryptoService } from './cryptoService';
-
-let aiClient: GoogleGenAI | null = null;
-
-function getAI() {
-  if (!aiClient) {
-    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set. AI features will not work.");
-      throw new Error("GEMINI_API_KEY is missing");
-    }
-    aiClient = new GoogleGenAI({ apiKey });
-  }
-  return aiClient;
-}
+import { userService } from './userService';
 
 export const chatService = {
   sendMessage: async (appointmentId: string, senderId: string, receiverId: string, text: string, secret?: string) => {
@@ -88,15 +74,18 @@ export const chatService = {
         reader.readAsDataURL(audioBlob);
         const base64Data = await base64Promise;
 
-        const response = await getAI().models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: [
-            { text: "Transcreva este áudio de terapia. Retorne apenas o texto transcrito." },
-            { inlineData: { data: base64Data, mimeType: audioBlob.type } }
-          ],
+        const headers = await userService.getAuthHeader();
+        const response = await fetch('/api/gemini/transcribe-audio', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ base64Data, mimeType: audioBlob.type }),
         });
-        if (response.text) {
-          transcription = response.text;
+
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.text) {
+            transcription = resData.text;
+          }
         }
       } catch (transcribeError) {
         console.error("Transcription failed", transcribeError);

@@ -1,68 +1,54 @@
-import { GoogleGenAI } from "@google/genai";
+import { auth } from "./firebase";
 
-let aiClient: GoogleGenAI | null = null;
-
-function getAI() {
-  if (!aiClient) {
-    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("GEMINI_API_KEY is not set. AI features will not work.");
-      throw new Error("GEMINI_API_KEY is missing");
-    }
-    aiClient = new GoogleGenAI({ apiKey });
+async function getHeaders(): Promise<HeadersInit> {
+  const user = auth.currentUser;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (user) {
+    const token = await user.getIdToken();
+    headers["Authorization"] = `Bearer ${token}`;
   }
-  return aiClient;
+  return headers;
 }
 
-export async function generateTherapistAvatar() {
+export async function generateTherapistAvatar(): Promise<string | null> {
   try {
-    const response = await getAI().models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: 'Um avatar profissional e acolhedor para a Dra. Ana Silva, especialista em Ansiedade, Depressão e TCC, com estilo de retrato digital suave, iluminação quente e fundo neutro, transmitindo paz e confiança.',
-          },
-        ],
-      },
+    const headers = await getHeaders();
+    const response = await fetch("/api/gemini/generate-avatar", {
+      method: "POST",
+      headers,
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    if (!response.ok) {
+      throw new Error(`Erro ao gerar avatar: ${response.statusText}`);
     }
+
+    const data = await response.json();
+    return data.imageUrl;
   } catch (error) {
-    console.error("Error generating avatar:", error);
+    console.error("Erro ao gerar avatar via servidor:", error);
+    return null;
   }
-  return null;
 }
 
-export async function generateNewsImage(theme: string) {
+export async function generateNewsImage(theme: string): Promise<string | null> {
   try {
-    const response = await getAI().models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [
-          {
-            text: `Uma imagem conceitual e artística representando o tema: ${theme}. Estilo minimalista, cores suaves, iluminação terapêutica, transmitindo uma sensação de bem-estar e saúde mental. Sem texto.`,
-          },
-        ],
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "16:9"
-        }
-      }
+    const headers = await getHeaders();
+    const response = await fetch("/api/gemini/generate-news-image", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ theme }),
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    if (!response.ok) {
+      throw new Error(`Erro ao gerar imagem de notícia: ${response.statusText}`);
     }
+
+    const data = await response.json();
+    return data.imageUrl;
   } catch (error) {
-    console.error("Error generating news image:", error);
+    console.error("Erro ao gerar imagem de notícia via servidor:", error);
+    return null;
   }
-  return null;
 }

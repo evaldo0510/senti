@@ -1,5 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
-import { userService } from "./userService";
 import { auth } from "./firebase";
 
 export interface TreatmentAnalysis {
@@ -10,14 +8,43 @@ export interface TreatmentAnalysis {
   generatedAt: string;
 }
 
+async function getHeaders(): Promise<HeadersInit> {
+  const user = auth.currentUser;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (user) {
+    const token = await user.getIdToken();
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export const analysisService = {
   generateAnalysis: async (moodHistory: any[], diaryEntries: any[]): Promise<TreatmentAnalysis> => {
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated");
 
-    const apiKey = (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      // Fallback if no API key is set
+    try {
+      const headers = await getHeaders();
+      const response = await fetch("/api/gemini/generate-analysis", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ moodHistory, diaryEntries }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro na geração de análise no servidor: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return {
+        ...result,
+        generatedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error("Erro ao gerar análise via servidor, usando fallback:", error);
+      // Fallback
       return {
         summary: "Sua jornada tem sido marcada por altos e baixos naturais. Observamos que você tem mantido uma frequência constante de registros, o que é excelente para o autoconhecimento.",
         progressScore: 75,
@@ -29,43 +56,6 @@ export const analysisService = {
         nextSteps: "Focar em técnicas de respiração nos momentos de maior intensidade emocional.",
         generatedAt: new Date().toISOString()
       };
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const model = ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        {
-          text: `Você é um assistente de saúde mental especializado em análise de progresso terapêutico. 
-          Analise os seguintes dados de um usuário e forneça um relatório estruturado em JSON.
-          
-          Histórico de Humor (últimos registros): ${JSON.stringify(moodHistory.slice(0, 10))}
-          Entradas do Diário (últimas): ${JSON.stringify(diaryEntries.slice(0, 5))}
-          
-          O JSON deve seguir este formato:
-          {
-            "summary": "Resumo da análise em 2-3 frases",
-            "progressScore": número de 0 a 100,
-            "recommendations": ["lista de 3 recomendações práticas"],
-            "nextSteps": "Próximo passo sugerido para o tratamento"
-          }`
-        }
-      ],
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    try {
-      const response = await model;
-      const result = JSON.parse(response.text || "{}");
-      return {
-        ...result,
-        generatedAt: new Date().toISOString()
-      };
-    } catch (error) {
-      console.error("Error generating AI analysis:", error);
-      throw error;
     }
   }
 };

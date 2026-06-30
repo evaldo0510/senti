@@ -22,11 +22,13 @@ import {
   Globe,
   Mail,
   Phone,
-  HeartPulse
+  HeartPulse,
+  BookOpen
 } from "lucide-react";
 import { userService } from "../services/userService";
 import { auth } from "../services/firebase";
 import { UserProfile, Avaliacao } from "../types";
+import { marketplaceService, MarketplaceItem } from "../services/marketplaceService";
 import { cn } from "../lib/utils";
 import CalendarAvailability from "../components/CalendarAvailability";
 import IARASchedulingAssistant from "../components/IARASchedulingAssistant";
@@ -43,11 +45,13 @@ export default function TerapeutaPerfil() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState('sobre');
+  const [conteudos, setConteudos] = useState<MarketplaceItem[]>([]);
 
   const tabs = [
     { id: 'sobre', label: 'Sobre', icon: Shield },
     { id: 'agenda', label: 'Agenda', icon: Calendar },
     { id: 'especialidades', label: 'Especialidades', icon: Sparkles },
+    { id: 'conteudos', label: 'Conteúdos', icon: BookOpen },
     { id: 'avaliacoes', label: 'Avaliações', icon: Star },
   ];
 
@@ -161,6 +165,13 @@ export default function TerapeutaPerfil() {
       try {
         const data = await userService.getUser(id);
         setTerapeuta(data);
+
+        // Fetch creator's marketplace contents
+        const allItems = await marketplaceService.getItems();
+        const creatorItems = allItems.filter(
+          item => item.creatorId === id || (data && item.creatorName?.toLowerCase().includes(data.nome?.toLowerCase()))
+        );
+        setConteudos(creatorItems);
       } catch (error) {
         console.error("Erro ao carregar terapeuta:", error);
       } finally {
@@ -535,6 +546,69 @@ export default function TerapeutaPerfil() {
                     </ul>
                   </div>
                 </div>
+              </section>
+
+              {/* Section: Conteúdos */}
+              <section id="conteudos" className="scroll-mt-24 space-y-6">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                    <BookOpen className="w-6 h-6 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-100 font-sans tracking-tight">Conteúdos & Programas</h3>
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-black">Produtos digitais de autoria do terapeuta</p>
+                  </div>
+                </div>
+
+                {conteudos.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {conteudos.map((item) => (
+                      <div 
+                        key={item.id}
+                        className="bg-slate-900/60 border border-white/5 rounded-[2rem] overflow-hidden hover:border-emerald-500/20 transition-all flex flex-col group relative"
+                      >
+                        {item.imageUrl && (
+                          <div className="relative h-40 overflow-hidden">
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.title} 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="absolute top-4 left-4 bg-slate-950/80 backdrop-blur-md text-emerald-400 text-[10px] font-black px-3 py-1 rounded-xl uppercase tracking-widest border border-white/10">
+                              {item.category}
+                            </div>
+                          </div>
+                        )}
+                        <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                          <div className="space-y-2 text-left">
+                            <h4 className="text-lg font-black text-slate-100 tracking-tight group-hover:text-emerald-400 transition-colors line-clamp-1">{item.title}</h4>
+                            <p className="text-slate-400 text-xs leading-relaxed line-clamp-3">{item.description}</p>
+                          </div>
+                          
+                          <div className="flex items-center justify-between pt-4 border-t border-white/5">
+                            <div className="text-left">
+                              <span className="text-[10px] uppercase tracking-widest text-slate-500 font-bold block">Adquirir material</span>
+                              <span className="text-emerald-400 font-black text-xl">R$ {item.price.toFixed(2)}</span>
+                            </div>
+                            <button 
+                              onClick={() => navigate(`/marketplace?item=${item.id}`)}
+                              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl transition-all cursor-pointer active:scale-95"
+                            >
+                              Ver Detalhes
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-slate-900/20 border border-white/5 rounded-[2.5rem] p-10 text-center text-slate-400 max-w-xl mx-auto">
+                    <BookOpen className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                    <h4 className="text-sm font-bold text-slate-300">Nenhum produto digital cadastrado ainda</h4>
+                    <p className="text-xs text-slate-500 mt-1">Este profissional em breve disponibilizará cursos, e-books e pílulas de áudio na plataforma.</p>
+                  </div>
+                )}
               </section>
 
               {/* Section: Avaliações */}

@@ -43,6 +43,7 @@ import { usePWA } from "../contexts/PWAContext";
 import { offlineStorage } from "../services/offlineStorage";
 import { UserProfile } from "../types";
 import { cn } from "../lib/utils";
+import { IdentityCenter } from "../components/IdentityCenter";
 import { z } from "zod";
 
 const AVATAR_PRESETS = [
@@ -137,7 +138,7 @@ export default function GerenciamentoDados() {
   };
   
   // Tabs Navigation State
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'audits' | 'backups' | 'monitoring' | 'subscriptions'>('profile');
+  const [activeTab, setActiveTab] = useState<'identity' | 'audits' | 'backups' | 'monitoring' | 'subscriptions'>('identity');
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const handleGenerateClinicalPDF = async () => {
@@ -947,29 +948,16 @@ export default function GerenciamentoDados() {
       <div className="border-b border-white/5 bg-slate-900/40 sticky top-[73px] z-20 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-6 overflow-x-auto flex gap-1 py-3 text-sm">
           <button
-            onClick={() => setActiveTab('profile')}
+            onClick={() => setActiveTab('identity')}
             className={cn(
               "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
-              activeTab === 'profile'
+              activeTab === 'identity'
                 ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
                 : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
             )}
           >
             <User className="w-4 h-4 text-emerald-400" />
-            Meus Dados Básicos
-          </button>
-
-          <button
-            onClick={() => setActiveTab('security')}
-            className={cn(
-              "px-5 py-2.5 rounded-xl font-medium tracking-tight transition-all shrink-0 flex items-center gap-2 border active:scale-95",
-              activeTab === 'security'
-                ? "bg-slate-800 text-white border-white/10 shadow-sm font-semibold"
-                : "text-slate-400 hover:text-white border-transparent hover:bg-slate-900/60"
-            )}
-          >
-            <Shield className="w-4 h-4 text-emerald-400" />
-            Segurança & LGPD
+            Centro de Identidade & LGPD
           </button>
 
           <button
@@ -1055,8 +1043,20 @@ export default function GerenciamentoDados() {
         )}
 
         <AnimatePresence mode="wait">
+          {/* TAB: Identity Center */}
+          {activeTab === 'identity' && (
+            <motion.div
+              key="identity"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+            >
+              <IdentityCenter />
+            </motion.div>
+          )}
+
           {/* TAB 1: Profile Editing */}
-          {activeTab === 'profile' && (
+          {(activeTab as string) === 'profile_disabled' && (
             <motion.div
               key="profile"
               initial={{ opacity: 0, y: 15 }}
@@ -1379,7 +1379,7 @@ export default function GerenciamentoDados() {
           )}
 
           {/* TAB 2: Advanced Security & LGPD */}
-          {activeTab === 'security' && (
+          {(activeTab as string) === 'security_disabled' && (
             <motion.div
               key="security"
               initial={{ opacity: 0, y: 15 }}

@@ -18,6 +18,18 @@ export default function TerapeutaSetup() {
   const [instagram, setInstagram] = useState("");
   const [website, setWebsite] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  
+  // SPRINT 15 Extended Fields
+  const [cidade, setCidade] = useState("");
+  const [idioma, setIdioma] = useState("Português");
+  const [contatoProfissional, setContatoProfissional] = useState("");
+  const [crp, setCrp] = useState("");
+  const [areaAtuacao, setAreaAtuacao] = useState("Psicologia Clínica");
+  const [publicoAtendido, setPublicoAtendido] = useState("Adultos");
+  const [modalidade, setModalidade] = useState<'presencial' | 'online' | 'hibrido'>("online");
+  const [biografia, setBiografia] = useState("");
+  const [fotoUrl, setFotoUrl] = useState("");
+
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -37,6 +49,17 @@ export default function TerapeutaSetup() {
           setInstagram(profile.instagram || "");
           setWebsite(profile.website || "");
           setVideoUrl(profile.videoUrl || "");
+          
+          // SPRINT 15 Extended Fields
+          setCidade(profile.cidade || "");
+          setIdioma(profile.idioma || "Português");
+          setContatoProfissional(profile.contatoProfissional || "");
+          setCrp(profile.crp || "");
+          setAreaAtuacao(profile.areaAtuacao || "Psicologia Clínica");
+          setPublicoAtendido(profile.publicoAtendido || "Adultos");
+          setModalidade(profile.modalidade || "online");
+          setBiografia(profile.biografia || "");
+          setFotoUrl(profile.fotoUrl || "");
         }
       }
     };
@@ -52,6 +75,10 @@ export default function TerapeutaSetup() {
     
     if (!especialidade.trim()) {
       newErrors.especialidade = "A especialidade é obrigatória";
+    }
+
+    if (!crp.trim()) {
+      newErrors.crp = "O registro profissional (crp) é obrigatório";
     }
     
     const precoNum = parseFloat(preco);
@@ -71,6 +98,9 @@ export default function TerapeutaSetup() {
     
     setIsLoading(true);
     try {
+      const profile = await userService.getUser(auth.currentUser.uid);
+      const currentStatus = profile?.validationStatus || "pending_approval";
+
       await userService.updateProfile(auth.currentUser.uid, {
         nome,
         especialidades: [especialidade],
@@ -83,6 +113,19 @@ export default function TerapeutaSetup() {
         instagram,
         website,
         videoUrl,
+        
+        // SPRINT 15 Extended Fields
+        cidade,
+        idioma,
+        contatoProfissional,
+        crp,
+        areaAtuacao,
+        publicoAtendido,
+        modalidade,
+        biografia,
+        fotoUrl: fotoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${nome || 'Terapeuta'}&backgroundColor=10b981`,
+        validationStatus: currentStatus,
+        
         tipo: 'terapeuta',
         online: true
       });
@@ -160,6 +203,113 @@ export default function TerapeutaSetup() {
                 />
               </div>
               {errors.especialidade && <p className="text-xs text-red-500 ml-1">{errors.especialidade}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Registro Profissional (CRP / CRM / etc.)</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={crp}
+                  onChange={(e) => {
+                    setCrp(e.target.value);
+                    if (errors.crp) setErrors(prev => ({ ...prev, crp: "" }));
+                  }}
+                  placeholder="CRP 06/12345"
+                  className={`w-full bg-slate-950 border ${errors.crp ? 'border-red-500' : 'border-white/10'} rounded-xl py-3 px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50`}
+                />
+              </div>
+              {errors.crp && <p className="text-xs text-red-500 ml-1">{errors.crp}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Cidade</label>
+              <input
+                type="text"
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+                placeholder="São Paulo - SP"
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Idiomas Atendidos</label>
+              <input
+                type="text"
+                value={idioma}
+                onChange={(e) => setIdioma(e.target.value)}
+                placeholder="Português, Inglês"
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Contato Profissional (WhatsApp / Telefone)</label>
+              <input
+                type="text"
+                value={contatoProfissional}
+                onChange={(e) => setContatoProfissional(e.target.value)}
+                placeholder="11999999999"
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">URL da Foto Profissional (Opcional)</label>
+              <input
+                type="text"
+                value={fotoUrl}
+                onChange={(e) => setFotoUrl(e.target.value)}
+                placeholder="https://exemplo.com/sua-foto.jpg"
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Modalidade de Atendimento</label>
+              <select
+                value={modalidade}
+                onChange={(e) => setModalidade(e.target.value as any)}
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              >
+                <option value="online">Exclusivamente Online</option>
+                <option value="presencial">Presencial</option>
+                <option value="hibrido">Híbrido (Online e Presencial)</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Público Alvo Atendido</label>
+              <input
+                type="text"
+                value={publicoAtendido}
+                onChange={(e) => setPublicoAtendido(e.target.value)}
+                placeholder="Adolescentes, Adultos, Idosos"
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Área de Atuação</label>
+              <input
+                type="text"
+                value={areaAtuacao}
+                onChange={(e) => setAreaAtuacao(e.target.value)}
+                placeholder="Psicologia Clínica, Terapia de Casal, Ansiedade..."
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-400 ml-1">Biografia / Resumo Profissional</label>
+              <textarea
+                value={biografia}
+                onChange={(e) => setBiografia(e.target.value)}
+                placeholder="Escreva um breve resumo de sua trajetória, abordagens e dedicação ao cuidado humano..."
+                rows={4}
+                className="w-full bg-slate-950 border border-white/10 rounded-xl py-3 px-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+              />
             </div>
 
             <div className="space-y-2">
