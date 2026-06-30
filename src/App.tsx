@@ -56,6 +56,7 @@ import SOSButton from "./components/SOSButton";
 import MobileDeviceWrapper from "./components/MobileDeviceWrapper";
 import NetworkStatusIndicator from "./components/NetworkStatusIndicator";
 import { ProtectedRoute, PremiumProtectedRoute } from "./components/AuthProvider";
+import { AdminRoute } from "./components/AdminRoute";
 
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -69,7 +70,12 @@ function App() {
               <Routes>
                 <Route path="/" element={<LandingPro />} />
                 <Route path="/checkout/simulated" element={<ProtectedRoute><SimulatedCheckout /></ProtectedRoute>} />
-                <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin-dashboard" element={<AdminRoute><AdminDashboard defaultTab="senticore" /></AdminRoute>} />
+                <Route path="/admin" element={<AdminRoute><AdminDashboard defaultTab="geral" /></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute><AdminDashboard defaultTab="usuarios" /></AdminRoute>} />
+                <Route path="/admin/settings" element={<AdminRoute><AdminDashboard defaultTab="config" /></AdminRoute>} />
+                <Route path="/admin/organizations" element={<AdminRoute><AdminDashboard defaultTab="organizations" /></AdminRoute>} />
+                <Route path="/admin/payments" element={<AdminRoute><AdminDashboard defaultTab="financeiro" /></AdminRoute>} />
                 <Route path="/reset21" element={<Reset21 />} />
                 <Route path="/reset-21/day/:dayId" element={<Reset21Day />} />
                 <Route path="/reset-21/sales" element={<Reset21Sales />} />

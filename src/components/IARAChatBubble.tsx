@@ -79,11 +79,18 @@ export default function IARAChatBubble() {
         {isOpen ? <X className="w-8 h-8" /> : <MessageCircle className="w-8 h-8" />}
         
         {!isOpen && showPulse && (
-          <motion.div
-            animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="absolute inset-0 bg-emerald-500 rounded-full -z-10"
-          />
+          <>
+            <motion.div
+              animate={{ scale: [1, 1.6, 1], opacity: [0.4, 0, 0.4] }}
+              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0 bg-emerald-500 rounded-full -z-10"
+            />
+            <motion.div
+              animate={{ scale: [1, 2.2, 1], opacity: [0.2, 0, 0.2] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+              className="absolute inset-0 bg-emerald-400 rounded-full -z-10"
+            />
+          </>
         )}
       </motion.button>
     </div>

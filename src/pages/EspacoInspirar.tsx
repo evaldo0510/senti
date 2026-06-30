@@ -112,7 +112,8 @@ export default function EspacoInspirar() {
     }
 
     try {
-      const userRef = doc(db, "users", userId);
+      if (!auth.currentUser) throw new Error("Usuário não autenticado");
+      const userRef = doc(db, "users", auth.currentUser.uid);
       const newEntry = {
         timestamp: new Date().toISOString(),
         factors: ibsFactors.reduce((acc, f) => ({ ...acc, [f.id]: f.value }), {}),

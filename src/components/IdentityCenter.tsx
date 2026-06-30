@@ -101,7 +101,8 @@ export const IdentityCenter: React.FC = () => {
     const loadProfile = async () => {
       try {
         setLoadingProfile(true);
-        const userDocRef = doc(db, 'users', currentUser.uid);
+        if (!auth.currentUser) return;
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
         const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -449,10 +450,11 @@ export const IdentityCenter: React.FC = () => {
       setError(null);
       setSuccess(null);
 
-      const uid = currentUser.uid;
+      if (!auth.currentUser) return;
+      const uid = auth.currentUser.uid;
 
       // 1. Fetch from users
-      const userSnap = await getDoc(doc(db, 'users', uid));
+      const userSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
       const profileData = userSnap.exists() ? userSnap.data() : {};
 
       // Helper function to fetch list of documents based on query

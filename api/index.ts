@@ -18,13 +18,29 @@ import { SentiCore } from "./sentiCore";
 const __filename = typeof import.meta !== "undefined" && import.meta.url ? fileURLToPath(import.meta.url) : "";
 const __dirname = __filename ? path.dirname(__filename) : process.cwd();
 
-const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-let firebaseConfig: any;
+let firebaseConfig: any = {};
 try {
-  firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  const possiblePaths = [
+    path.join(process.cwd(), "firebase-applet-config.json"),
+    path.join(__dirname, "firebase-applet-config.json"),
+    path.join(__dirname, "..", "firebase-applet-config.json")
+  ];
+  
+  let loaded = false;
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      firebaseConfig = JSON.parse(fs.readFileSync(p, "utf8"));
+      console.log(`Loaded firebase-applet-config.json successfully from: ${p}`);
+      loaded = true;
+      break;
+    }
+  }
+  
+  if (!loaded) {
+    console.warn("Could not find firebase-applet-config.json in standard paths. Fallback to empty config.");
+  }
 } catch (error) {
   console.error("Error reading firebase-applet-config.json:", error);
-  firebaseConfig = {}; // Fallback for build/analysis phase
 }
 
 dotenv.config();

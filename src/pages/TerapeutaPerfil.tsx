@@ -34,6 +34,7 @@ import CalendarAvailability from "../components/CalendarAvailability";
 import IARASchedulingAssistant from "../components/IARASchedulingAssistant";
 import { AnimatePresence } from "motion/react";
 import { getEmbedUrl } from "../lib/videoUtils";
+import ShareTherapistLink from "../components/ShareTherapistLink";
 
 export default function TerapeutaPerfil() {
   const { id } = useParams<{ id: string }>();
@@ -220,13 +221,14 @@ export default function TerapeutaPerfil() {
             Voltar
           </button>
           <div className="flex gap-2">
-            <button 
-              onClick={handleShare}
-              className="p-2.5 bg-slate-900/50 hover:bg-slate-800 rounded-full transition-colors backdrop-blur-md border border-white/5"
-              title="Compartilhar perfil"
-            >
-              <Share2 className="w-5 h-5 text-slate-300" />
-            </button>
+            {id && (
+              <ShareTherapistLink 
+                therapistId={id} 
+                therapistName={terapeuta?.nome} 
+                variant="icon" 
+                className="bg-slate-900/50 hover:bg-slate-800 rounded-full w-10 h-10 p-0 text-slate-300 hover:text-emerald-400 border border-white/5 shadow-md backdrop-blur-md cursor-pointer"
+              />
+            )}
           </div>
         </div>
       </div>

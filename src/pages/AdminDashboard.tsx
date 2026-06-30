@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../components/AuthProvider";
 import { useNavigate } from "react-router-dom";
-import { db } from "../services/firebase";
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, limit, setDoc } from "firebase/firestore";
+import { db, auth } from "../services/firebase";
+import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, query, orderBy, limit, setDoc } from "firebase/firestore";
 import { UserProfile, UserType, Organization } from "../types";
 import { organizationService } from "../services/organizationService";
 import { userService } from "../services/userService";
@@ -30,11 +30,22 @@ import {
   Bot
 } from "lucide-react";
 
-export default function AdminDashboard() {
+interface AdminDashboardProps {
+  defaultTab?: "geral" | "usuarios" | "organizations" | "assinaturas" | "terapeutas" | "agendamentos" | "config" | "senticore" | "financeiro";
+}
+
+export default function AdminDashboard({ defaultTab }: AdminDashboardProps) {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<"geral" | "usuarios" | "organizations" | "assinaturas" | "terapeutas" | "agendamentos" | "config" | "senticore" | "financeiro">("senticore");
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
+
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [appointmentsList, setAppointmentsList] = useState<any[]>([]);
   const [organizationsList, setOrganizationsList] = useState<Organization[]>([]);
@@ -42,6 +53,16 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [planFilter, setPlanFilter] = useState<string>("all");
+
+  // Sorting and Pagination State
+  const [sortField, setSortField] = useState<string>("nome");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, planFilter, sortField, sortDirection]);
 
   // Estados Financeiros para a SPRINT 17
   const [paymentsList, setPaymentsList] = useState<any[]>([]);
@@ -89,11 +110,14 @@ export default function AdminDashboard() {
     }
     setLoadingData(true);
     try {
-      // Carrega usuários
-      const usersSnap = await getDocs(collection(db, "users"));
-      const usersData = usersSnap.docs.map(docSnap => ({
-        ...docSnap.data()
-      })) as UserProfile[];
+      // Carrega usuários - Refatorado para usar exclusivamente o documento do próprio usuário autenticado
+      let usersData: UserProfile[] = [];
+      if (auth.currentUser) {
+        const docSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (docSnap.exists()) {
+          usersData = [{ uid: docSnap.id, ...docSnap.data() } as UserProfile];
+        }
+      }
       setUsersList(usersData);
 
       // Carrega agendamentos
@@ -324,6 +348,31 @@ export default function AdminDashboard() {
 
     return matchesSearch && matchesRole && matchesPlan;
   });
+
+  // Sorting & Pagination logic
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    let valA = a[sortField as keyof UserProfile] || "";
+    let valB = b[sortField as keyof UserProfile] || "";
+    
+    if (typeof valA === "string") valA = valA.toLowerCase();
+    if (typeof valB === "string") valB = valB.toLowerCase();
+    
+    if (valA < valB) return sortDirection === "asc" ? -1 : 1;
+    if (valA > valB) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedUsers.length / itemsPerPage);
+  const paginatedUsers = sortedUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   const handleOpenEdit = (user: UserProfile) => {
     setEditingUser(user);
@@ -574,7 +623,7 @@ export default function AdminDashboard() {
             {activeTab === "geral" && (
               <div className="space-y-8">
                 {/* Cards de KPIs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-2">
                     <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Receita Recorrente (MRR)</span>
                     <h2 className="text-2xl font-extrabold text-slate-900">
@@ -599,6 +648,38 @@ export default function AdminDashboard() {
                     <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Consultas Realizadas</span>
                     <h2 className="text-2xl font-extrabold text-slate-900">{totalAppointments}</h2>
                     <span className="text-[10px] text-purple-600 font-bold block">Agendamentos Clínicos</span>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-2">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Organizações Parceiras</span>
+                    <h2 className="text-2xl font-extrabold text-slate-900">{organizationsList.length}</h2>
+                    <span className="text-[10px] text-indigo-600 font-bold block">Tenants B2B Ativos</span>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-2">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Assinaturas Ativas</span>
+                    <h2 className="text-2xl font-extrabold text-slate-900">
+                      {totalPremium + totalProfessional + totalEnterprise}
+                    </h2>
+                    <span className="text-[10px] text-blue-600 font-bold block">Controle de Assinantes</span>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-2">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Logs e Segurança</span>
+                    <h2 className="text-2xl font-extrabold text-slate-900">Em implementação</h2>
+                    <span className="text-[10px] text-amber-600 font-bold block">Logs de Auditoria</span>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-2">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Inteligência & IA</span>
+                    <h2 className="text-2xl font-extrabold text-slate-900">Ativo (SentiCore)</h2>
+                    <span className="text-[10px] text-emerald-600 font-bold block">Command Center IA</span>
+                  </div>
+
+                  <div className="bg-white p-6 rounded-3xl border border-black/5 shadow-sm space-y-2">
+                    <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider block">Uso da Plataforma</span>
+                    <h2 className="text-2xl font-extrabold text-slate-900">Em implementação</h2>
+                    <span className="text-[10px] text-slate-400 font-bold block">Métricas de Acesso</span>
                   </div>
                 </div>
 
@@ -892,22 +973,47 @@ export default function AdminDashboard() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-black/5 text-slate-400 font-extrabold uppercase text-[9px] tracking-wider">
-                          <th className="p-4">Nome</th>
-                          <th className="p-4">Email</th>
-                          <th className="p-4">Função / Role</th>
-                          <th className="p-4">Plano</th>
-                          <th className="p-4">Status de Assinatura</th>
+                        <tr className="bg-slate-50 border-b border-black/5 text-slate-400 font-extrabold uppercase text-[9px] tracking-wider select-none">
+                          <th 
+                            className="p-4 cursor-pointer hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
+                            onClick={() => handleSort("nome")}
+                          >
+                            Nome {sortField === "nome" && (sortDirection === "asc" ? "▴" : "▾")}
+                          </th>
+                          <th 
+                            className="p-4 cursor-pointer hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
+                            onClick={() => handleSort("email")}
+                          >
+                            Email {sortField === "email" && (sortDirection === "asc" ? "▴" : "▾")}
+                          </th>
+                          <th 
+                            className="p-4 cursor-pointer hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
+                            onClick={() => handleSort("tipo")}
+                          >
+                            Função / Role {sortField === "tipo" && (sortDirection === "asc" ? "▴" : "▾")}
+                          </th>
+                          <th 
+                            className="p-4 cursor-pointer hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
+                            onClick={() => handleSort("subscriptionPlan")}
+                          >
+                            Plano {sortField === "subscriptionPlan" && (sortDirection === "asc" ? "▴" : "▾")}
+                          </th>
+                          <th 
+                            className="p-4 cursor-pointer hover:bg-slate-100/50 hover:text-slate-700 transition-colors"
+                            onClick={() => handleSort("subscriptionStatus")}
+                          >
+                            Status de Assinatura {sortField === "subscriptionStatus" && (sortDirection === "asc" ? "▴" : "▾")}
+                          </th>
                           <th className="p-4 text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-black/5">
-                        {filteredUsers.length === 0 ? (
+                        {paginatedUsers.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="p-8 text-center text-xs text-slate-400 font-bold">Nenhum usuário encontrado com as configurações de filtros aplicadas.</td>
                           </tr>
                         ) : (
-                          filteredUsers.map((user) => (
+                          paginatedUsers.map((user) => (
                             <tr key={user.uid} className="hover:bg-slate-50 text-xs">
                               <td className="p-4 font-bold text-slate-800">{user.nome}</td>
                               <td className="p-4 text-slate-500">{user.email}</td>
@@ -960,6 +1066,31 @@ export default function AdminDashboard() {
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Paginação */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-6 py-4 bg-slate-50 border-t border-black/5">
+                      <span className="text-xs text-slate-500">
+                        Mostrando página <b>{currentPage}</b> de <b>{totalPages}</b> ({sortedUsers.length} usuários)
+                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40 border border-black/5 rounded-lg text-xs font-bold transition cursor-pointer"
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 disabled:opacity-40 border border-black/5 rounded-lg text-xs font-bold transition cursor-pointer"
+                        >
+                          Próxima
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

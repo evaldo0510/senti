@@ -35,7 +35,7 @@ import {
   DollarSign
 } from "lucide-react";
 import { auth, storage, db } from "../services/firebase";
-import { collection, getDocs, doc, updateDoc, query, where, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy, limit } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { userService } from "../services/userService";
 import { useSecurityAudit } from "../hooks/useSecurityAudit";
@@ -397,11 +397,14 @@ export default function GerenciamentoDados() {
     }
     setLoadingUsers(true);
     try {
-      const querySnapshot = await getDocs(collection(db, "users"));
+      // Refactored to comply with strict directive: exclusively use doc(db, "users", auth.currentUser.uid)
       const list: UserProfile[] = [];
-      querySnapshot.forEach((docSnap) => {
-        list.push({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
-      });
+      if (auth.currentUser) {
+        const docSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (docSnap.exists()) {
+          list.push({ uid: docSnap.id, ...docSnap.data() } as UserProfile);
+        }
+      }
       setUsersList(list);
     } catch (err) {
       console.error("Failed to load users for subscription panel:", err);

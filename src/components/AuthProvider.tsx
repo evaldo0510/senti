@@ -53,8 +53,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      
+      // Synchronously set loading to true and isAuthReady to false BEFORE any async yield.
+      // This immediately locks the rendering tree and prevents premature queries during auth changes.
+      setLoading(true);
+      setIsAuthReady(false);
+
       // Clear previous subscription if any
       if (unsubscribeProfile) {
         unsubscribeProfile();
@@ -66,10 +69,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (currentUser) {
+        let userProfile: UserProfile | null = null;
         try {
           // Preload profile immediately
-          const userProfile = await userService.getUser(currentUser.uid);
-          setProfile(userProfile);
+          userProfile = await userService.getUser(currentUser.uid);
+          if (!userProfile) {
+            // First-time sign-in profile creation
+            userProfile = await userService.syncProfile(currentUser);
+          }
+
           if (userProfile) {
             localStorage.setItem("tipo", userProfile.tipo);
           }
@@ -95,15 +103,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (error) {
           console.error("Error fetching user profile:", error);
         }
+
+        // Apply state atomically to prevent premature render of authenticated children without profiles
+        setUser(currentUser);
+        setProfile(userProfile);
+        setLoading(false);
+        setIsAuthReady(true);
         
         // Seed mock data if needed
         userService.seedMockData().catch(console.error);
       } else {
+        setUser(null);
         setProfile(null);
         localStorage.removeItem("tipo");
+        setLoading(false);
+        setIsAuthReady(true);
       }
-      setLoading(false);
-      setIsAuthReady(true);
     });
 
     return () => {
@@ -151,10 +166,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isAuthReady } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || !isAuthReady) {
     return <LoadingScreen message="Verificando permissões..." />;
   }
 
@@ -172,10 +187,10 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
 };
 
 export const PremiumProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, profile, loading, hasPremiumAccess } = useAuth();
+  const { user, profile, loading, isAuthReady, hasPremiumAccess } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || !isAuthReady) {
     return <LoadingScreen message="Verificando assinatura..." />;
   }
 

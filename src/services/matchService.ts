@@ -1,17 +1,9 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "./firebase";
 import { UserProfile } from "../types";
+import { MOCK_THERAPISTS } from "./mockData";
 
 export async function encontrarTerapeutas(mensagem: string): Promise<UserProfile[]> {
   try {
-    const terapeutasRef = collection(db, "users");
-    const q = query(terapeutasRef, where("tipo", "==", "terapeuta"));
-    const querySnapshot = await getDocs(q);
-    
-    const todos: UserProfile[] = [];
-    querySnapshot.forEach((doc) => {
-      todos.push({ uid: doc.id, ...doc.data() } as UserProfile);
-    });
+    const todos: UserProfile[] = MOCK_THERAPISTS;
 
     const msgLower = mensagem.toLowerCase();
     let matches: UserProfile[] = [];

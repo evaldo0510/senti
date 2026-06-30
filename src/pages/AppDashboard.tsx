@@ -32,7 +32,8 @@ import {
   Building,
   GraduationCap,
   Sparkle,
-  Bell
+  Bell,
+  Smile
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Onboarding } from "../components/Onboarding";
@@ -182,60 +183,47 @@ export default function AppDashboard() {
   };
 
   // Active shortcuts configuration (2 col mobile, 4 col desktop)
+  const nextApp = upcomingAppointments[0];
+  const nextSessionText = nextApp 
+    ? `${nextApp.therapistNome || 'Terapeuta'} - ${new Date(nextApp.date).toLocaleDateString('pt-BR')} às ${nextApp.time}`
+    : "Agende sua sessão ou veja horários";
+
   const shortcuts = [
     {
-      id: "ia",
-      title: "IA SentiPae",
-      description: "Converse com a IARA 24h",
-      icon: BrainCircuit,
-      color: "from-emerald-500/10 to-teal-500/10 border-emerald-550/15 text-emerald-600 dark:text-emerald-400 hover:from-emerald-500/15 hover:to-teal-500/15",
+      id: "checkin",
+      title: "🌱 Como você está hoje?",
+      description: "Abre o check-in emocional",
+      icon: Smile,
+      color: "from-emerald-500/10 to-teal-500/10 border-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:from-emerald-500/15 hover:to-teal-500/15",
+      path: "/diario",
+      tag: "Check-in"
+    },
+    {
+      id: "chat_iara",
+      title: "🤖 Conversar com a IARA",
+      description: "Acesso imediato ao assistente",
+      icon: MessageSquare,
+      color: "from-purple-500/10 to-indigo-500/10 border-purple-500/15 text-purple-600 dark:text-purple-400 hover:from-purple-500/15 hover:to-indigo-500/15",
       path: "/chat",
-      tag: "IARA Ativa"
+      tag: "IARA 24h"
     },
     {
-      id: "terapeuta",
-      title: "Meu Terapeuta",
-      description: "Agende psicólogos",
-      icon: Users,
-      color: "from-indigo-500/10 to-violet-500/10 border-indigo-550/15 text-indigo-600 dark:text-indigo-400 hover:from-indigo-500/15 hover:to-violet-500/15",
-      path: "/profissionais",
-      tag: "Disponíveis"
-    },
-    {
-      id: "agendamentos",
-      title: "Agendamentos",
-      description: "Gerencie suas sessões",
+      id: "proxima_sessao",
+      title: "📅 Minha próxima sessão",
+      description: nextSessionText,
       icon: Calendar,
-      color: "from-amber-500/10 to-orange-500/10 border-amber-550/15 text-amber-600 dark:text-amber-400 hover:from-amber-500/15 hover:to-orange-500/15",
-      path: "/pronto-atendimento",
-      tag: "Consultas"
+      color: "from-indigo-500/10 to-blue-500/10 border-indigo-550/15 text-indigo-600 dark:text-indigo-400 hover:from-indigo-500/15 hover:to-blue-500/15",
+      path: nextApp ? `/atendimento/${nextApp.id}` : "/profissionais",
+      tag: nextApp ? "Agendada" : "Agendar"
     },
     {
-      id: "diario",
-      title: "Diário Emocional",
-      description: "Sintonize sentimentos",
+      id: "diario_escrita",
+      title: "📖 Meu diário",
+      description: "Continua a escrita terapêutica",
       icon: BookOpen,
       color: "from-rose-500/10 to-pink-500/10 border-rose-550/15 text-rose-600 dark:text-rose-400 hover:from-rose-500/15 hover:to-pink-500/15",
       path: "/diario",
-      tag: "Novo Registro"
-    },
-    {
-      id: "evolucao",
-      title: "Minha Evolução",
-      description: "Gráficos de progresso",
-      icon: TrendingUp,
-      color: "from-purple-500/10 to-pink-500/10 border-purple-550/15 text-purple-600 dark:text-purple-400 hover:from-purple-500/15 hover:to-pink-500/15",
-      path: "/home", // This points to the main patient progress articles or evolution
-      tag: "Atualizado"
-    },
-    {
-      id: "biblioteca",
-      title: "Biblioteca",
-      description: "Artigos e práticas",
-      icon: Compass,
-      color: "from-blue-500/10 to-cyan-500/10 border-blue-550/15 text-blue-600 dark:text-blue-400 hover:from-blue-500/15 hover:to-cyan-500/15",
-      path: "/home",
-      tag: "Leituras"
+      tag: "Meu Diário"
     }
   ];
 

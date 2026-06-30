@@ -1368,276 +1368,175 @@ export default function DashboardPaciente() {
           </motion.div>
         )}
 
-        {/* Dica do Dia Card */}
-        {(() => {
-          const tip = (() => {
-            const defaultTip = {
-              title: "Ancoragem no Presente (5-4-3-2-1)",
-              category: "Mindfulness",
-              text: "Olhe ao redor e identifique: 5 coisas que pode ver, 4 que pode tocar, 3 que pode ouvir, 2 que pode cheirar e 1 que pode provar. É excelente para acalmar mentes agitadas.",
-              icon: Lightbulb
-            };
-
-            if (!moodHistory || moodHistory.length === 0) {
-              return defaultTip;
-            }
-
-            const validEntries = moodHistory.slice(0, 5);
-            const avgMood = validEntries.reduce((sum, item) => sum + item.value, 0) / validEntries.length;
-            
-            let hasAnxietyTrigger = false;
-            let hasSleepTrigger = false;
-            let hasWorkTrigger = false;
-
-            validEntries.forEach(entry => {
-              if (entry.triggers && Array.isArray(entry.triggers)) {
-                if (entry.triggers.includes("sono")) hasSleepTrigger = true;
-                if (entry.triggers.includes("trabalho")) hasWorkTrigger = true;
-                if (entry.triggers.includes("ansiedade")) hasAnxietyTrigger = true;
-              }
-            });
-
-            if (avgMood < 5) {
-              return {
-                title: "Ativação Comportamental de 5 Minutos",
-                category: "Cognitivo-Comportamental",
-                text: "Quando o desânimo bater, mova-se. Faça uma pequena arrumação em uma gaveta ou dê uma volta rápida pelo cômodo. Quebrar a inércia física ajuda a reconfigurar o ânimo.",
-                icon: Activity
-              };
-            } else if (hasAnxietyTrigger || hasWorkTrigger) {
-              return {
-                title: "Técnica de Respiração Quadrada (4-4-4-4)",
-                category: "Regulação do Estresse",
-                text: "Inspire pelo nariz por 4 segundos, segure o ar por 4 segundos, expire suavemente pela boca por 4 segundos e permaneça com os pulmões vazios por mais 4 segundos. Repita 3 vezes para acalmar o sistema nervoso.",
-                icon: Wind
-              };
-            } else if (hasSleepTrigger) {
-              return {
-                title: "Higiene do Sono: Desconexão Gradual",
-                category: "Qualidade de Vida",
-                text: "Desligue as telas (celular e TV) pelo menos 30 minutos antes de dormir. Reduzir a luz azul sinaliza ao cérebro para produzir melatonina, garantindo um sono restaurador.",
-                icon: Moon
-              };
-            } else if (avgMood >= 7.5) {
-              return {
-                title: "Multiplique sua Alegria: Pote da Gratidão",
-                category: "Psicologia Positiva",
-                text: "Escreva ou pense em 3 coisas simples que deram certo hoje, não importa o quão pequenas. Celebrar intencionalmente suas vitórias treina seu cérebro para focar no bem-estar.",
-                icon: Sparkles
-              };
-            }
-
-            return defaultTip;
-          })();
-
-          const TipIcon = tip.icon;
-
-          return (
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-transparent border border-indigo-500/15 rounded-[2.5rem] p-6 shadow-lg shadow-indigo-500/5 space-y-3"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <TipIcon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-500">Dica do Dia</h4>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-bold">{tip.category}</span>
-                  </div>
-                </div>
+        {/* 4-Card Bento Grid on the First Fold */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          {/* Card 1: 🌱 Como você está hoje? (Check-in) */}
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            className="p-6 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none flex flex-col justify-between space-y-4"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🌱</span>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-wider">Como você está hoje?</h3>
               </div>
-
-              <div className="space-y-1">
-                <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
-                  {tip.title}
-                </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-350 leading-relaxed">
-                  {tip.text}
-                </p>
-              </div>
-            </motion.div>
-          );
-        })()}
-
-        {/* Interactive Daily Mood Tracker */}
-        <section className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none space-y-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Smile className="w-5 h-5 text-emerald-500" />
-              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 uppercase tracking-tight">Como você está hoje?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Registre seu estado de humor atual para acompanhar sua jornada.
+              </p>
             </div>
-            <p className="text-xs text-slate-500 font-medium">Selecione um emoji para registrar seu estado emocional no diário do seu perfil</p>
-          </div>
-
-          {moodSavedFeedback && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }} 
-              animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold"
-            >
-              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-              <span>Registro de humor gravado com sucesso! Ganhou +10 XP. Seu gráfico de tendências foi recalculado.</span>
-            </motion.div>
-          )}
-
-          <div className="flex overflow-x-auto gap-2.5 pb-2 no-scrollbar -mx-2 px-2">
-            {moods.map((m) => {
-              const isSelected = selectedEmoji === m.emoji;
-              return (
-                <motion.button
-                  key={m.label}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setSelectedEmoji(m.emoji);
-                    setSelectedMoodValue(m.value);
-                  }}
-                  className={cn(
-                    "flex-shrink-0 flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all cursor-pointer w-20 min-h-[74px]",
-                    isSelected 
-                      ? "bg-emerald-500/10 border-emerald-500/35 shadow-inner" 
-                      : "bg-slate-50 dark:bg-slate-950 border-slate-200/60 dark:border-white/5 hover:border-slate-350 dark:hover:border-white/10"
-                  )}
-                >
-                  <span className="text-3xl filter drop-shadow-sm">{m.emoji}</span>
-                  <span className={cn(
-                    "text-[9px] font-bold uppercase tracking-wider",
-                    isSelected ? "text-emerald-500" : "text-slate-550 dark:text-slate-500"
-                  )}>{m.label}</span>
-                </motion.button>
-              );
-            })}
-          </div>
-
-          <AnimatePresence>
-            {selectedMoodValue !== null && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden space-y-4 pt-4 border-t border-slate-100 dark:border-white/5"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      <span>Sintonia/Nível de Humor:</span>
-                      <span className="text-emerald-600 dark:text-emerald-400 font-black">{selectedMoodValue}/10</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      value={selectedMoodValue}
-                      onChange={(e) => setSelectedMoodValue(parseInt(e.target.value))}
-                      className="w-full h-1.5 bg-slate-100 dark:bg-white/5 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                    />
-                    <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
-                      <span>Crítico</span>
-                      <span>Neutro</span>
-                      <span>Excelente</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      <span>Intensidade do Sentimento:</span>
-                      <span className="text-blue-500 dark:text-blue-400 font-black">{moodIntensity}/10</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="10"
-                      value={moodIntensity}
-                      onChange={(e) => setMoodIntensity(parseInt(e.target.value))}
-                      className="w-full h-1.5 bg-slate-100 dark:bg-white/5 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                    <div className="flex justify-between text-[8px] text-slate-400 font-bold uppercase">
-                      <span>Brando</span>
-                      <span>Moderado</span>
-                      <span>Profundo</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Nota rápida sobre seu dia (Opcional):</label>
-                  <textarea
-                    rows={2}
-                    value={moodNote}
-                    onChange={(e) => setMoodNote(e.target.value)}
-                    placeholder="Escreva brevemente o que motivou esse sentimento ou o seu foco mental hoje..."
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-white/5 rounded-xl text-xs text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-emerald-500/45 transition-colors"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Identifique os Gatilhos (Opcional):</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      { id: "trabalho", label: "💼 Trabalho" },
-                      { id: "familia", label: "🏠 Família" },
-                      { id: "saude", label: "❤️ Saúde" },
-                      { id: "financas", label: "💵 Finanças" },
-                      { id: "relacionamento", label: "💑 Relacionamento" },
-                      { id: "amigos", label: "👥 Amigos" },
-                      { id: "sono", label: "🌙 Sono" },
-                      { id: "estudos", label: "📚 Estudos" }
-                    ].map((trigger) => {
-                      const isSelected = selectedTriggers.includes(trigger.id);
-                      return (
-                        <button
-                          key={trigger.id}
-                          type="button"
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedTriggers(prev => prev.filter(t => t !== trigger.id));
-                            } else {
-                              setSelectedTriggers(prev => [...prev, trigger.id]);
-                            }
-                          }}
-                          className={cn(
-                            "px-3 py-1.5 rounded-full border text-[11px] font-bold cursor-pointer transition-all active:scale-95",
-                            isSelected 
-                              ? "bg-indigo-600 dark:bg-indigo-500 text-white border-indigo-600 dark:border-indigo-500 shadow-md shadow-indigo-500/10"
-                              : "bg-slate-55 dark:bg-slate-950 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/5 hover:border-slate-350 dark:hover:border-white/10"
-                          )}
-                        >
-                          {trigger.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex gap-2.5">
+            {/* Quick check-in content */}
+            {moodSavedFeedback ? (
+              <div className="p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span>Registro gravado! Ganhou +10 XP.</span>
+              </div>
+            ) : (
+              <div className="flex gap-2 justify-between">
+                {[
+                  { emoji: "😊", label: "Feliz", val: 9 },
+                  { emoji: "😐", label: "Neutro", val: 5 },
+                  { emoji: "😔", label: "Triste", val: 3 },
+                  { emoji: "😟", label: "Ansioso", val: 2 },
+                  { emoji: "😤", label: "Estresso", val: 2 }
+                ].map((m) => (
                   <button
-                    onClick={handleDetailedMoodSubmit}
-                    disabled={moodSaving}
-                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 dark:disabled:bg-slate-800 text-white rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-md shadow-emerald-600/10 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {moodSaving ? "Registrando..." : "Confirmar e Gravar"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedMoodValue(null);
-                      setSelectedEmoji("");
-                      setMoodNote("");
-                      setSelectedTriggers([]);
+                    key={m.label}
+                    onClick={async () => {
+                      setSelectedEmoji(m.emoji);
+                      setSelectedMoodValue(m.val);
+                      try {
+                        setMoodSaving(true);
+                        await handleQuickMood(m.val);
+                        setMoodSavedFeedback(true);
+                        setTimeout(() => setMoodSavedFeedback(false), 4000);
+                      } catch (err) {
+                        console.error("Error saving mood checkin:", err);
+                      } finally {
+                        setMoodSaving(false);
+                      }
                     }}
-                    className="px-4 py-3 bg-slate-100 dark:bg-white/5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 rounded-xl font-bold text-xs uppercase tracking-widest transition-colors cursor-pointer"
+                    className="flex-1 flex flex-col items-center p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-white/5 hover:border-emerald-500/30 transition-all text-xs cursor-pointer active:scale-95"
                   >
-                    Cancelar
+                    <span className="text-2xl">{m.emoji}</span>
+                    <span className="text-[8px] font-bold uppercase text-slate-400 dark:text-slate-500 mt-1">{m.label}</span>
                   </button>
-                </div>
-              </motion.div>
+                ))}
+              </div>
             )}
-          </AnimatePresence>
+          </motion.div>
+
+          {/* Card 2: 🤖 Conversar com a IARA */}
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            onClick={() => navigate("/chat")}
+            className="p-6 bg-gradient-to-br from-emerald-50 via-emerald-100/20 to-white dark:from-emerald-550/10 dark:via-slate-900 dark:to-slate-950 rounded-[2rem] border-2 border-emerald-500/30 dark:border-emerald-500/40 shadow-xl shadow-emerald-500/5 dark:shadow-none flex flex-col justify-between cursor-pointer group min-h-[170px] relative overflow-hidden"
+          >
+            {/* Background glowing sphere decoration */}
+            <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="space-y-2 relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl animate-bounce" style={{ animationDuration: '3s' }}>🤖</span>
+                  <h3 className="font-black text-emerald-800 dark:text-emerald-400 text-sm uppercase tracking-wider">Conversar com a IARA</h3>
+                </div>
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                Sua assistente de acolhimento emocional. Pronto atendimento de triagem e inteligência artificial 24 horas por dia.
+              </p>
+            </div>
+            
+            <div className="flex items-center justify-between pt-2 relative z-10">
+              <span className="text-[10px] bg-emerald-500/15 dark:bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest">
+                Principal Canal de Auxílio
+              </span>
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-black group-hover:translate-x-1.5 transition-transform flex items-center gap-1">
+                Iniciar Chat <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Card 3: 📅 Minha próxima sessão */}
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            onClick={() => nextAppointment ? navigate(`/atendimento/${nextAppointment.id}`) : navigate("/profissionais")}
+            className="p-6 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none flex flex-col justify-between cursor-pointer group min-h-[170px]"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📅</span>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-wider">Minha próxima sessão</h3>
+              </div>
+              
+              {nextAppointment ? (
+                <div className="py-1">
+                  <h4 className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                    {new Date(nextAppointment.date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} às {new Date(nextAppointment.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Com Dr(a). {nextAppointment.therapistNome}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Não há sessões de teleatendimento agendadas para os próximos dias.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className={cn(
+                "text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-widest border",
+                nextAppointment 
+                  ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+                  : "bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-white/5 text-slate-400"
+              )}>
+                {nextAppointment ? "Sessão Confirmada" : "Sem Agendamento"}
+              </span>
+              <span className="text-xs text-emerald-500 dark:text-emerald-400 font-black group-hover:translate-x-1.5 transition-transform flex items-center gap-1">
+                {nextAppointment ? "Acessar Atendimento" : "Agendar Terapia"} <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Card 4: 📖 Meu diário */}
+          <motion.div 
+            whileHover={{ y: -4, scale: 1.01 }}
+            onClick={() => navigate("/diario")}
+            className="p-6 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-white/5 shadow-xl shadow-slate-200/45 dark:shadow-none flex flex-col justify-between cursor-pointer group min-h-[170px]"
+          >
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📖</span>
+                <h3 className="font-black text-slate-800 dark:text-slate-100 text-sm uppercase tracking-wider">Meu Diário Emocional</h3>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Guarde suas reflexões, metas, sentimentos e acompanhe sua evolução comportamental diária.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-white/5 px-2 py-0.5 rounded-full text-slate-400 font-bold uppercase tracking-widest">
+                Espaço Livre
+              </span>
+              <span className="text-xs text-emerald-500 dark:text-emerald-400 font-black group-hover:translate-x-1.5 transition-transform flex items-center gap-1">
+                Escrever Entrada <ArrowRight className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </motion.div>
         </section>
 
-        {/* Linha do Tempo da Jornada Terapêutica (SDS) */}
+        {/* Painel de Exploração e Acompanhamento Completo */}
+        <div className="border-t border-slate-200 dark:border-white/5 pt-6 space-y-4">
+          <div className="px-2">
+            <h3 className="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">Painel de Evolução & Ferramentas</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Role abaixo para explorar seus relatórios, gráficos, artigos e match com especialistas</p>
+          </div>
+          
+          <div className="max-h-[680px] overflow-y-auto pr-1 space-y-6 sm:space-y-8 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
+            {/* Linha do Tempo da Jornada Terapêutica (SDS) */}
         <LinhaTempoJornada />
 
         {/* Prontuário Inteligente Unificado (PIU) & ICC */}
@@ -3365,6 +3264,8 @@ export default function DashboardPaciente() {
             </div>
           )}
         </section>
+          </div>
+        </div>
       </main>
 
       {/* Modal de Instruções de Notificação Bloqueada */}

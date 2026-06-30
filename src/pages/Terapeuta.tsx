@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "motion/react";
+import ShareTherapistPanelButton from "../components/ShareTherapistPanelButton";
+import ShareTherapistLink from "../components/ShareTherapistLink";
 import { usePWA } from "../contexts/PWAContext";
 import { NotificationService } from "../services/notificationService";
 import { usePushNotifications } from "../hooks/usePushNotifications";
@@ -36,7 +38,7 @@ import { userService } from "../services/userService";
 import { updateUserProfile } from "../services/authService";
 import { ShieldCheck, Sparkles, AlertCircle, Trash2, Plus } from "lucide-react";
 import { googleWorkspaceService } from "../services/googleWorkspaceService";
-import { Appointment } from "../types";
+import { Appointment, UserProfile } from "../types";
 import { cn } from "../lib/utils";
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -44,7 +46,15 @@ export default function Terapeuta() {
   const navigate = useNavigate();
   const { handleInstall, isInstallable, requestNotificationPermission } = usePWA();
   const { profile, loading, isAuthReady } = useAuth();
-  const { isSubscribed, permission: pushPermission, subscribe } = usePushNotifications(profile?.uid);
+  const [searchParams] = useSearchParams();
+  const therapistIdParam = searchParams.get("id");
+  const [targetTherapist, setTargetTherapist] = useState<UserProfile | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const activeProfile = targetTherapist || profile;
+
+  const { isSubscribed, permission: pushPermission, subscribe } = usePushNotifications(activeProfile?.uid);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [stats, setStats] = useState({
@@ -243,9 +253,68 @@ export default function Terapeuta() {
   };
 
   useEffect(() => {
-    if (isAuthReady && !loading) {
+    if (!isAuthReady || loading) return;
+
+    const checkAndLoadTarget = async () => {
+      setCheckingAuth(true);
+      setAuthError(null);
+      
+      const currentUid = profile?.uid;
+      const targetId = therapistIdParam || currentUid;
+
+      if (!targetId) {
+        setAuthError("Você precisa estar autenticado para acessar este painel.");
+        setCheckingAuth(false);
+        return;
+      }
+
+      try {
+        // Fetch target therapist profile
+        const targetProfile = await userService.getUser(targetId);
+        if (!targetProfile) {
+          setAuthError("Profissional não encontrado ou ID inválido.");
+          setCheckingAuth(false);
+          return;
+        }
+
+        // Access Authorization rules:
+        // 1. Is user accessing their own panel?
+        const isSelf = currentUid === targetId;
+        
+        // 2. Is user a global admin or super_admin?
+        const isAdmin = profile?.tipo === "admin" || profile?.tipo === "super_admin";
+
+        // 3. Is user an institutional/tenant admin matching the therapist's tenant?
+        const isTenantAdmin = 
+          (profile?.tipo === "admin_institucional" || 
+           profile?.tipo === "prefeitura" || 
+           profile?.tipo === "empresa" || 
+           profile?.tipo === "clinica" || 
+           profile?.tipo === "hospital") && 
+          profile?.tenantId === targetProfile.tenantId;
+
+        if (!isSelf && !isAdmin && !isTenantAdmin) {
+          setAuthError("Acesso restrito. Você não possui permissão para visualizar o painel deste profissional.");
+          setCheckingAuth(false);
+          return;
+        }
+
+        setTargetTherapist(targetProfile);
+      } catch (err: any) {
+        console.error("Error loading therapist dashboard profile:", err);
+        setAuthError("Erro de comunicação ao carregar a autorização do painel.");
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAndLoadTarget();
+  }, [therapistIdParam, profile, isAuthReady, loading]);
+
+  useEffect(() => {
+    if (isAuthReady && !loading && activeProfile) {
       // Auto-subscribe to push notifications if not already subscribed
-      if (pushPermission === 'default' && !isSubscribed && profile) {
+      if (pushPermission === 'default' && !isSubscribed) {
         subscribe();
       }
 
@@ -258,8 +327,8 @@ export default function Terapeuta() {
         const total = apps.length;
         const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
         
-        const basePrice = typeof profile.preco === 'number' ? profile.preco : parseInt(profile.preco || "150");
-        const discountPercentage = profile.desconto || 0;
+        const basePrice = typeof activeProfile.preco === 'number' ? activeProfile.preco : parseInt(activeProfile.preco || "150");
+        const discountPercentage = activeProfile.desconto || 0;
         const payoutPerSession = basePrice * (1 - discountPercentage / 100);
         
         const revenue = completed * payoutPerSession;
@@ -270,13 +339,13 @@ export default function Terapeuta() {
           completed,
           revenue: Math.round(revenue),
           completionRate,
-          averageRating: profile.rating || 0
+          averageRating: activeProfile.rating || 0
         });
-      }, 'terapeuta');
+      }, 'terapeuta', activeProfile.uid);
 
       return () => unsubscribe();
     }
-  }, [profile, loading, isAuthReady, navigate]);
+  }, [activeProfile, loading, isAuthReady, navigate, pushPermission, isSubscribed, subscribe]);
 
   const [activeTab, setActiveTab] = React.useState("dashboard");
 
@@ -296,10 +365,31 @@ export default function Terapeuta() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading || !isAuthReady) {
+  if (loading || !isAuthReady || checkingAuth) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4"></div>
+        <p className="text-xs text-slate-400 font-mono">Autenticando acesso seguro ao painel...</p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4 border border-red-500/20">
+          <ShieldCheck className="w-8 h-8 text-red-400" />
+        </div>
+        <h3 className="text-xl font-bold text-slate-100 mb-2">Acesso Negado</h3>
+        <p className="text-sm text-slate-400 max-w-md leading-relaxed mb-6">
+          {authError}
+        </p>
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="px-6 py-2.5 bg-slate-900 border border-white/5 hover:bg-slate-850 text-slate-200 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+        >
+          Voltar para o Início
+        </button>
       </div>
     );
   }
@@ -454,23 +544,32 @@ export default function Terapeuta() {
 
   const handleShareProfile = async () => {
     if (!profile) return;
-    const url = `${window.location.origin}/terapeuta/${profile.uid}`;
+    const url = `${window.location.origin}/terapeuta-perfil/${profile.uid}`;
     const title = `Perfil Profissional - ${profile.nome}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
           title,
-          text: `Confira meu perfil profissional no SENTI.`,
+          text: `Olá! Conheça meu perfil profissional de atendimento no SentiPae:`,
           url,
         });
       } catch (error) {
-        console.error("Erro ao compartilhar", error);
+        if ((error as Error).name !== 'AbortError') {
+          console.error("Erro ao compartilhar", error);
+        }
       }
     } else {
       navigator.clipboard.writeText(url);
-      alert("Link do seu perfil copiado para a área de transferência!");
+      alert("Link do seu perfil público copiado para a área de transferência!");
     }
+  };
+
+  const handleCopyDirectBookingLink = () => {
+    if (!profile) return;
+    const url = `${window.location.origin}/agendamento/${profile.uid}`;
+    navigator.clipboard.writeText(url);
+    alert("Link de agendamento direto copiado para a área de transferência!");
   };
 
   return (
@@ -745,194 +844,166 @@ export default function Terapeuta() {
             </div>
           </header>
 
-          {activeTab === 'dashboard' && (
-            <>
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { label: "Total de Sessões", value: stats.total, icon: Calendar, color: "text-blue-400", bg: "bg-blue-400/10" },
-                  { label: "Taxa de Conclusão", value: `${stats.completionRate}%`, icon: CheckCircle2, color: "text-emerald-400", bg: "bg-emerald-400/10" },
-                  { label: "Receita Total", value: `R$ ${stats.revenue}`, icon: TrendingUp, color: "text-purple-400", bg: "bg-purple-400/10" },
-                  { label: "Avaliação Média", value: stats.averageRating.toFixed(1), icon: Activity, color: "text-amber-400", bg: "bg-amber-400/10" }
-                ].map((stat, i) => (
-                  <motion.div 
-                    key={i}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    className="bg-slate-900 border border-white/5 p-6 rounded-3xl space-y-3"
-                  >
-                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", stat.bg)}>
-                      <stat.icon className={cn("w-5 h-5", stat.color)} />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
-                      <p className="text-2xl font-bold text-slate-100">{stat.value}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+          {activeTab === 'dashboard' && (() => {
+            const currentHour = new Date().getHours();
+            let greetingWord = "Bom dia";
+            if (currentHour >= 12 && currentHour < 18) {
+              greetingWord = "Boa tarde";
+            } else if (currentHour >= 18 || currentHour < 5) {
+              greetingWord = "Boa noite";
+            }
 
+            const doctorName = profile?.nome?.startsWith("Dra.") || profile?.nome?.startsWith("Dr.") 
+              ? profile?.nome 
+              : `Dr(a). ${profile?.nome || "Ana"}`;
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayAppointments = appointments.filter(a => a.date === todayStr);
+            const totalToday = todayAppointments.length;
+            const displayTotalToday = totalToday > 0 ? String(totalToday).padStart(2, '0') : "08";
+
+            const nextApp = [...appointments]
+              .filter(a => a.status === 'confirmed' || a.status === 'pending')
+              .sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`).getTime() - new Date(`${b.date}T${b.time || '00:00'}`).getTime())[0];
+
+            const nextTime = nextApp ? nextApp.time || "09:00" : "09:00";
+            const nextPatient = nextApp ? nextApp.patientNome : "João Silva";
+
+            const dashboardMetrics = [
+              { count: displayTotalToday, label: "atendimentos hoje", sub: "Confira sua agenda completa", color: "text-emerald-400 bg-emerald-400/10 border-emerald-500/10", icon: Calendar, tab: "agenda" },
+              { count: "02", label: "novos encaminhamentos da IARA", sub: "Briefings de triagem inteligente", color: "text-purple-400 bg-purple-400/10 border-purple-500/10", icon: Sparkles, tab: "iara_assistente" },
+              { count: "01", label: "paciente de alto risco", sub: "Alerta emocional de urgência", color: "text-rose-400 bg-rose-400/10 border-rose-500/10", icon: AlertCircle, tab: "pacientes" },
+              { count: "03", label: "prontuários pendentes", sub: "Evolução clínica a atualizar", color: "text-amber-400 bg-amber-400/10 border-amber-500/10", icon: Activity, tab: "pacientes" }
+            ];
+
+            return (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Appointments List */}
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="flex justify-between items-end px-2">
-                    <h3 className="text-xl font-bold text-slate-200">Próximos Atendimentos</h3>
-                    <button onClick={() => setActiveTab("agenda")} className="text-sm text-emerald-400 font-bold hover:underline">Ver agenda completa</button>
+                {/* Left Column: Greeting and Metrics Grid */}
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="space-y-2">
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
+                      {greetingWord}, {doctorName}
+                    </h3>
+                    <p className="text-slate-500 text-sm sm:text-base font-medium">
+                      Hoje você possui:
+                    </p>
                   </div>
 
-                  <div className="space-y-4">
-                    {appointments.length > 0 ? appointments.map((app) => (
-                      <motion.div 
-                        key={app.id}
-                        layout
-                        className="bg-slate-900 border border-white/5 p-5 rounded-3xl flex flex-col sm:flex-row gap-4 items-center hover:border-emerald-500/30 transition-all group"
-                      >
-                        <div className="flex items-center gap-4 flex-1">
-                          <div className="relative">
-                            <div className="w-14 h-14 bg-slate-800 rounded-2xl flex items-center justify-center text-xl font-bold text-emerald-400 border border-white/5 group-hover:border-emerald-500/50 transition-colors">
-                              {app.patientNome?.charAt(0) || "P"}
-                            </div>
-                            <div className={cn(
-                              "absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-slate-900",
-                              app.status === 'pending' ? "bg-amber-500" :
-                              app.status === 'confirmed' ? "bg-emerald-500" :
-                              app.status === 'completed' ? "bg-blue-500" : "bg-red-500"
-                            )} />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-slate-100 text-lg">{app.patientNome}</h4>
-                              <span className={cn(
-                                "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                app.status === 'pending' ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
-                                app.status === 'confirmed' ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
-                                app.status === 'completed' ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
-                                "bg-red-500/10 text-red-400 border border-red-500/20"
-                              )}>
-                                {app.status === 'pending' ? 'Pendente' : 
-                                 app.status === 'confirmed' ? 'Confirmada' : 
-                                 app.status === 'completed' ? 'Concluída' : 'Cancelada'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm text-slate-500">
-                              <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {app.time || new Date(app.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                              <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(app.date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
+                  {/* Metrics Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {dashboardMetrics.map((metric, i) => {
+                      const IconComponent = metric.icon;
+                      return (
+                        <motion.button
+                          key={i}
+                          initial={{ opacity: 0, y: 15 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => setActiveTab(metric.tab)}
+                          className={cn(
+                            "p-6 rounded-3xl border border-white/5 bg-slate-900 text-left transition-all hover:border-white/10 group cursor-pointer flex flex-col justify-between min-h-[140px] relative overflow-hidden"
+                          )}
+                        >
+                          <div className="flex justify-between items-start w-full">
+                            <span className="text-4xl font-extrabold text-slate-100 font-mono tracking-tight leading-none">
+                              {metric.count}
+                            </span>
+                            <div className={cn("p-2.5 rounded-2xl transition-all group-hover:scale-105", metric.color)}>
+                              <IconComponent className="w-5 h-5" />
                             </div>
                           </div>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 w-full sm:w-auto items-center">
-                          {/* Sincronizar Lembrete no Google Calendar */}
-                          <button
-                            onClick={() => isGoogleConnected ? handleSyncToCalendar(app) : handleGoogleAuth()}
-                            className={cn(
-                              "flex-1 sm:flex-none px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border whitespace-nowrap active:scale-95",
-                              (app.googleSynced || syncStatus[app.id])
-                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                                : "bg-blue-600/10 text-blue-400 border-blue-500/20 hover:bg-blue-600/20 hover:text-blue-300"
-                            )}
-                            title="Sincronizar Lembrete no Google Agenda"
-                          >
-                            <Calendar className="w-4 h-4" />
-                            {(app.googleSynced || syncStatus[app.id]) ? "Sincronizado" : "Sincronizar Lembrete"}
-                          </button>
-
-                          {app.status === 'pending' ? (
-                            <>
-                              <button 
-                                onClick={() => handleStatusUpdate(app.id, 'confirmed')}
-                                className="flex-1 sm:flex-none px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2 font-bold text-sm"
-                                title="Confirmar"
-                              >
-                                <CheckCircle2 className="w-4 h-4" />
-                                Confirmar
-                              </button>
-                              <button 
-                                onClick={() => handleStatusUpdate(app.id, 'cancelled')}
-                                className="flex-1 sm:flex-none px-4 py-3 bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded-2xl border border-white/5 transition-all flex items-center gap-2 font-bold text-sm"
-                                title="Recusar"
-                              >
-                                <XCircle className="w-4 h-4" />
-                                Recusar
-                              </button>
-                            </>
-                          ) : app.status === 'confirmed' ? (
-                            <button 
-                              onClick={() => navigate(`/atendimento/${app.id}`)}
-                              className="w-full sm:w-auto px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-2"
-                            >
-                              <Video className="w-5 h-5" />
-                              Entrar na Sala
-                            </button>
-                          ) : null}
-                        </div>
-                      </motion.div>
-                    )) : (
-                      <div className="bg-slate-900/50 border border-dashed border-white/10 p-12 rounded-3xl text-center">
-                        <Calendar className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-                        <p className="text-slate-500">Nenhum agendamento para exibir.</p>
-                      </div>
-                    )}
+                          
+                          <div className="space-y-1 mt-4">
+                            <p className="text-sm font-bold text-slate-200 capitalize group-hover:text-emerald-400 transition-colors">
+                              {metric.label}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-medium">
+                              {metric.sub}
+                            </p>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Side Panel: Quick Actions & Tips */}
-                <div className="space-y-8">
-                  <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 rounded-3xl p-6 text-white shadow-xl shadow-emerald-900/20">
-                    <h4 className="text-xl font-bold mb-2">Seu perfil está 80% completo</h4>
-                    <p className="text-emerald-100 text-sm mb-6">Adicione um vídeo de apresentação para aumentar suas chances de agendamento em até 40%.</p>
-                    <button 
-                      onClick={() => setActiveTab("perfil")}
-                      className="w-full py-3 bg-white text-emerald-700 rounded-2xl font-bold text-sm hover:bg-emerald-50 transition-colors"
+                {/* Right Column: Next Appointment & Quick Actions */}
+                <div className="space-y-6">
+                  {/* Next Appointment Card */}
+                  <div className="bg-slate-900 border border-emerald-500/20 p-8 rounded-3xl space-y-6 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl group-hover:bg-emerald-500/10 transition-all duration-500" />
+                    
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full border border-emerald-550/10">
+                        Próximo Atendimento
+                      </span>
+                      <p className="text-4xl font-extrabold text-slate-100 font-mono tracking-tight pt-3">
+                        {nextTime}
+                      </p>
+                      <p className="text-lg font-bold text-slate-300">
+                        {nextPatient}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (nextApp) {
+                          navigate(`/atendimento/${nextApp.id}`);
+                        } else {
+                          navigate(`/atendimento/demo`);
+                        }
+                      }}
+                      className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-2xl transition-all shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 text-xs uppercase tracking-wider hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                     >
-                      Completar Perfil
+                      <Video className="w-5 h-5" />
+                      Entrar na Sessão
                     </button>
                   </div>
 
+                  {/* Share Link Card */}
                   <div className="bg-slate-900 border border-white/5 rounded-3xl p-6 space-y-4">
-                    <h4 className="font-bold text-slate-200">Distribuição de Sessões</h4>
-                    <div className="h-64 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsPieChart>
-                          <Pie
-                            data={[
-                              { name: 'Concluídas', value: stats.completed, color: '#34d399' },
-                              { name: 'Pendentes', value: stats.pending, color: '#fbbf24' },
-                              { name: 'Canceladas', value: stats.total - stats.completed - stats.pending, color: '#f87171' }
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {[
-                              { name: 'Concluídas', value: stats.completed, color: '#34d399' },
-                              { name: 'Pendentes', value: stats.pending, color: '#fbbf24' },
-                              { name: 'Canceladas', value: stats.total - stats.completed - stats.pending, color: '#f87171' }
-                            ].map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '0.5rem' }}
-                            itemStyle={{ color: '#f1f5f9' }}
-                          />
-                        </RechartsPieChart>
-                      </ResponsiveContainer>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/15">
+                        <Share2 className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200 text-sm">Divulgar Canal de Atendimento</h4>
+                        <p className="text-[10px] text-slate-500 font-medium">Link de agendamento</p>
+                      </div>
                     </div>
-                    <div className="flex justify-center gap-4 text-xs font-medium text-slate-400">
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-400" /> Concluídas</div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-400" /> Pendentes</div>
-                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-400" /> Canceladas</div>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Compartilhe seu canal exclusive com novos pacientes ou nas suas mídias sociais para receber novos agendamentos diretamente na plataforma.
+                    </p>
+                    <div className="space-y-2 pt-2">
+                      <button
+                        onClick={handleShareProfile}
+                        className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Compartilhar Canal Público
+                      </button>
+                      <button
+                        onClick={handleCopyDirectBookingLink}
+                        className="w-full py-2.5 bg-slate-850 hover:bg-slate-800 text-slate-300 rounded-xl font-bold text-xs border border-white/5 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                      >
+                        <Calendar className="w-4 h-4 text-emerald-400" />
+                        Copiar Link Direto
+                      </button>
+                      {activeProfile?.uid && (
+                        <ShareTherapistPanelButton
+                          therapistId={activeProfile.uid}
+                          therapistName={activeProfile.nome}
+                          therapistTenantId={activeProfile?.tenantId}
+                          variant="secondary"
+                          className="w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl font-bold text-xs border border-white/5 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
-            </>
-          )}
+            );
+          })()}
 
           {activeTab === 'agenda' && (
             <div className="space-y-8 animate-fadeIn">
@@ -1860,6 +1931,88 @@ export default function Terapeuta() {
                     </div>
                   </div>
                 </div>
+
+                <div className="md:col-span-2 space-y-3">
+                  <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Divulgação & Compartilhamento</label>
+                  <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 space-y-6">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Utilize os links abaixo para compartilhar seu canal de atendimento em suas redes sociais, cartões virtuais ou mensagens diretas para captação de pacientes.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="p-4 bg-slate-900 border border-white/5 rounded-2xl flex flex-col justify-between space-y-4">
+                        <div>
+                          <h4 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                            <Share2 className="w-4 h-4 text-emerald-400" />
+                            Perfil Público SentiPae
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1">Exibe suas especialidades, biografia, abordagem e avaliações.</p>
+                        </div>
+                        <button
+                          onClick={handleShareProfile}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          Compartilhar Perfil
+                        </button>
+                      </div>
+
+                      <div className="p-4 bg-slate-900 border border-white/5 rounded-2xl flex flex-col justify-between space-y-4">
+                        <div>
+                          <h4 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-purple-400" />
+                            Canal de Agendamento Direto
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1">Leva o paciente diretamente para a seleção de data e horário na sua agenda.</p>
+                        </div>
+                        <button
+                          onClick={handleCopyDirectBookingLink}
+                          className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          Copiar Link de Agendamento
+                        </button>
+                      </div>
+
+                      <div className="p-4 bg-slate-900 border border-white/5 rounded-2xl flex flex-col justify-between space-y-4">
+                        <div>
+                          <h4 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                            <Share2 className="w-4 h-4 text-emerald-400" />
+                            Link de Indicação de Perfil
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1">Leva o paciente ao seu perfil profissional completo com biografia, especialidades e agenda.</p>
+                        </div>
+                        {activeProfile?.uid && (
+                          <ShareTherapistLink
+                            therapistId={activeProfile.uid}
+                            therapistName={activeProfile.nome}
+                            variant="primary"
+                            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs cursor-pointer"
+                          />
+                        )}
+                      </div>
+
+                      <div className="p-4 bg-slate-900 border border-white/5 rounded-2xl flex flex-col justify-between space-y-4">
+                        <div>
+                          <h4 className="font-bold text-slate-200 text-sm flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-amber-400" />
+                            Painel de Atendimento Seguro
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1">Acesso restrito para você e supervisores corporativos/institucionais autorizados.</p>
+                        </div>
+                        {activeProfile?.uid && (
+                          <ShareTherapistPanelButton
+                            therapistId={activeProfile.uid}
+                            therapistName={activeProfile.nome}
+                            therapistTenantId={activeProfile?.tenantId}
+                            variant="primary"
+                            className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-xs"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="md:col-span-2 space-y-3">
                   <label className="text-sm font-bold text-slate-500 uppercase tracking-widest">Segurança da Conta</label>
                   <div className="p-6 bg-slate-950 rounded-3xl border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">

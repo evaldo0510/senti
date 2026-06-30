@@ -58,6 +58,8 @@ export default function ChatIARA() {
   const [alerta, setAlerta] = useState(false);
   const [showBreathing, setShowBreathing] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showHumanOffer, setShowHumanOffer] = useState(false);
+  const [offerReason, setOfferReason] = useState("");
   const [currentStep, setCurrentStep] = useState(2);
   const [steps, setSteps] = useState<Step[]>([
     { id: 0, label: "Acolhimento", completed: true },
@@ -93,6 +95,30 @@ export default function ChatIARA() {
       s.id === 3 ? { ...s, active: true, label: "EMERGÊNCIA" } : s
     ));
     setCurrentStep(3);
+  };
+
+  const handleIARAResponseForCriticalMoments = (result: any) => {
+    const lastUserMessage = result.userMessage?.toLowerCase() || "";
+    const lastIaraMessage = result.resposta?.toLowerCase() || "";
+    
+    const distressKeywords = [
+      "me matar", "suicídio", "não aguento mais", "desespero", "morrer", "sozinho", 
+      "vazio enorme", "tristeza profunda", "preciso de psicólogo", "terapeuta", 
+      "consulta", "agendar", "sessão", "atendimento humano", "médico", "psiquiatra"
+    ];
+
+    const hasDistressKeyword = distressKeywords.some(keyword => 
+      lastUserMessage.includes(keyword) || lastIaraMessage.includes(keyword)
+    );
+
+    if (result.risco === "alto" || result.direcionarEspecialista || hasDistressKeyword) {
+      setOfferReason(
+        result.risco === "alto" 
+          ? "Identificamos um momento de sofrimento intenso. Nossa rede de terapeutas está de braços abertos para te acolher de forma direta." 
+          : "A IARA sugere que conversar com um profissional humano trará o aconchego ideal e o suporte especializado para você agora."
+      );
+      setShowHumanOffer(true);
+    }
   };
 
   const handleDirecionar = (especialidade: string) => {
@@ -322,6 +348,78 @@ export default function ChatIARA() {
             </div>
             <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin" />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Human Transition Offer Modal */}
+      <AnimatePresence>
+        {showHumanOffer && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-slate-900 border border-emerald-500/30 p-6 md:p-8 rounded-[32px] max-w-md w-full shadow-2xl relative space-y-6"
+            >
+              <button 
+                onClick={() => setShowHumanOffer(false)}
+                className="absolute top-4 right-4 p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-white transition-colors"
+                aria-label="Fechar"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-emerald-500/15 rounded-2xl flex items-center justify-center border border-emerald-500/25 animate-pulse">
+                  <HeartHandshake className="w-7 h-7 text-emerald-400" />
+                </div>
+                <div>
+                  <h3 className="font-black text-white text-lg tracking-tight leading-tight">Cuidado Humano SentiPae</h3>
+                  <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Apoio Profissional Integrado</p>
+                </div>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-4 border border-white/5 space-y-2">
+                <p className="text-sm text-slate-200 leading-relaxed font-medium">
+                  {offerReason || "Percebemos que uma conexão com um terapeuta humano seria extremamente benéfica para você neste momento."}
+                </p>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Oferecemos atendimento online humanizado, sigiloso e alinhado com a LGPD.
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                <button
+                  onClick={() => {
+                    setShowHumanOffer(false);
+                    navigate("/profissionais");
+                  }}
+                  className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Agendar Sessão de Terapia
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowHumanOffer(false);
+                    navigate("/pronto-atendimento");
+                  }}
+                  className="w-full py-4 bg-white/5 hover:bg-white/10 text-slate-200 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 border border-white/5 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Activity className="w-4 h-4 text-emerald-400" />
+                  Pronto Atendimento Online
+                </button>
+
+                <button
+                  onClick={() => setShowHumanOffer(false)}
+                  className="w-full py-3 text-slate-500 hover:text-slate-400 text-xs font-semibold transition-colors animate-pulse"
+                >
+                  Continuar conversando com a IARA
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -643,6 +741,7 @@ export default function ChatIARA() {
                 onNewConversationCreated={(id) => setSelectedConversationId(id)}
                 onRiscoAlto={handleRiscoAlto}
                 onDirecionar={handleDirecionar}
+                onIARARespond={handleIARAResponseForCriticalMoments}
                 onBack={() => {
                   setActiveView("central");
                   setSelectedConversationId(null);

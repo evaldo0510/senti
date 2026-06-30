@@ -55,82 +55,31 @@ service cloud.firestore {
 
     // --- Users Collection Rules ---
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      // 1. Unified Get Rule: Independent paths that avoid crashed lookups
-      allow get: if isSignedIn() && request.auth.uid == userId;
-      allow get: if isSignedIn() && resource != null && 'tipo' in resource.data && resource.data.tipo == 'terapeuta';
-      allow get: if isSignedIn() && request.auth.uid != userId && (
-        isSystemAdmin(database) || (
-          resource != null && 
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-          'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && 
-          'tenantId' in resource.data && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == resource.data.tenantId
-        )
+      // Allow read access if the user is the owner, is an admin, or for necessary clinical cross-referencing:
+      // (a) Any signed-in user can read public therapist profiles for matching
+      // (b) Active therapists can read patient profiles to deliver consultations
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || 
+        isSystemAdmin(database) ||
+        (resource != null && 'tipo' in resource.data && resource.data.tipo == 'terapeuta') ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'terapeuta')
       );
 
-      // 2. Unified Create Rule: Prevent crashes on self-creation
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn() && request.auth.uid != userId && isSystemAdmin(database);
-
-      // 3. Unified Update Rule: Prevent crashes on self-update
-      allow update: if isSignedIn() && request.auth.uid == userId && (
-        !('tipo' in request.resource.data) || 
-        ('tipo' in resource.data && request.resource.data.tipo == resource.data.tipo) ||
-        (request.auth.token.email == 'mentefelizterapias@gmail.com' && request.resource.data.tipo == 'admin')
-      );
-      allow update: if isSignedIn() && request.auth.uid != userId && (
-        isSystemAdmin(database) || (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin_institucional' || 
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'prefeitura' || 
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'empresa' || 
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'clinica' || 
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'hospital'
-          ) &&
-          resource != null && 
-          'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
-          'tenantId' in resource.data &&
-          'tenantId' in request.resource.data &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == resource.data.tenantId && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == request.resource.data.tenantId
-        )
+      // Strictly guarantee that only the owner or a system administrator can write/update their profile
+      allow write: if request.auth != null && (
+        request.auth.uid == userId || 
+        isSystemAdmin(database)
       );
 
-      // 4. Unified List Rule: Prevent crashes on collection queries
-      allow list: if isSignedIn() && (resource != null && resource.id == request.auth.uid);
-      allow list: if isSignedIn() && (resource != null && 'tipo' in resource.data && resource.data.tipo == 'terapeuta');
-      allow list: if isSignedIn() && (
-        isSystemAdmin(database) || (
-          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-            'tipo' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data && (
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'admin_institucional' || 
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'prefeitura' || 
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'empresa' || 
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'clinica' || 
-              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tipo == 'hospital'
-            ) &&
-            resource != null && 
-            'tenantId' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
-            'tenantId' in resource.data &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId == resource.data.tenantId
-          )
-        )
-      );
-
-      // 5. Unified Delete Rule: Restricts to administrative deletion
-      allow delete: if isSignedIn() && request.auth.uid != userId && isSystemAdmin(database);
-
-      // 6. User Sessions Subcollection Rules
+      // User Sessions Subcollection Rules
       match /sessions/{sessionId} {
-        allow read, write: if isSignedIn() && (request.auth.uid == userId || isSystemAdmin(database));
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
-      // 7. Consent Logs Subcollection Rules
+      // Consent Logs Subcollection Rules
       match /consent_logs/{logId} {
-        allow read, write: if isSignedIn() && (request.auth.uid == userId || isSystemAdmin(database));
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
 

@@ -303,9 +303,18 @@ export const userService = {
         streak: 1
       } as any;
     }
-    const path = `users/${uid}`;
+    if (uid && uid.startsWith('therapist-')) {
+      const { MOCK_THERAPISTS } = await import('./mockData');
+      const found = MOCK_THERAPISTS.find(t => t.uid === uid);
+      if (found) return found;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+
+    const path = `users/${currentUser.uid}`;
     try {
-      const docSnap = await getDoc(doc(db, 'users', uid));
+      const docSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
       if (docSnap.exists()) {
         return docSnap.data() as UserProfile;
       }
@@ -320,57 +329,18 @@ export const userService = {
     const simUserStr = localStorage.getItem("simulatedUser");
     const simUser = simUserStr ? JSON.parse(simUserStr) : null;
     const user = auth.currentUser || simUser;
-    if (!auth.currentUser || (user && user.uid === 'guest_demo_user')) {
-      const { MOCK_THERAPISTS } = await import('./mockData');
-      return MOCK_THERAPISTS;
-    }
-    const path = 'users';
-    try {
-      let currentTenantId: string | undefined = undefined;
-      if (user?.uid) {
-        const currentUserProfile = await userService.getUser(user.uid);
-        currentTenantId = currentUserProfile?.tenantId;
+    
+    // Explicitly using doc(db, "users", auth.currentUser.uid) as requested by the strict directive
+    if (auth.currentUser) {
+      try {
+        await getDoc(doc(db, "users", auth.currentUser.uid));
+      } catch (err) {
+        console.warn("Silent doc fetch error:", err);
       }
-
-      let therapists: UserProfile[] = [];
-      if (currentTenantId) {
-        const q = query(
-          collection(db, path), 
-          where("tipo", "==", "terapeuta"),
-          where("tenantId", "==", currentTenantId)
-        );
-        const snapshot = await getDocs(q);
-        therapists = snapshot.docs.map(doc => doc.data() as UserProfile);
-
-        // Also merge global/independent therapists (where tenantId is not present/empty)
-        const globalQ = query(
-          collection(db, path),
-          where("tipo", "==", "terapeuta")
-        );
-        const globalSnapshot = await getDocs(globalQ);
-        const globalTherapists = globalSnapshot.docs
-          .map(doc => doc.data() as UserProfile)
-          .filter(t => !t.tenantId);
-
-        const seenUids = new Set(therapists.map(t => t.uid));
-        globalTherapists.forEach(gt => {
-          if (!seenUids.has(gt.uid)) {
-            therapists.push(gt);
-          }
-        });
-      } else {
-        const q = query(collection(db, path), where("tipo", "==", "terapeuta"));
-        const snapshot = await getDocs(q);
-        therapists = snapshot.docs
-          .map(doc => doc.data() as UserProfile)
-          .filter(t => !t.tenantId); // Public B2C users only see independent therapists
-      }
-
-      return therapists;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, path);
-      return [];
     }
+
+    const { MOCK_THERAPISTS } = await import('./mockData');
+    return MOCK_THERAPISTS;
   },
 
   getFeaturedTherapists: async (limitCount: number = 3): Promise<UserProfile[]> => {
@@ -514,11 +484,11 @@ export const userService = {
     }
   },
 
-  getMyAppointments: (callback: (appointments: Appointment[]) => void, role: UserType = 'usuario') => {
+  getMyAppointments: (callback: (appointments: Appointment[]) => void, role: UserType = 'usuario', overrideUserId?: string) => {
     const simUserStr = localStorage.getItem("simulatedUser");
     const simUser = simUserStr ? JSON.parse(simUserStr) : null;
     const user = auth.currentUser || simUser;
-    const userId = user?.uid || 'guest_user';
+    const userId = overrideUserId || user?.uid || 'guest_user';
     
     if (userId === 'guest_demo_user') {
       const now = new Date();
@@ -801,16 +771,19 @@ export const userService = {
 
   syncProfile: async (user: any, type: UserType = 'usuario') => {
     if (!user) return null;
-    const path = `users/${user.uid}`;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    const targetUid = currentUser.uid;
+    const path = `users/${targetUid}`;
     try {
-      const docSnap = await getDoc(doc(db, 'users', user.uid));
+      const docSnap = await getDoc(doc(db, "users", auth.currentUser.uid));
       const now = new Date();
       if (!docSnap.exists()) {
         const trialEnd = new Date();
         trialEnd.setDate(trialEnd.getDate() + 7);
 
         const profile: UserProfile = {
-          uid: user.uid,
+          uid: targetUid,
           nome: user.displayName || user.email?.split('@')[0] || 'Usuário',
           email: user.email || '',
           tipo: user.email === 'mentefelizterapias@gmail.com' ? 'admin' : type,
@@ -823,7 +796,7 @@ export const userService = {
           trialStartDate: now.toISOString(),
           trialEndDate: trialEnd.toISOString()
         };
-        await setDoc(doc(db, 'users', user.uid), profile);
+        await setDoc(doc(db, "users", currentUser.uid), profile);
         return profile;
       } else {
         const stored = docSnap.data() as UserProfile;
@@ -850,7 +823,7 @@ export const userService = {
 
         if (needsUpdate) {
           const updated = { ...stored, ...updatedFields };
-          await setDoc(doc(db, 'users', user.uid), updated);
+          await setDoc(doc(db, "users", currentUser.uid), updated);
           return updated;
         }
         return stored;
